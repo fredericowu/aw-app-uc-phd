@@ -74,6 +74,7 @@ export const api = {
   timeline: () => getJSON('/timeline'),
   coordinators: () => getJSON('/coordinators'),
   partners: () => getJSON('/partners'),
+  partnerTheses: () => getJSON('/partners/theses'),
   theses: () => getJSON('/theses'),
   thesesGroups: () => getJSON('/theses/groups'),
   projects: ({ group, q, limit = 50, offset = 0 } = {}) => {

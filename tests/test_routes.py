@@ -276,6 +276,28 @@ def test_theses_groups_breakdown_names_every_group_and_the_unattributed_count(cl
     assert "more than 18" in body["caveat"]
 
 
+# ── partners linked to theses ───────────────────────────────────────────────
+
+
+def test_partner_thesis_links_carries_the_path_and_never_a_bare_pair(client):
+    body = client.get("/api/partners/theses").json()
+    assert len(body["links"]) == 4  # 2 partners x (ada -> Thesis A, alan -> Thesis B)
+    for link in body["links"]:
+        # Every row must carry both intermediate hops — a bare partner/thesis
+        # pair would be exactly the "this company funded this thesis" framing
+        # the card forbids.
+        assert link["project_title"]
+        assert link["via_person_name"]
+        assert link["match_confidence"] == 1.0
+    assert body["coverage"] == {
+        "distinct_partners": 2,
+        "partners_with_a_thesis_link": 2,
+        "total_theses": 3,
+        "theses_with_a_partner_link": 2,
+    }
+    assert "NOT" in body["caveat"] and "funded" in body["caveat"]
+
+
 def test_routes_are_relative_so_both_modes_expose_the_same_shape():
     """No path in the sub-app may carry the /api/apps/<slug> prefix — the
     runtime adds it in integrated mode and __main__ adds it in standalone."""

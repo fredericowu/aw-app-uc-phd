@@ -9,7 +9,7 @@ from xml.etree import ElementTree as ET
 
 from estudo_geral_extractor.download import find_download_link
 from estudo_geral_extractor.markdown import build_front_matter, handle_to_slug, render_markdown
-from estudo_geral_extractor.oai import parse_record, select_dei_doctoral_theses_2024_plus
+from estudo_geral_extractor.oai import parse_record, select_dei_doctoral_theses
 from estudo_geral_extractor.restapi import parse_item_metadata
 
 OAI_RECORD_XML = """
@@ -56,7 +56,7 @@ def test_parse_record_deleted_has_no_metadata():
     assert r["dates"] == []
 
 
-def test_select_filters_type_year_and_deleted():
+def test_select_filters_type_and_deleted_no_year_floor():
     records = [
         {"handle": "a", "deleted": False, "types": ["info:eu-repo/semantics/doctoralThesis"], "dates": ["2025-01-01"]},
         {"handle": "b", "deleted": False, "types": ["info:eu-repo/semantics/doctoralThesis"], "dates": ["2023-01-01"]},
@@ -70,8 +70,10 @@ def test_select_filters_type_year_and_deleted():
             "dates": ["2025-05-09", "info:eu-repo/date/embargoEnd/2028-05-08"],
         },
     ]
-    selected = select_dei_doctoral_theses_2024_plus(records)
-    assert [r["handle"] for r in selected] == ["a", "f"]
+    selected = select_dei_doctoral_theses(records)
+    # b (2023) and e (no date) now survive too — the only exclusions left are
+    # wrong type (c) and deleted (d): no publication-year floor any more.
+    assert [r["handle"] for r in selected] == ["a", "b", "e", "f"]
 
 
 def test_find_download_link_prefers_bitstream_over_decoy():

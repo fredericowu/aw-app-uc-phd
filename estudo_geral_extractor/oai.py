@@ -1,18 +1,20 @@
 """OAI-PMH enumeration of estudogeral.uc.pt's DEI doctoral-thesis population.
 
-`from=` filters the harvest by DEPOSIT datestamp, not publication year, so it
-over-fetches on purpose: 28 records deposited since 2024-01-01 in the DEI
-community (`com_10316_255`), of which only 18 carry a `dc:date` (publication
-year) of 2024 or later. `select_dei_doctoral_theses_2024_plus` does the real
-filter, on `dc:type` + `dc:date`, and is a pure function so it can be tested
-against a fixture without hitting the live site.
+No deposit-date floor: `fetch_all_records` harvests the full DEI community
+set (`com_10316_255`, ~891 records all-time), and `select_dei_doctoral_theses`
+does the real filter, on `dc:type` alone (no `dc:date` floor) — the ~181
+`doctoralThesis` records deposited at any time. It is a pure function so it
+can be tested against a fixture without hitting the live site. A prior
+version of this module floored the harvest at `from=2024-01-01` (deposit
+date) and additionally required `dc:date` year >= 2024, yielding 18 theses;
+that floor is gone per the corpus-widening decision — corpus scope is a row
+attribute in the store, not a harvest-time filter.
 """
 from xml.etree import ElementTree as ET
 
 OAI_BASE = "https://estudogeral.uc.pt/oai/request"
 SET_SPEC = "com_10316_255"  # DEI community
 METADATA_PREFIX = "oai_dc"
-FROM_DATE = "2024-01-01"  # deposit-date floor; over-fetches, see module docstring
 
 NS = {
     "oai": "http://www.openarchives.org/OAI/2.0/",
@@ -35,33 +37,27 @@ def parse_record(record_el):
     return {"identifier": identifier, "handle": handle, "deleted": deleted, "types": types, "dates": dates}
 
 
-def _max_year(dates):
-    years = []
-    for d in dates:
-        try:
-            years.append(int(d[:4]))
-        except (TypeError, ValueError):
-            continue
-    return max(years) if years else None
-
-
-def select_dei_doctoral_theses_2024_plus(records):
-    """Pure: records -> handles of non-deleted doctoral theses with dc:date year >= 2024."""
+def select_dei_doctoral_theses(records):
+    """Pure: records -> non-deleted doctoral theses, no publication-year floor."""
     selected = []
     for r in records:
         if r["deleted"]:
             continue
         if not any(t == DOCTORAL_TYPE for t in r["types"]):
             continue
-        year = _max_year(r["dates"])
-        if year is not None and year >= 2024:
-            selected.append(r)
+        selected.append(r)
     return selected
 
 
-def fetch_all_records(session, set_spec=SET_SPEC, from_date=FROM_DATE, metadata_prefix=METADATA_PREFIX, sleep=None):
-    """Paginate ListRecords via resumptionToken. Yields parsed record dicts."""
-    params = {"verb": "ListRecords", "metadataPrefix": metadata_prefix, "set": set_spec, "from": from_date}
+def fetch_all_records(session, set_spec=SET_SPEC, from_date=None, metadata_prefix=METADATA_PREFIX, sleep=None):
+    """Paginate ListRecords via resumptionToken. Yields parsed record dicts.
+
+    `from_date` is a deposit-datestamp floor, omitted by default so this
+    harvests the set's full history. Only pass it to reproduce the old
+    2024-only over-fetch behaviour (e.g. in a test)."""
+    params = {"verb": "ListRecords", "metadataPrefix": metadata_prefix, "set": set_spec}
+    if from_date:
+        params["from"] = from_date
     while True:
         r = session.get(OAI_BASE, params=params, timeout=30)
         r.raise_for_status()

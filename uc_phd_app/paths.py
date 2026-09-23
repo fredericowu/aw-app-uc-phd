@@ -68,6 +68,27 @@ def sql_dir() -> Path:
     return PACKAGE_ROOT / "sql"
 
 
+def estudo_geral_dir() -> Path:
+    """``estudo_geral/`` — S1's committed thesis markdown files. Read-only,
+    like ``sql_dir()``; nothing in this app writes here.
+
+    Overridable with ``AW_APP_UC_PHD_ESTUDO_GERAL_DIR``, so tests can point at
+    a small fixture directory instead of the 18 real theses.
+    """
+    override = os.environ.get("AW_APP_UC_PHD_ESTUDO_GERAL_DIR")
+    return Path(override) if override else PACKAGE_ROOT / "estudo_geral"
+
+
+def thesis_attribution_path() -> Path:
+    """The hand-verified thesis author/supervisor -> CISUC-person join (see
+    ``docs/thesis-attribution.md`` for the full record and methodology).
+
+    Overridable with ``AW_APP_UC_PHD_ATTRIBUTION_PATH`` for tests.
+    """
+    override = os.environ.get("AW_APP_UC_PHD_ATTRIBUTION_PATH")
+    return Path(override) if override else PACKAGE_ROOT / "docs" / "thesis-attribution.json"
+
+
 def ui_dist() -> Path:
     """``ui/dist/`` — the built SPA. Committed, because the release pipeline
     ships the repo as-is and never runs ``npm run build``."""

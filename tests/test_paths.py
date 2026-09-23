@@ -47,3 +47,27 @@ def test_the_committed_seed_and_sql_directory_really_exist():
     assert paths.seed_db_path().is_file(), "data/cisuc.sqlite3 must stay committed"
     assert paths.sql_dir().is_dir()
     assert list(paths.sql_dir().glob("*.sql"))
+
+
+def test_estudo_geral_dir_defaults_to_the_package_directory(monkeypatch):
+    monkeypatch.delenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", raising=False)
+    assert paths.estudo_geral_dir() == paths.PACKAGE_ROOT / "estudo_geral"
+    assert paths.estudo_geral_dir().is_dir(), "estudo_geral/ must stay committed"
+
+
+def test_estudo_geral_dir_follows_the_explicit_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(tmp_path))
+    assert paths.estudo_geral_dir() == tmp_path
+
+
+def test_thesis_attribution_path_defaults_to_the_committed_doc(monkeypatch):
+    monkeypatch.delenv("AW_APP_UC_PHD_ATTRIBUTION_PATH", raising=False)
+    default = paths.thesis_attribution_path()
+    assert default == paths.PACKAGE_ROOT / "docs" / "thesis-attribution.json"
+    assert default.is_file(), "docs/thesis-attribution.json must stay committed"
+
+
+def test_thesis_attribution_path_follows_the_explicit_override(tmp_path, monkeypatch):
+    target = tmp_path / "attribution.json"
+    monkeypatch.setenv("AW_APP_UC_PHD_ATTRIBUTION_PATH", str(target))
+    assert paths.thesis_attribution_path() == target

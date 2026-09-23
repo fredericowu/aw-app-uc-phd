@@ -15,6 +15,7 @@ import Coordinators from './views/Coordinators';
 import Partners from './views/Partners';
 import Projects from './views/Projects';
 import ProjectDetail from './views/ProjectDetail';
+import Theses from './views/Theses';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -24,6 +25,7 @@ const TABS = [
   { id: 'coordinators', label: 'Coordinators' },
   { id: 'partners', label: 'Partners' },
   { id: 'projects', label: 'All projects' },
+  { id: 'theses', label: 'Theses' },
 ];
 
 function parseHash() {
@@ -76,6 +78,8 @@ export default function App() {
     body = <Partners />;
   } else if (route.tab === 'projects') {
     body = <Projects onOpenProject={openProject} />;
+  } else if (route.tab === 'theses') {
+    body = <Theses />;
   } else {
     body = <Overview />;
   }

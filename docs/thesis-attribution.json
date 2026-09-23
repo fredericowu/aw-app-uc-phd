@@ -1,0 +1,394 @@
+{
+  "Abbasi, Maryam": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "maryam-abbasi",
+        "name": "Maryam Abbasi"
+      }
+    ]
+  },
+  "Abreu, Pedro Manuel Henriques da Cunha": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "Pedro%20Henriques%20Abreu",
+        "name": "Pedro Henriques Abreu"
+      }
+    ],
+    "note": "Two surname-token-overlap candidates exist (Pedro Henriques Abreu, Manuel Pedro); resolved to Pedro Henriques Abreu — \"Manuel Pedro\" is a coincidental token collision on two common given names, not the same person."
+  },
+  "Antunes, Nuno Manuel dos Santos": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "NunoAntunes",
+        "name": "Nuno Antunes"
+      }
+    ],
+    "note": "Two surname-matching candidates exist in people (Nuno Antunes, Manuel Antunes); resolved to Nuno Antunes because \"Nuno\" is the primary given name (first token after the comma), \"Manuel\" a middle name shared coincidentally by a different real person."
+  },
+  "Arrais, Joel Perdiz": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "joelarrais",
+        "name": "Joel P. Arrais"
+      }
+    ],
+    "note": "Matched via standard initial abbreviation: \"Joel P. Arrais\" (P. = Perdiz)."
+  },
+  "Baptista, Tiago Rodrigues": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "tiago-baptista",
+        "name": "Tiago Baptista"
+      }
+    ]
+  },
+  "Bicker, João Manuel Frade Belo": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "joao-bicker",
+        "name": "João Bicker"
+      },
+      {
+        "slug": "joao-bicker-1",
+        "name": "João Bicker"
+      }
+    ],
+    "note": "people has two rows both named \"João Bicker\" (slugs joao-bicker / joao-bicker-1) — an existing duplicate in the source data, not introduced here. Both are counted (their groups unioned) since there is no way to tell which of the two duplicate rows is the real match."
+  },
+  "Cardoso, Fernando Amílcar Bandeira": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "f-cardoso",
+        "name": "F. Amilcar Cardoso"
+      }
+    ],
+    "note": "Matched via standard initial abbreviation: \"F. Amilcar Cardoso\" (F. = Fernando)."
+  },
+  "Carvalho, Paulo Fernando Pereira de": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "paulo-carvalho",
+        "name": "Paulo de Carvalho"
+      }
+    ]
+  },
+  "Castelhano, João Miguel Seabra": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "joao-castelhano",
+        "name": "João Castelhano"
+      }
+    ]
+  },
+  "Costa, Ernesto Jorge Fernandes": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "ernesto-costa",
+        "name": "Ernesto Costa"
+      }
+    ]
+  },
+  "Cruz, Tiago José dos Santos Martins da": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "tjcruz",
+        "name": "Tiago Cruz"
+      }
+    ],
+    "note": "Three surname-token-overlap candidates exist (Tiago Cruz, Tiago Martins, Tiago Santos); resolved to Tiago Cruz — the only one carrying the actual surname \"Cruz\"."
+  },
+  "Cunha, Paulo José Osório Rupino da": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "paulo-cunha",
+        "name": "Paulo Rupino da Cunha"
+      }
+    ]
+  },
+  "Curado, Marília Pascoal": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "marilia-curado",
+        "name": "Marilia Curado"
+      }
+    ]
+  },
+  "Dib, Mário Alberto da Silveira": {
+    "status": "unattributed",
+    "note": "No person in the people table shares the surname Dib. Thesis author, not expected to be CISUC staff."
+  },
+  "Flora, José Eduardo Ferreira": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "jeflora",
+        "name": "José Flora"
+      }
+    ]
+  },
+  "Frerichs, Inéz": {
+    "status": "unattributed",
+    "note": "No person in the people table shares the surname Frerichs. Likely an external/foreign co-supervisor (the thesis, on wearable biofeedback sensors, has an interdisciplinary/international character) never scraped into this table."
+  },
+  "Godinho, Noé Paulo Lopes": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "noe-godinho",
+        "name": "Noé Godinho"
+      }
+    ]
+  },
+  "Gomes, Anabela de Jesus": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "anabela-gomes",
+        "name": "Anabela Jesus Gomes"
+      }
+    ]
+  },
+  "Gonçalves, Charles Ferreira": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "charles-goncalves",
+        "name": "Charles Ferreira Gonçalves"
+      }
+    ]
+  },
+  "Granjal, António Jorge da Costa": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "jorge-granjal",
+        "name": "Jorge Granjal"
+      }
+    ]
+  },
+  "Hijazi, Haytham Wael Ismail": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "h-hijazi",
+        "name": "Haytham Hijazi"
+      }
+    ]
+  },
+  "Ivaki, Naghmeh Ramezani": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "naghmeh-ivaki",
+        "name": "Naghmeh Ramezani Ivaki"
+      }
+    ]
+  },
+  "Júnior, Ivanilson França Vieira": {
+    "status": "unattributed",
+    "note": "No person in the people table shares the surname Júnior (or Vieira as a leading surname). Thesis author."
+  },
+  "Machado, Fernando Jorge Penousal Martins": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "penousal-machado",
+        "name": "Penousal Machado"
+      }
+    ]
+  },
+  "Madeira, Henrique Santos do Carmo": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "henrique-madeira",
+        "name": "Henrique Madeira"
+      }
+    ]
+  },
+  "Medeiros, Júlio Cordeiro": {
+    "status": "unattributed",
+    "note": "The one Medeiros in the people table (\"Nádia Patrícia da Silva Medeiros\") has a different given name. Thesis author."
+  },
+  "Mendes, António José Nunes": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "antonio-mendes",
+        "name": "Antonio Jose Mendes"
+      }
+    ]
+  },
+  "Moraes, Caroline Relva de": {
+    "status": "unattributed",
+    "note": "The one Moraes in the people table (\"Regina Lucia de Oliveira Moraes\") has a different given name — a different person who happens to share a surname. Thesis author."
+  },
+  "Morais, Antônio Higor Freire de": {
+    "status": "unattributed",
+    "note": "The one Morais in the people table (\"João Morais\") has a different given name. Likely an external/Brazilian co-supervisor."
+  },
+  "Paiva, Rui Pedro Pinto de Carvalho e": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "rui-pedro-paiva",
+        "name": "Rui Pedro Paiva"
+      }
+    ]
+  },
+  "Paquete, Luís Filipe dos Santos Coelho": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "luis-paquete",
+        "name": "Luis Paquete"
+      }
+    ]
+  },
+  "Pereira, Tiago Oliveira": {
+    "status": "unattributed",
+    "note": "people has many Pereira entries but none named Tiago Oliveira (or matching given-name tokens). Thesis author."
+  },
+  "Pessoa, Diogo Rafael Mendes": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "d-pessoa",
+        "name": "Diogo Pessoa"
+      }
+    ]
+  },
+  "Prates, Pedro André Dias": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "pedro-prates",
+        "name": "Pedro Prates"
+      }
+    ],
+    "note": "A second candidate (\"André Dias\") shares two given-name tokens but not the surname \"Prates\" — rejected as a coincidental collision, not the same person."
+  },
+  "Proença, Jorge Diogo Gomes": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "jorge-proenca-1",
+        "name": "Jorge Proença"
+      }
+    ]
+  },
+  "Ramos, Isabel Maria Pinto": {
+    "status": "unattributed",
+    "note": "people has two Ramos entries (\"João Pedro Ramos\", \"Barbara do Nascimento Ramos\"), neither matching the given name Isabel."
+  },
+  "Rebelo, Sérgio Miguel Martins": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "sergio-rebelo",
+        "name": "Sérgio M. Rebelo"
+      }
+    ],
+    "note": "Matched via standard initial abbreviation: \"Sérgio M. Rebelo\" (M. = Miguel). Also the thesis author, not only a supervisor elsewhere."
+  },
+  "Ribeiro, Bernardete Martins": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "bernardete-ribeiro",
+        "name": "Bernardete Ribeiro"
+      }
+    ]
+  },
+  "Rodrigues, Ana Cláudia Leitão Teixeira": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "ana-rodrigues",
+        "name": "Ana Rodrigues"
+      }
+    ]
+  },
+  "Rosero, Raúl Homero Llasag": {
+    "status": "unattributed",
+    "note": "No person in the people table shares the surname Rosero. Thesis author."
+  },
+  "Santos, Joana Cristo dos": {
+    "status": "unattributed",
+    "note": "The one \"Cristo\" match in the people table (\"Maria da Graça Cristo dos Santos Lopes Ruano\") is a different given name entirely. Thesis author."
+  },
+  "Santos, Miriam Raquel Seoane Pereira Seguro": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "miriam-santos-1",
+        "name": "Miriam Seoane Santos"
+      }
+    ]
+  },
+  "Silva, Catarina Helena Branco Simões da": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "catarina",
+        "name": "Catarina Silva"
+      }
+    ]
+  },
+  "Silva, Leonardo Soares e": {
+    "status": "unattributed",
+    "note": "No person in the people table shares the surname Silva combined with the given name Leonardo (and no \"Soares e Silva\" pattern). Thesis author."
+  },
+  "Silva, Rodrigo Ronner Tertulino da": {
+    "status": "unattributed",
+    "note": "Near-miss, deliberately not auto-matched: people has a row named \"Rodrigo Tertulino\" (slug r-silva) — the slug encodes \"silva\" but the display name does not, an inconsistency in the source data itself. Left unattributed rather than guessed; flagged here for a human to confirm whether slug r-silva is genuinely this same person. Thesis author."
+  },
+  "Simões, João Miguel Moreira de Carvalho Brás": {
+    "status": "unattributed",
+    "note": "Near-miss, deliberately not auto-matched: people has \"João Braz Simões\" (slug joao-braz-simoes) — same given name and surname, but \"Braz\" vs \"Brás\" is a spelling difference (z vs s), not an accent-only difference, so it fails exact matching. Left unattributed rather than guessed; flagged here for a human to confirm. Thesis author."
+  },
+  "Simões, Paulo Alexandre Ferreira": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "paulo-simoes",
+        "name": "Paulo Simões"
+      }
+    ]
+  },
+  "Teixeira, César Alexandre Domingues": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "cesar-teixeira",
+        "name": "César Teixeira"
+      }
+    ]
+  },
+  "Travasso, Rui Davide Martins": {
+    "status": "unattributed",
+    "note": "No person in the people table shares the surname Travasso at all."
+  },
+  "Vieira, Marco Paulo Amorim": {
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "marco-vieira",
+        "name": "Marco Vieira"
+      }
+    ]
+  }
+}

@@ -241,6 +241,38 @@ def test_project_detail_404s_for_an_unknown_id(client):
     assert client.get("/api/projects/999").status_code == 404
 
 
+# ── theses ──────────────────────────────────────────────────────────────────
+
+
+def test_theses_list_resolves_the_fixture_attribution(client, theses_env):
+    body = client.get("/api/theses").json()
+    assert len(body["theses"]) == 1
+    thesis = body["theses"][0]
+    assert thesis["handle"] == "10316/000001"
+    assert thesis["title"] == "Fixture Thesis"
+    assert thesis["year"] == "2024"
+    assert thesis["source_url"] == "https://estudogeral.uc.pt/handle/10316/000001"
+    assert thesis["authors"][0]["status"] == "unattributed"
+    assert thesis["supervisors"][0]["status"] == "matched"
+    # Ada coordinates Alpha (AC, NCS) and Beta (NCS) in the fixture DB.
+    assert thesis["groups"] == ["AC", "NCS"]
+    assert thesis["attributed"] is True
+    assert "more than 18" in body["caveat"]
+    assert "docs/thesis-attribution.md" in body["attribution_note"]
+
+
+def test_theses_groups_breakdown_names_every_group_and_the_unattributed_count(client, theses_env):
+    body = client.get("/api/theses/groups").json()
+    assert body["total_theses"] == 1
+    assert body["unattributed"] == 0
+    # The fixture DB only seeds NCS and AC (see conftest.build_fixture_db).
+    counts = {g["code"]: g["thesis_count"] for g in body["groups"]}
+    assert counts == {"AC": 1, "NCS": 1}
+    names = {g["code"]: g["name"] for g in body["groups"]}
+    assert names["NCS"] == "Networks, Communications and Security"
+    assert "more than 18" in body["caveat"]
+
+
 def test_routes_are_relative_so_both_modes_expose_the_same_shape():
     """No path in the sub-app may carry the /api/apps/<slug> prefix — the
     runtime adds it in integrated mode and __main__ adds it in standalone."""

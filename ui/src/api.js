@@ -51,6 +51,8 @@ export const api = {
   timeline: () => getJSON('/timeline'),
   coordinators: () => getJSON('/coordinators'),
   partners: () => getJSON('/partners'),
+  theses: () => getJSON('/theses'),
+  thesesGroups: () => getJSON('/theses/groups'),
   projects: ({ group, q, limit = 50, offset = 0 } = {}) => {
     const params = new URLSearchParams();
     if (group) params.set('group', group);

@@ -125,3 +125,45 @@ def live_db(isolated_data_dir):
     """A fixture database installed where the app expects to find the live
     one, so route tests exercise the real resolution path."""
     return build_fixture_db(isolated_data_dir / "cisuc.sqlite3")
+
+
+THESIS_FIXTURE_MD = """---
+handle: 10316/000001
+title: Fixture Thesis
+authors:
+- Ada Author
+supervisors:
+- Curie Coord
+date: '2024-05-01'
+rights: openAccess
+full_text: true
+source_url: https://estudogeral.uc.pt/handle/10316/000001
+---
+
+# Fixture Thesis
+"""
+
+THESIS_FIXTURE_ATTRIBUTION = {
+    "Ada Author": {"status": "unattributed", "note": "no exact match"},
+    "Curie Coord": {"status": "matched", "matches": [{"slug": "ada", "name": "Ada Lovelace"}]},
+}
+
+
+@pytest.fixture()
+def theses_env(tmp_path, monkeypatch):
+    """Redirects the app's theses-related paths to a tiny fixture, the same
+    way ``isolated_data_dir`` redirects the database — for route tests that
+    exercise ``uc_phd_app/api/theses.py`` through the real env-based
+    resolution in ``paths.py`` rather than by passing explicit paths."""
+    import json
+
+    estudo_geral = tmp_path / "estudo_geral"
+    estudo_geral.mkdir()
+    (estudo_geral / "10316-000001.md").write_text(THESIS_FIXTURE_MD, encoding="utf-8")
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
+
+    attribution = tmp_path / "thesis-attribution.json"
+    attribution.write_text(json.dumps(THESIS_FIXTURE_ATTRIBUTION), encoding="utf-8")
+    monkeypatch.setenv("AW_APP_UC_PHD_ATTRIBUTION_PATH", str(attribution))
+
+    return {"estudo_geral_dir": estudo_geral, "attribution_path": attribution}

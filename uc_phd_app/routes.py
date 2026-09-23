@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, paths, seed
 from .api import projects as projects_api
+from .api import theses as theses_api
 
 
 def build_routes() -> FastAPI:
@@ -59,6 +60,7 @@ def build_routes() -> FastAPI:
         return payload
 
     app.include_router(projects_api.router, prefix="/api", tags=["projects"])
+    app.include_router(theses_api.router, prefix="/api", tags=["theses"])
 
     # LAST. See the module docstring.
     dist = paths.ui_dist()

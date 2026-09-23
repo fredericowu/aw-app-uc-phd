@@ -685,3 +685,33 @@ table.data tbody tr:hover {
 .search-error-title {
   color: #d03b3b;
 }
+
+/* ── fit ────────────────────────────────────────────────────────────────── */
+
+.fit-profile {
+  margin-bottom: 16px;
+}
+
+/* The interest list is the actual input to the ranking, so it gets the
+ * emphasis a search box gets elsewhere — one interest per line, and the box
+ * grows with the list rather than scrolling a four-line profile. */
+.fit-interests {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font: inherit;
+  margin: 8px 0 10px;
+  padding: 8px 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+/* Rank, not a percentage. Every one of these theses is a computing PhD and
+ * they all score within a few hundredths of each other against any computing
+ * profile, so a "67%" would read as precision that does not exist — the
+ * position in the list is the honest signal. See views/Fit.jsx. */
+.fit-rank {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}

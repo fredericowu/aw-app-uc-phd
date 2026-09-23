@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, paths, seed
 from . import store as store_mod
+from .api import fit as fit_api
 from .api import projects as projects_api
 from .api import search as search_api
 from .api import theses as theses_api
@@ -75,6 +76,7 @@ def build_routes(store: store_mod.VectorStore | None = None) -> FastAPI:
     app.include_router(projects_api.router, prefix="/api", tags=["projects"])
     app.include_router(theses_api.router, prefix="/api", tags=["theses"])
     app.include_router(search_api.router, prefix="/api", tags=["search"])
+    app.include_router(fit_api.router, prefix="/api", tags=["fit"])
 
     # LAST. See the module docstring.
     dist = paths.ui_dist()

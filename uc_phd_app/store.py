@@ -5,9 +5,20 @@ Two tables under the enforced ``app__aw-app-uc-phd__`` prefix (created by
 only reads/writes rows):
 
 * ``documents`` — one row per thesis (``handle`` PK), carrying provenance
-  (``source_url``), whether full text was indexed, and the embedding
-  model/dim it was indexed with.
+  (``source_url``), whether full text was indexed, the embedding model/dim it
+  was indexed with, and (``migrations/0002``) ``abstract_embedding``: ONE
+  vector for the whole thesis, over title + abstracts.
 * ``chunks`` — the embedded pieces, ``UNIQUE(handle, ordinal)``.
+
+Two rankings, deliberately not one
+-----------------------------------
+``search()`` ranks **chunks** and backs ``/api/search``. ``match_theses()``
+ranks **theses** and backs the Fit screen. They are separate because chunk
+ranking cannot answer "the 5 theses closest to this profile": the corpus is
+6609 chunks across 18 theses (858 down to 8, top 3 holding 29.6%), so no ``k``
+over chunks guarantees 5 distinct theses and a long thesis gets ~100x more
+chances than a short one. Evidence passages on the Fit screen still come from
+``chunks`` — the ranking is balanced, the quoted text is still real.
 
 Same embedding model as the ``kb`` app (``apps/kb/kb_app/kb_pg.py``) and the
 P0 prototype (``estudo_geral_extractor/index.py``): ``nomic-embed-text-v1.5``
@@ -50,8 +61,14 @@ Every query here runs through ``ctx.db``/``DbTables``, whose engine's default
 overrides it — only ``src/apps/migrations.py`` does that, and only for its
 own migration transaction). So a bare ``<=>`` is correct in every query
 below. Do NOT copy that into a ``.sql`` migration file — see
-``migrations/0001_create_documents_and_chunks.sql``'s header for why the rule
-flips there.
+``migrations/0001_create_documents_and_chunks.sql``'s header (and 0002's) for
+why the rule flips there.
+
+The one thing that *is* spelled ``public.`` here is the ``CAST(... AS
+public.vector)`` on every query parameter, and that is not an exception to the
+rule above — it is a cast of a bound string literal, which has to name the
+type explicitly whatever ``search_path`` says. The operators (``<=>``) and
+opclasses stay bare.
 """
 from __future__ import annotations
 
@@ -143,6 +160,51 @@ def vec_literal(vec: list[float]) -> str:
     return "[" + ",".join(f"{x:.8g}" for x in vec) + "]"
 
 
+# -- facet embedding cache (Fit screen) -------------------------------------
+# Embedding is 50-150ms of synchronous ONNX CPU work PER FACET, and the Fit
+# screen sends every interest as its own query — so an uncached request pays
+# that N times over. The profile only changes when someone edits it, so the
+# vectors are cached keyed on a hash of the interest text itself.
+#
+# Keyed on content, not on mtime or a "profile version": at
+# AW_WORKSPACE_WORKERS>1 each worker has its own copy of this dict and no
+# cross-process invalidation channel, so an edit saved by worker A must
+# invalidate worker B's cache without B being told anything. A content hash
+# does that for free — B re-reads the (small) file per request, hashes it, and
+# simply misses the cache. An mtime or a counter would not survive that.
+_facet_cache: dict[str, list[list[float]]] = {}
+
+#: A handful of distinct profiles is all a single-user app ever sees; the cap
+#: only exists so a pathological edit loop cannot grow this without bound.
+_FACET_CACHE_MAX = 8
+
+
+def facet_cache_key(interests: list[str]) -> str:
+    """Content hash of an interest list — the cache key, and the only thing
+    that decides whether a cached vector set is still valid."""
+    import hashlib
+
+    joined = "\x00".join(interests)
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def embed_facets(interests: list[str]) -> list[list[float]]:
+    """One query vector per interest line, cached on the interest text.
+
+    Synchronous CPU work on a miss — callers on the event loop must keep this
+    off it (``asyncio.to_thread``), same as ``embed_query``.
+    """
+    key = facet_cache_key(interests)
+    cached = _facet_cache.get(key)
+    if cached is not None:
+        return cached
+    vecs = [embed_query(text) for text in interests]
+    if len(_facet_cache) >= _FACET_CACHE_MAX:
+        _facet_cache.pop(next(iter(_facet_cache)))
+    _facet_cache[key] = vecs
+    return vecs
+
+
 # --------------------------------------------------------------------------
 # Chunking — pure functions, unit-tested without Postgres or the model.
 # --------------------------------------------------------------------------
@@ -190,6 +252,26 @@ def document_content(front_matter: dict, body: str) -> str:
             parts.append(value)
     if front_matter.get("full_text") and body.strip():
         parts.append(body)
+    return "\n\n".join(p for p in parts if p)
+
+
+def abstract_content(front_matter: dict) -> str:
+    """What the per-thesis ``abstract_embedding`` is built from: title +
+    ``abstract_en`` + ``abstract_pt``, never the body.
+
+    Deliberately the same for every thesis, embargoed or not. ``documents``
+    holds one row per thesis and one vector per row, so the vectors have to be
+    comparable — folding the full body in for the 17 non-embargoed theses and
+    not the 18th would make its distance mean something different from
+    everyone else's, which is exactly the imbalance per-thesis ranking exists
+    to remove. Truncated to ``CHUNK_CHARS`` by ``embed_docs`` like every other
+    embedding in this module.
+    """
+    parts = [front_matter.get("title") or ""]
+    for key in ("abstract_en", "abstract_pt"):
+        value = front_matter.get(key)
+        if value:
+            parts.append(value)
     return "\n\n".join(p for p in parts if p)
 
 
@@ -322,6 +404,171 @@ class VectorStore:
                " ON CONFLICT (handle, ordinal) DO UPDATE SET "
                "chunk_text = EXCLUDED.chunk_text, embedding = EXCLUDED.embedding")
         self._db.execute(CHUNKS_TABLE, sql, params)
+
+    # -- per-thesis abstract embedding (loader-side) --------------------
+
+    def needs_reindex(self, handle: str, sha: str) -> bool:
+        """Whether ``ingest`` must (re)process this thesis.
+
+        THE TRAP THIS EXISTS TO CLOSE. The loader used to resume on
+        ``document_md_sha256(handle) == sha`` alone. ``migrations/0002`` adds
+        ``abstract_embedding`` as a NULL column to a table whose 18 rows are
+        already indexed, so every sha still matched, every thesis was skipped,
+        every abstract_embedding stayed NULL — and the Fit screen answered
+        "no theses matched", which is indistinguishable from a profile with
+        genuinely no hits. Nothing would have logged an error.
+
+        So "already done" now means BOTH: content unchanged *and* the
+        per-thesis vector actually present.
+        """
+        rows = self._db.execute(
+            DOCUMENTS_TABLE,
+            "SELECT md_sha256, abstract_embedding IS NOT NULL FROM {table} "
+            "WHERE handle = :h",
+            {"h": handle},
+        )
+        if not rows:
+            return True
+        stored_sha, has_abstract = rows[0][0], bool(rows[0][1])
+        return stored_sha != sha or not has_abstract
+
+    def set_abstract_embedding(self, handle: str, vec: list[float]) -> None:
+        """Write the one-vector-per-thesis embedding.
+
+        Separate from ``replace_document`` on purpose: this must be reachable
+        for a thesis whose chunks are already correct and whose content has
+        not changed — the backfill case ``migrations/0002`` creates — without
+        re-embedding 858 chunks to get one vector.
+        """
+        self._db.execute(
+            DOCUMENTS_TABLE,
+            "UPDATE {table} SET abstract_embedding = CAST(:e AS public.vector) "
+            "WHERE handle = :h",
+            {"e": vec_literal(vec), "h": handle},
+        )
+
+    def abstract_coverage(self) -> dict:
+        """``{theses, matchable}`` — how many theses exist against how many
+        carry an ``abstract_embedding``.
+
+        The Fit screen states both. A thesis with no abstract gets a NULL
+        vector and silently vanishes from every ranking; at 18 that is
+        visible, at 181 it would not be, so the gap is reported rather than
+        left for someone to notice.
+        """
+        rows = self._db.execute(
+            DOCUMENTS_TABLE,
+            "SELECT count(*), count(abstract_embedding) FROM {table}",
+        )
+        total, embedded = (rows[0][0], rows[0][1]) if rows else (0, 0)
+        return {"theses": int(total), "matchable": int(embedded)}
+
+    # -- thesis matching (Fit screen) ----------------------------------
+
+    def match_theses(self, facet_vectors: list[list[float]], k: int = 5) -> dict:
+        """Rank THESES against a list of interest vectors, fused by MAX
+        similarity (= MIN cosine distance) over facets.
+
+        Max, not mean. Averaging the facets back into one vector is exactly
+        the failure the facet split exists to undo — it lands the query
+        near-equidistant from the whole corpus (measured: top1-top5 spread
+        0.022 for the averaged paragraph against 0.081 for a single facet, and
+        it pushes the privacy/security-architecture thesis out of the top 10
+        of 18 for a profile that names secure software architecture twice).
+        Max also keeps "which interest matched" meaningful, which is the
+        evidence the screen is built on — a fused score cannot say that.
+
+        Every per-facet distance comes back and the winner is picked here
+        rather than in SQL: 18 rows makes the transfer free, and a CASE ladder
+        over N facets in SQL would have to be generated anyway.
+
+        Returns ``{results, coverage, embed_ms, db_ms}``. ``results`` carry
+        ``rank`` (1-based, out of ``coverage['matchable']``), the winning
+        ``facet_index``, and an evidence ``snippet`` — never a percentage
+        score; see ``api/fit.py``.
+        """
+        if not facet_vectors:  # pragma: no cover - callers validate first
+            raise ValueError("match_theses needs at least one facet vector")
+        t0 = time.perf_counter()
+        params: dict[str, Any] = {"k": k}
+        dist_cols = []
+        for i, vec in enumerate(facet_vectors):
+            params[f"f{i}"] = vec_literal(vec)
+            dist_cols.append(f"abstract_embedding <=> CAST(:f{i} AS public.vector) AS d{i}")
+        # LEAST over the per-facet distances IS the max-similarity fusion.
+        least = "LEAST(" + ", ".join(f"d{i}" for i in range(len(facet_vectors))) + ")"
+        rows = self._db.execute(
+            DOCUMENTS_TABLE,
+            "SELECT handle, title, source_url, full_text, "
+            + ", ".join(f"d{i}" for i in range(len(facet_vectors)))
+            + " FROM (SELECT handle, title, source_url, full_text, "
+            + ", ".join(dist_cols)
+            + " FROM {table} WHERE abstract_embedding IS NOT NULL) t "
+            f"ORDER BY {least} LIMIT :k",
+            params,
+        )
+        results = []
+        for rank, row in enumerate(rows, start=1):
+            dists = [float(x) for x in row[4:]]
+            best = min(range(len(dists)), key=lambda i: dists[i])
+            results.append({
+                "rank": rank,
+                "handle": row[0],
+                "title": row[1],
+                "source_url": row[2],
+                "full_text": bool(row[3]),
+                "facet_index": best,
+                "distance": dists[best],
+                "facet_distances": dists,
+            })
+        t1 = time.perf_counter()
+        self._attach_evidence(results, facet_vectors)
+        t2 = time.perf_counter()
+        return {
+            "results": results,
+            "coverage": self.abstract_coverage(),
+            "db_ms": round((t1 - t0) * 1000, 1),
+            "evidence_ms": round((t2 - t1) * 1000, 1),
+        }
+
+    def _attach_evidence(self, results: list[dict], facet_vectors: list[list[float]]) -> None:
+        """Best real passage per matched thesis, against the facet that won it.
+
+        The ranking is deliberately abstract-only, so without this the screen
+        would quote an abstract back at a user who has already read it. The
+        passage comes from ``chunks`` — the actual indexed text — so the
+        balanced ranking keeps real evidence under it.
+
+        One query, not one per thesis: a VALUES list of (handle, winning
+        vector) pairs joined LATERAL against the chunks table, which uses the
+        existing ``_handle_idx``.
+        """
+        if not results:
+            return
+        params: dict[str, Any] = {}
+        pairs = []
+        for i, r in enumerate(results):
+            params[f"h{i}"] = r["handle"]
+            params[f"q{i}"] = vec_literal(facet_vectors[r["facet_index"]])
+            pairs.append(f"(CAST(:h{i} AS text), CAST(:q{i} AS public.vector))")
+        rows = self._db.execute(
+            CHUNKS_TABLE,
+            "SELECT w.handle, c.ordinal, c.chunk_text "
+            "FROM (VALUES " + ", ".join(pairs) + ") AS w(handle, qv) "
+            "CROSS JOIN LATERAL ("
+            "  SELECT ordinal, chunk_text FROM {table} "
+            "  WHERE handle = w.handle ORDER BY embedding <=> w.qv LIMIT 1"
+            ") c",
+            params,
+        )
+        by_handle = {r[0]: (r[1], r[2]) for r in rows}
+        for r in results:
+            found = by_handle.get(r["handle"])
+            # A thesis with an abstract embedding but no chunks is possible
+            # (a failed/partial ingest); it keeps its rank and simply shows no
+            # passage rather than disappearing from the list.
+            r["ordinal"] = found[0] if found else None
+            r["snippet"] = " ".join(found[1].split())[:400] if found else None
 
     # -- search (route-side) -------------------------------------------
 

@@ -108,4 +108,40 @@ export const api = {
     }
     return body;
   },
+  profile: () => getJSON('/profile'),
+  saveProfile: (interests, body) => sendJSON('PUT', '/profile', { interests, body }),
+  resetProfile: () => sendJSON('POST', '/profile/reset'),
+  // Same reasoning as `search`: a degraded store answers a typed 503 and that
+  // structured detail is what the screen needs to tell "the matcher is broken"
+  // apart from "your profile genuinely matched nothing" — which, unlike
+  // search, is a legitimate answer here.
+  fit: (k = 8) => sendJSON('GET', `/fit?k=${k}`),
 };
+
+/** The `search`-style error contract for the routes that need it: throws an
+ *  ApiError carrying the parsed `{error, reason}` body on a non-2xx, and
+ *  names the static-mount shadowing failure explicitly on a non-JSON reply. */
+async function sendJSON(method, sub, payload) {
+  const init = { method, headers: { Accept: 'application/json' } };
+  if (payload !== undefined) {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(payload);
+  }
+  const res = await fetch(apiUrl(sub), init);
+  const body = await readJSON(res);
+  if (!res.ok) {
+    const detail = body && body.detail;
+    const message =
+      (detail && (detail.reason || detail.error || (typeof detail === 'string' ? detail : null)))
+      || `${method} ${sub} failed (HTTP ${res.status})`;
+    throw new ApiError(message, { status: res.status, body: detail });
+  }
+  if (!body) {
+    throw new ApiError(
+      `${method} ${sub} returned a non-JSON response — the SPA's static mount is `
+      + `probably shadowing the API routes (see routes.py).`,
+      { status: res.status },
+    );
+  }
+  return body;
+}

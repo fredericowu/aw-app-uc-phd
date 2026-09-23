@@ -17,10 +17,12 @@ import Projects from './views/Projects';
 import ProjectDetail from './views/ProjectDetail';
 import Theses from './views/Theses';
 import Search from './views/Search';
+import Fit from './views/Fit';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'search', label: 'Search' },
+  { id: 'fit', label: 'Fit' },
   { id: 'groups', label: 'Research groups' },
   { id: 'top', label: 'Top 10 per group' },
   { id: 'money', label: 'Funding & budget' },
@@ -70,6 +72,8 @@ export default function App() {
     body = <ProjectDetail projectId={route.projectId} onBack={() => go('#/projects')} />;
   } else if (route.tab === 'search') {
     body = <Search />;
+  } else if (route.tab === 'fit') {
+    body = <Fit />;
   } else if (route.tab === 'groups') {
     body = <Groups />;
   } else if (route.tab === 'top') {

@@ -37,6 +37,7 @@ things a static page could never do:
 | How far the name matcher reaches (per tier, over distinct names) | `sql/thesis_match_tiers.sql` |
 | **Searchable, group-filterable project list** | live query, `uc_phd_app/api/projects.py` |
 | **Per-project detail**, including every raw `project_fields_raw` pair | live query |
+| **Fit** — theses matched against an editable interest profile, with their real supervisors | `profile/research_interests.md` + `sql/thesis_people.sql`, ranked in pgvector |
 
 **Every figure still traces to a committed `.sql` file.** That was the best
 property of the original repo and it survives the move: `uc_phd_app/db.py`
@@ -529,3 +530,62 @@ instead of losing everything after the first page.
 `ingest` is resumable: a document whose chunk count already matches what is in
 the table is skipped without being re-embedded. `ON CONFLICT DO NOTHING`
 protects the insert; this protects the hour of CPU.
+
+## Fit — matching a personal interest profile against the corpus
+
+`#/fit` answers a different question from `#/search`. Search ranks *passages*
+against a question you type; Fit ranks *theses* against a profile that
+persists, and returns the people who supervised them. Two design points look
+like preferences and are actually measurements — changing either silently
+degrades the screen:
+
+**The profile is a list of interests, each embedded separately.** The
+committed seed (`profile/research_interests.md`) carries an `interests:` list
+in its front matter plus the prose it was drawn from in the body. Only the
+list is embedded; the prose is displayed as context. Embedding the prose as
+one vector instead ranks the human-factors theses 1–2–3 and drops the
+privacy/security-architecture thesis out of the top 10 of 18 — half that
+paragraph is career narrative, and averaging four distinct interests into one
+768-dim vector lands the query near-equidistant from everything (top1–top5
+spread 0.022, against 0.081 for a single facet). Four separate queries fused
+by **max** put 4 of the top 5 on the stated interests instead of 2.
+
+**Ranking is per-thesis, not per-chunk.** `/api/search` ranks the `chunks`
+table: 6609 chunks across 18 theses, 858 for the longest down to 8 for the
+embargoed one, with the top 3 theses holding 29.6% of all chunks. No `k` over
+chunks guarantees 5 distinct theses. `migrations/0002` adds one
+`abstract_embedding` per thesis (title + both abstracts) so "≥5 distinct
+theses" is structural. Evidence passages still come from `chunks`, so the
+ranking is balanced while the quoted text stays real.
+
+What the screen deliberately does **not** show: a percentage match score (all
+18 are computing PhDs and score in a narrow band — top-1 to top-5 spans 0.007
+for the seeded profile, so "67%" would be precision that does not exist; it
+shows rank, the matched interest and the passage), any research-group filter
+(S7 measures group attribution at 3.72 of 6 groups per thesis), any supervisor
+ranking (the ceiling is 3 theses), and any generated prose.
+
+### Editing the profile
+
+The committed file is a **versioned baseline**; the live editable copy lives
+in the data dir, because the package directory is wiped wholesale on every app
+update. `GET /api/profile` reports whether the two have diverged so the screen
+can offer a reset — the same seed/live split `cisuc.sqlite3` has.
+
+### Re-indexing after migration 0002
+
+`migrations/0002` adds `abstract_embedding` as a NULL column to rows that are
+already fully indexed. The loader's resume check therefore tests **both** the
+content hash and the presence of that vector (`VectorStore.needs_reindex`) —
+on the hash alone every thesis would be skipped, every vector would stay NULL,
+and the Fit screen would answer "no matches" while looking perfectly healthy.
+When only the vector is missing, `ingest` backfills just that rather than
+re-embedding 6609 chunks:
+
+```bash
+aw-workspace-cli uc-phd-index ingest     # backfills abstract vectors in place
+aw-workspace-cli uc-phd-index status     # prints matchable_on_fit=N/N
+```
+
+`ingest` warns on stderr if any thesis ends up without an abstract vector,
+since such a thesis ranks nowhere on Fit however well-chunked it is.

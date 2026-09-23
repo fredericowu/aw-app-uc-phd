@@ -22,6 +22,7 @@ from pathlib import Path
 APP_ID = "aw-app-uc-phd"
 DB_FILENAME = "cisuc.sqlite3"
 SEED_STAMP_FILENAME = "seed.json"
+PROFILE_FILENAME = "research_interests.md"
 
 #: Repo/package root — the directory holding ``aw-app.json``.
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
@@ -90,6 +91,23 @@ def thesis_attribution_path() -> Path:
     it, and because nothing else in the repo should hardcode that path.
     """
     return PACKAGE_ROOT / "docs" / "thesis-attribution.json"
+
+
+def seed_profile_path() -> Path:
+    """``profile/research_interests.md`` — the committed interest profile the
+    Fit screen matches against, seeded once from the academic CV.
+
+    Versioned baseline, never the live copy: the package dir is wiped on every
+    app update (see this module's header), so a UI edit written here would die
+    at the next version bump. ``profile.py`` copies it into the data dir the
+    same way ``seed.py`` copies ``cisuc.sqlite3``.
+    """
+    return PACKAGE_ROOT / "profile" / PROFILE_FILENAME
+
+
+def live_profile_path() -> Path:
+    """The editable profile every ``/api/fit`` query actually reads."""
+    return data_dir() / PROFILE_FILENAME
 
 
 def fastembed_cache_dir() -> Path:

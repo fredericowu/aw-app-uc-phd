@@ -276,3 +276,135 @@ def test_search_carries_handle_and_source_url_for_every_result(fake_fastembed):
     assert result["results"][0]["source_url"].startswith("https://estudogeral.uc.pt")
     assert result["results"][0]["full_text"] is True
     assert "embed_ms" in result and "db_ms" in result
+
+
+# ── per-thesis abstract embedding (migrations/0002) ──────────────────────
+
+
+def test_abstract_content_is_title_plus_abstracts_and_never_the_body():
+    """One vector per thesis has to mean the same thing for every thesis —
+    folding the full body in for the 17 non-embargoed ones and not the 18th
+    would make its distance incomparable."""
+    front = {"title": "T", "abstract_en": "EN", "abstract_pt": "PT", "full_text": True}
+    assert store.abstract_content(front) == "T\n\nEN\n\nPT"
+    assert "BODY" not in store.abstract_content(front)
+
+
+def test_abstract_content_tolerates_missing_abstracts():
+    assert store.abstract_content({"title": "T"}) == "T"
+
+
+class _ReindexDb:
+    """Answers the needs_reindex probe with a canned (sha, has_abstract)."""
+
+    def __init__(self, rows):
+        self.rows = rows
+        self.calls = []
+
+    def execute(self, name, sql, params=None):
+        self.calls.append((name, sql, params))
+        return self.rows
+
+
+def test_needs_reindex_is_true_for_a_document_that_does_not_exist():
+    assert store.VectorStore(_ReindexDb([])).needs_reindex("h", "sha") is True
+
+
+def test_needs_reindex_is_true_when_the_content_changed():
+    assert store.VectorStore(_ReindexDb([("other", True)])).needs_reindex("h", "sha") is True
+
+
+def test_needs_reindex_is_true_when_the_abstract_vector_is_missing():
+    """THE TRAP. migrations/0002 adds abstract_embedding as NULL to 18 rows
+    that are already fully indexed. Resuming on md_sha256 alone skips every
+    one of them, leaves every abstract_embedding NULL, and the Fit screen
+    answers "no theses matched" — indistinguishable from a real zero-match,
+    with nothing logged anywhere."""
+    assert store.VectorStore(_ReindexDb([("sha", False)])).needs_reindex("h", "sha") is True
+
+
+def test_needs_reindex_is_false_only_when_both_hold():
+    assert store.VectorStore(_ReindexDb([("sha", True)])).needs_reindex("h", "sha") is False
+
+
+def test_set_abstract_embedding_writes_one_vector_for_the_handle():
+    db = _ReindexDb([])
+    store.VectorStore(db).set_abstract_embedding("h", [0.5] * store.VECTOR_DIM)
+    name, sql, params = db.calls[0]
+    assert name == store.DOCUMENTS_TABLE
+    assert "abstract_embedding = CAST(:e AS public.vector)" in sql
+    assert params["h"] == "h"
+    assert params["e"].startswith("[0.5,")
+
+
+def test_abstract_coverage_counts_theses_against_matchable_ones():
+    cov = store.VectorStore(_ReindexDb([(18, 16)])).abstract_coverage()
+    assert cov == {"theses": 18, "matchable": 16}
+
+
+def test_abstract_coverage_of_an_empty_table_is_zero():
+    assert store.VectorStore(_ReindexDb([])).abstract_coverage() == {
+        "theses": 0, "matchable": 0}
+
+
+class _MatchDb:
+    """Serves the three queries match_theses issues, keyed on SQL shape."""
+
+    def __init__(self, match_rows, evidence_rows=(), coverage=(18, 18)):
+        self.match_rows = match_rows
+        self.evidence_rows = evidence_rows
+        self.coverage = coverage
+        self.sql = []
+
+    def execute(self, name, sql, params=None):
+        self.sql.append(sql)
+        if "count(abstract_embedding)" in sql:
+            return [self.coverage]
+        if "CROSS JOIN LATERAL" in sql:
+            return list(self.evidence_rows)
+        return list(self.match_rows)
+
+
+def test_match_theses_orders_by_the_best_facet_not_the_average():
+    rows = [
+        ("a", "A", "u", True, 0.40, 0.90),   # best 0.40
+        ("b", "B", "u", True, 0.90, 0.20),   # best 0.20 — lower mean loses, max wins
+    ]
+    # The fake db returns rows in the order given; ORDER BY is Postgres's job,
+    # so this asserts the fusion arithmetic and rank assignment, not the sort.
+    out = store.VectorStore(_MatchDb(rows)).match_theses([[0.0], [1.0]], k=5)
+    assert [r["distance"] for r in out["results"]] == [0.40, 0.20]
+    assert [r["facet_index"] for r in out["results"]] == [0, 1]
+    assert [r["rank"] for r in out["results"]] == [1, 2]
+
+
+def test_match_theses_builds_one_bound_parameter_per_facet():
+    db = _MatchDb([])
+    store.VectorStore(db).match_theses([[0.1], [0.2], [0.3]], k=5)
+    sql = db.sql[0]
+    assert "LEAST(d0, d1, d2)" in sql
+    assert sql.count("CAST(:f") == 3
+    assert "WHERE abstract_embedding IS NOT NULL" in sql
+
+
+def test_match_theses_attaches_the_best_chunk_for_the_winning_facet():
+    rows = [("a", "A", "u", True, 0.9, 0.2)]
+    db = _MatchDb(rows, evidence_rows=[("a", 7, "the   real  passage")])
+    out = store.VectorStore(db).match_theses([[0.0], [1.0]], k=5)
+    r = out["results"][0]
+    assert r["snippet"] == "the real passage"
+    assert r["ordinal"] == 7
+    # The evidence query asks for the facet that actually won this thesis.
+    assert "CROSS JOIN LATERAL" in db.sql[1]
+
+
+def test_match_theses_with_no_results_skips_the_evidence_query():
+    db = _MatchDb([])
+    out = store.VectorStore(db).match_theses([[0.1]], k=5)
+    assert out["results"] == []
+    assert not any("CROSS JOIN LATERAL" in s for s in db.sql)
+
+
+def test_match_theses_reports_coverage_alongside_the_results():
+    out = store.VectorStore(_MatchDb([], coverage=(18, 17))).match_theses([[0.1]], k=5)
+    assert out["coverage"] == {"theses": 18, "matchable": 17}

@@ -130,14 +130,30 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     total_chunks = 0
     embedded_docs = 0
+    abstract_backfills = 0
     per_doc = []
     t_all = time.perf_counter()
 
     for path, front, body, sha in docs:
         handle = front["handle"]
-        if not args.reembed and vs.document_md_sha256(handle) == sha:
-            print(f"  {handle}: unchanged (md_sha256 match), skipped", flush=True)
+        if not args.reembed and not vs.needs_reindex(handle, sha):
+            print(f"  {handle}: unchanged (md_sha256 + abstract vector), skipped",
+                  flush=True)
             per_doc.append({"handle": handle, "skipped": True})
+            continue
+
+        # The cheap repair path, and the reason `needs_reindex` checks the
+        # abstract vector as well as the hash. migrations/0002 adds
+        # `abstract_embedding` as NULL to rows that are otherwise fully and
+        # correctly indexed. Re-chunking and re-embedding 6609 chunks to fill
+        # in 18 vectors would be minutes of ONNX work for nothing — so when
+        # only the abstract vector is missing, write just that.
+        if not args.reembed and vs.document_md_sha256(handle) == sha:
+            vs.set_abstract_embedding(handle, store.embed_docs(
+                [store.abstract_content(front)])[0])
+            abstract_backfills += 1
+            print(f"  {handle}: chunks unchanged, abstract vector backfilled", flush=True)
+            per_doc.append({"handle": handle, "abstract_backfilled": True})
             continue
 
         content = store.document_content(front, body)
@@ -158,6 +174,11 @@ def cmd_ingest(args: argparse.Namespace) -> int:
             md_sha256=sha,
             chunks=chunks,
         )
+        # After the chunks, so a crash between the two leaves the document row
+        # stamped with _PENDING_SHA and `needs_reindex` reprocesses it — the
+        # same resume guarantee replace_document already relies on.
+        vs.set_abstract_embedding(handle, store.embed_docs(
+            [store.abstract_content(front)])[0])
         total_chunks += written
         embedded_docs += 1
         per_doc.append({"handle": handle, "chunks": written})
@@ -166,15 +187,27 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     wall = time.perf_counter() - t_all
     stats = vs.stats()
+    coverage = vs.abstract_coverage()
     print(f"\nINGEST DONE  documents_reembedded={embedded_docs}/{len(docs)}  "
+          f"abstract_vectors_backfilled={abstract_backfills}  "
           f"chunks_written_this_run={total_chunks}  wall={wall:.1f}s  "
-          f"table_totals: documents={stats['documents']} chunks={stats['chunks']}", flush=True)
+          f"table_totals: documents={stats['documents']} chunks={stats['chunks']}  "
+          f"matchable={coverage['matchable']}/{coverage['theses']}", flush=True)
+    # The Fit screen ranks over abstract_embedding, so a thesis missing one is
+    # invisible there however well-chunked it is. Named here rather than left
+    # to be discovered as "no matches" on screen.
+    if coverage["matchable"] < coverage["theses"]:
+        print(f"WARNING: {coverage['theses'] - coverage['matchable']} thesis/theses "
+              f"have no abstract_embedding and will not appear on the Fit screen",
+              file=sys.stderr)
 
     if args.report:
         Path(args.report).write_text(json.dumps({
             "documents": len(docs), "documents_reembedded": embedded_docs,
+            "abstract_vectors_backfilled": abstract_backfills,
             "chunks_written_this_run": total_chunks, "wall_s": round(wall, 2),
-            "table_totals": stats, "per_doc": per_doc,
+            "table_totals": stats, "abstract_coverage": coverage,
+            "per_doc": per_doc,
         }, indent=2, ensure_ascii=False), encoding="utf-8")
     return 0
 
@@ -186,7 +219,9 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"state: {state['state']}{reason}")
     if state["state"] == "ready":
         stats = vs.stats()
-        print(f"documents={stats['documents']}  chunks={stats['chunks']}")
+        coverage = vs.abstract_coverage()
+        print(f"documents={stats['documents']}  chunks={stats['chunks']}  "
+              f"matchable_on_fit={coverage['matchable']}/{coverage['theses']}")
         return 0
     return 1
 

@@ -81,7 +81,8 @@ def _person_groups(slug: str, db_path: Path | None = None) -> set[str]:
     return {r["group_code"] for r in db.rows(_RESEARCHER_GROUPS_SQL, {"slug": slug}, db_path)}
 
 
-def _resolve_person_rows(rows: list[dict], db_path: Path | None = None) -> list[dict]:
+def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
+                          with_groups: bool = True) -> list[dict]:
     """Collapse the ``thesis_people`` rows for one (name, role) into the shape
     the dashboard renders.
 
@@ -89,6 +90,11 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None) -> list[
     contract — and the finer ``match_status`` tier rides alongside it, so a
     later view can distinguish "nobody fits" from "two people fit" without
     this one changing.
+
+    ``with_groups=False`` skips the per-person group lookup for callers that
+    must not display a group anyway (``supervisors_for``, for the Fit screen —
+    see its docstring). ``groups`` stays present and empty so the returned
+    shape does not fork.
     """
     by_name: dict[str, dict] = {}
     slug_cache: dict[str, set[str]] = {}
@@ -108,6 +114,8 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None) -> list[
         if entry["status"] != "matched" or row["person_slug"] is None:
             continue
         entry["matched"].append({"slug": row["person_slug"], "name": row["person_name"]})
+        if not with_groups:
+            continue
         slug = row["person_slug"]
         if slug not in slug_cache:
             slug_cache[slug] = _person_groups(slug, db_path)
@@ -146,6 +154,53 @@ def list_theses(db_path: Path | None = None) -> list[dict]:
             }
         )
     return theses
+
+
+def supervisors_for(handles: list[str], db_path: Path | None = None) -> dict[str, list[dict]]:
+    """Supervisors only, keyed by thesis handle — what the Fit screen names
+    next to each matched thesis.
+
+    Reads the same committed ``sql/thesis_people.sql`` ``list_theses`` does and
+    filters in Python. At 18 theses / 50 name rows the whole table is smaller
+    than the round trip to fetch part of it, and it keeps one committed query
+    as the single definition of a thesis-person edge rather than a second,
+    subtly-different one.
+
+    Two deliberate narrowings against ``list_theses``:
+
+    * **``role == 'supervisor'`` only.** A project ``coordinator`` is never an
+      orientador and this app does not blur the two; ``thesis_people`` has no
+      coordinator role precisely so that conflation cannot be re-introduced by
+      a query. Authors are irrelevant here — the screen answers "who could
+      supervise this", not "who wrote it".
+    * **No research groups.** ``_resolve_person_rows`` resolves them and this
+      drops them: group attribution currently yields 3.72 of 6 groups per
+      thesis with 5/18 tagged all six (S7), so showing a group on this screen
+      would look authoritative and mean nothing. Cut from v1 by the PO; the
+      cheapest way to honour that is not to carry the field at all.
+
+    An unresolved name keeps its row, its ``name_raw`` and its
+    ``match_status`` — never dropped, never guessed. That is what the LEFT
+    JOIN in the committed query exists for.
+    """
+    wanted = set(handles)
+    by_handle: dict[str, list[dict]] = {h: [] for h in wanted}
+    rows = db.rows(db.load_query("thesis_people"), (), db_path)
+    grouped: dict[str, list[dict]] = {}
+    for row in rows:
+        if row["handle"] in wanted and row["role"] == "supervisor":
+            grouped.setdefault(row["handle"], []).append(row)
+    for handle, person_rows in grouped.items():
+        by_handle[handle] = [
+            {
+                "name": person["name"],
+                "status": person["status"],
+                "match_status": person["match_status"],
+                "matched": person["matched"],
+            }
+            for person in _resolve_person_rows(person_rows, db_path, with_groups=False)
+        ]
+    return by_handle
 
 
 def match_tiers(db_path: Path | None = None) -> dict:

@@ -108,6 +108,22 @@ export const api = {
     }
     return body;
   },
+  collabSummary: () => getJSON('/collab/summary'),
+  collabPairs: ({ kind = 'co_project', minWeight, sort = 'weight', limit = 50, offset = 0 } = {}) => {
+    const params = new URLSearchParams({ kind, sort, limit: String(limit), offset: String(offset) });
+    if (minWeight != null) params.set('min_weight', String(minWeight));
+    return getJSON(`/collab/pairs?${params}`);
+  },
+  collabPeople: ({ q, limit = 20 } = {}) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    params.set('limit', String(limit));
+    return getJSON(`/collab/people?${params}`);
+  },
+  collabPerson: (slug, { kind = 'co_project', minWeight = 1, limit = 100 } = {}) => {
+    const params = new URLSearchParams({ kind, min_weight: String(minWeight), limit: String(limit) });
+    return getJSON(`/collab/people/${encodeURIComponent(slug)}?${params}`);
+  },
   profile: () => getJSON('/profile'),
   saveProfile: (interests, body) => sendJSON('PUT', '/profile', { interests, body }),
   resetProfile: () => sendJSON('POST', '/profile/reset'),

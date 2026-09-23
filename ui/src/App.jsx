@@ -12,6 +12,7 @@ import Groups from './views/Groups';
 import TopProjects from './views/TopProjects';
 import Money from './views/Money';
 import Coordinators from './views/Coordinators';
+import Collab from './views/Collab';
 import Partners from './views/Partners';
 import Projects from './views/Projects';
 import ProjectDetail from './views/ProjectDetail';
@@ -27,6 +28,7 @@ const TABS = [
   { id: 'top', label: 'Top 10 per group' },
   { id: 'money', label: 'Funding & budget' },
   { id: 'coordinators', label: 'Coordinators' },
+  { id: 'collab', label: 'Collaboration' },
   { id: 'partners', label: 'Partners' },
   { id: 'projects', label: 'All projects' },
   { id: 'theses', label: 'Theses' },
@@ -82,6 +84,8 @@ export default function App() {
     body = <Money />;
   } else if (route.tab === 'coordinators') {
     body = <Coordinators />;
+  } else if (route.tab === 'collab') {
+    body = <Collab />;
   } else if (route.tab === 'partners') {
     body = <Partners />;
   } else if (route.tab === 'projects') {

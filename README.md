@@ -32,6 +32,7 @@ things a static page could never do:
 | Budget by group / by year | `sql/budget_by_group.sql`, `sql/budget_by_year.sql` |
 | Projects started per year | `sql/start_date_timeline.sql` |
 | Top coordinators | `sql/top_coordinators.sql` |
+| **Collaboration & teams** — ranked co-project/co-supervision pairs, or one person's own neighbourhood | `sql/collab_co_project.sql`, `sql/collab_co_supervision.sql`, `sql/collab_person_groups.sql`, aggregated in `uc_phd_app/collab.py` |
 | The 18 Estudo Geral doctoral theses | `sql/theses.sql` |
 | Each thesis's authors/supervisors, resolved to a CISUC person or not | `sql/thesis_people.sql` |
 | How far the name matcher reaches (per tier, over distinct names) | `sql/thesis_match_tiers.sql` |
@@ -44,7 +45,7 @@ property of the original repo and it survives the move: `uc_phd_app/db.py`
 loads the query from `sql/` at request time. No query was re-expressed as a
 Python string literal, and the endpoint docstrings name the file they read.
 
-Two honesty caveats are carried in the API payloads themselves — not just in
+Three honesty caveats are carried in the API payloads themselves — not just in
 the UI copy — so they cannot be dropped by a frontend change:
 
 - Research-group membership is **many-to-many**: the per-group columns sum to
@@ -52,6 +53,10 @@ the UI copy — so they cannot be dropped by a frontend change:
 - The top-10 ranking is **total budget descending, a documented proxy**. The
   request never specified a metric; budget is the most objective one the data
   offers, and it measures size, not quality or impact.
+- Collaboration's `cross_group` is **co-occurrence, not complementarity** —
+  true only when two people's own project histories share no research group,
+  null when either has none to compare, and never a claim about how well they
+  actually complement each other.
 
 ## Why no `ui:code` (read before "simplifying" the frontend)
 

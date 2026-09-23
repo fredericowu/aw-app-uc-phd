@@ -1,0 +1,233 @@
+"""The collaboration graph — who works with whom, and who co-supervises.
+
+Derived, not collected (docs/graph-db-plan.md's live-people-feed proposal
+stays valid for what it uniquely offers — publication counts — but is not a
+prerequisite here): 4,242 co-project pairs and ~21 co-supervision pairs, both
+computable offline from data already in the seed (``project_people``,
+``thesis_people``). NetworkX territory, not Neo4j — this module never builds
+an in-memory graph object at all, because every consumer so far is either a
+ranked table or one person's neighbourhood, and a dict of aggregated pairs
+answers both without a graph library.
+
+Two edge kinds, kept distinct, never summed:
+
+* ``co_project``   — weight = number of projects two people were both listed
+  on (any role), from ``project_people``.
+* ``co_supervision`` — weight = number of theses two people co-supervised
+  together, from ``thesis_people`` (``role='supervisor'``).
+
+**Why a floor matters.** Of the 4,242 co_project pairs, most exist because
+two people happened to share exactly one project — a real but close to
+meaningless signal on its own. Callers apply ``DEFAULT_MIN_WEIGHT`` unless
+told otherwise; see ``CO_PROJECT_CAVEAT``.
+
+**Why normalised weight is a second column, not a replacement.** A 30-person
+project creates 435 pairs by itself — every one of those pairs' raw weight
+grows the same amount a pair working alone on a 2-person project would for
+sharing one project, which reads as "these two collaborate a lot" when the
+truth is "they were both named on a big project". ``weight_normalized``
+divides each shared project's contribution by ``(team_size - 1)`` (Newman's
+collaboration weighting), so a pair's contribution to a giant project is
+worth a fraction of a pair's contribution to a two-person one. The raw
+``weight`` stays the default sort and the one the card's own numbers are
+measured against; normalised is offered alongside it, not instead of it.
+
+**What this module cannot answer.** "como se ajudam e se complementam" (how
+people help and complement each other) needs more than edge weight — two
+people can co-author five projects and think identically, or co-author one
+and be each other's only bridge to a different subfield. The closest proxy
+this data supports is ``cross_group``: whether two collaborators' own
+project histories touch disjoint research groups. That is a co-occurrence
+signal, not a measured complementarity — ``CROSS_GROUP_CAVEAT`` says so
+explicitly rather than dressing it up.
+"""
+from __future__ import annotations
+
+from . import db
+
+#: Applied by default to the ranked /collab/pairs table for co_project —
+#: pass min_weight=1 to see every pair including the near-meaningless ones.
+DEFAULT_MIN_WEIGHT = {"co_project": 2, "co_supervision": 1}
+
+KINDS = ("co_project", "co_supervision")
+
+CO_PROJECT_CAVEAT = (
+    "weight is the raw count of projects two people were both listed on "
+    "(COUNT(DISTINCT project_id) over project_people — its composite PK "
+    "lets one person hold both coordinator and researcher roles on the same "
+    "project, which would otherwise double-count it). Of the 4,242 pairs, "
+    "most share exactly one project — a near-meaningless signal alone — so "
+    "the ranked table applies a floor of at least 2 shared projects by "
+    "default; pass min_weight=1 to see everything. weight_normalized "
+    "additionally divides each shared project's contribution by "
+    "(team size - 1), so a large project does not inflate every pair on it "
+    "the same as two people working alone would inflate theirs — it is a "
+    "secondary column, not the default ranking, because the raw count is "
+    "what 'shared N projects' plainly means and what this feature's own "
+    "measured numbers refer to."
+)
+
+CO_SUPERVISION_CAVEAT = (
+    "weight is the number of theses two people co-supervised together, "
+    "restricted to supervisor rows with a resolved person_slug — an "
+    "unmatched supervisor name is not a graph node (see "
+    "thesis_people.match_status). A handful of supervisor names on the real "
+    "theses do not resolve to a person and are silently excluded here, the "
+    "same way an unresolved name is excluded from every other per-person "
+    "figure in this app."
+)
+
+CROSS_GROUP_CAVEAT = (
+    "cross_group is co-occurrence, not complementarity: true only when "
+    "neither person's own project history shares a research group with the "
+    "other's (their group memberships are fully disjoint), null when either "
+    "person has no project group membership to compare against, false "
+    "otherwise. A true cross_group means two people who work together "
+    "despite sitting in different groups on paper — it is not a measure of "
+    "how well they complement each other, which this data cannot answer."
+)
+
+
+def _co_project_pairs() -> list[dict]:
+    """Aggregates ``sql/collab_co_project.sql``'s long form into one row per
+    pair. Kept in Python rather than a second committed query, the same way
+    ``api/projects.py`` pivots ``top_coordinators`` from long to wide —
+    ``weight_normalized`` needs each shared project's own team size, which
+    only exists at the long-form grain."""
+    agg: dict[tuple[str, str], dict] = {}
+    for row in db.query("collab_co_project"):
+        key = (row["person_a"], row["person_b"])
+        entry = agg.get(key)
+        if entry is None:
+            entry = {
+                "person_a_slug": row["person_a"],
+                "person_b_slug": row["person_b"],
+                "weight": 0,
+                "weight_normalized": 0.0,
+            }
+            agg[key] = entry
+        entry["weight"] += 1
+        team_size = row["team_size"]
+        if team_size > 1:
+            entry["weight_normalized"] += 1.0 / (team_size - 1)
+    for entry in agg.values():
+        entry["weight_normalized"] = round(entry["weight_normalized"], 3)
+    return list(agg.values())
+
+
+def _co_supervision_pairs() -> list[dict]:
+    """``sql/collab_co_supervision.sql`` is already aggregated per pair —
+    thesis teams are small (2-3 supervisors), so the quadratic-inflation
+    concern that motivates co_project's normalisation does not apply."""
+    return [
+        {
+            "person_a_slug": row["person_a"],
+            "person_b_slug": row["person_b"],
+            "weight": row["weight"],
+            "weight_normalized": None,
+        }
+        for row in db.query("collab_co_supervision")
+    ]
+
+
+def _pairs_for(kind: str) -> list[dict]:
+    if kind == "co_project":
+        return _co_project_pairs()
+    if kind == "co_supervision":
+        return _co_supervision_pairs()
+    raise ValueError(f"unknown collaboration kind: {kind!r}")
+
+
+def person_groups() -> dict[str, set[str]]:
+    """slug -> set(research group code), from every project (any role) that
+    person has ever been listed on. A person with no project membership at
+    all (a supervisor with no CISUC project history) is simply absent —
+    callers treat a missing key the same as an empty set."""
+    groups: dict[str, set[str]] = {}
+    for row in db.query("collab_person_groups"):
+        groups.setdefault(row["person_slug"], set()).add(row["group_code"])
+    return groups
+
+
+def _cross_group(groups_a: set[str] | None, groups_b: set[str] | None) -> bool | None:
+    if not groups_a or not groups_b:
+        return None
+    return groups_a.isdisjoint(groups_b)
+
+
+def _person_names() -> dict[str, str]:
+    return {row["slug"]: row["name"] for row in db.rows("SELECT slug, name FROM people")}
+
+
+def enriched_pairs(kind: str) -> list[dict]:
+    """Every pair for ``kind``, with names, group lists and ``cross_group``
+    attached. The unfiltered, unsorted base every endpoint builds on."""
+    if kind not in KINDS:
+        raise ValueError(f"unknown collaboration kind: {kind!r}")
+    names = _person_names()
+    groups = person_groups()
+    pairs = _pairs_for(kind)
+    for pair in pairs:
+        a, b = pair["person_a_slug"], pair["person_b_slug"]
+        ga, gb = groups.get(a), groups.get(b)
+        pair["person_a"] = names.get(a, a)
+        pair["person_b"] = names.get(b, b)
+        pair["person_a_groups"] = sorted(ga) if ga else []
+        pair["person_b_groups"] = sorted(gb) if gb else []
+        pair["cross_group"] = _cross_group(ga, gb)
+    return pairs
+
+
+def summary() -> dict:
+    """Headline counts for the weight-distribution check the design notes
+    ask for — surfaced on screen rather than left for someone to discover by
+    scrolling a table."""
+    total_people = db.one("SELECT COUNT(*) AS n FROM people")["n"]
+    multi_project_people = db.one(
+        """
+        SELECT COUNT(*) AS n FROM (
+            SELECT person_slug FROM (
+                SELECT DISTINCT project_id, person_slug FROM project_people
+            ) GROUP BY person_slug HAVING COUNT(*) >= 2
+        )
+        """
+    )["n"]
+
+    result = {"total_people": total_people, "people_on_multiple_projects": multi_project_people}
+    for kind in KINDS:
+        pairs = _pairs_for(kind)
+        weights = [p["weight"] for p in pairs]
+        result[kind] = {
+            "pair_count": len(weights),
+            "pairs_below_floor": sum(1 for w in weights if w < DEFAULT_MIN_WEIGHT[kind]),
+            "max_weight": max(weights) if weights else 0,
+        }
+    return result
+
+
+def neighbours(slug: str, kind: str, min_weight: int) -> list[dict]:
+    """Every collaborator of ``slug`` for ``kind``, sorted by weight desc —
+    the person-anchored neighbourhood view. Empty is a valid answer (someone
+    whose only project had no co-listed person), not an error."""
+    rows = []
+    for pair in enriched_pairs(kind):
+        if pair["weight"] < min_weight:
+            continue
+        if pair["person_a_slug"] == slug:
+            other = "b"
+        elif pair["person_b_slug"] == slug:
+            other = "a"
+        else:
+            continue
+        rows.append(
+            {
+                "slug": pair[f"person_{other}_slug"],
+                "name": pair[f"person_{other}"],
+                "groups": pair[f"person_{other}_groups"],
+                "weight": pair["weight"],
+                "weight_normalized": pair["weight_normalized"],
+                "cross_group": pair["cross_group"],
+            }
+        )
+    rows.sort(key=lambda r: (-r["weight"], r["name"]))
+    return rows

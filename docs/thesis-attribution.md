@@ -1,5 +1,34 @@
 # Thesis author/supervisor -> CISUC research-group attribution
 
+> **Status (2026-09-23): this file is now a test fixture, not an input.**
+>
+> Everything below still stands as the record of what was decided and why —
+> nothing in it has been revised. What changed is who does the work. The
+> name -> person join is no longer read from `docs/thesis-attribution.json`
+> at request time; it is resolved once, offline, by a deterministic matcher
+> (`analysis/name_match.py`), written into the `thesis_people` table in the
+> seed by `python -m analysis.build_thesis_facts`, and read from there.
+>
+> The hand-verified file became the **golden fixture** that matcher is tested
+> against (`tests/test_name_match.py`): all 36 matches below must come back
+> with the same slugs, and none of the 14 unattributed names may be resolved.
+> That is why the reasoning in each `note` field was worth writing — the
+> matcher's rules are generalisations of it, and the file is the evidence
+> they reproduce a careful human rather than merely look plausible.
+>
+> Why it had to stop being an input: the corpus is going from 18 theses to
+> all 181 DEI doctoral theses, which is ~300 names. Hand verification does
+> not scale, and a per-request YAML+JSON parse is not queryable — so the
+> advisor view, the collaboration graph and the theme recommendation would
+> each have had to re-implement this join their own way. They now query one
+> table instead.
+>
+> **The matcher's rules and tiers are in `analysis/name_match.py`'s module
+> docstring.** The method section below is what it implements; the two extra
+> rules it needed (duplicate `people` rows, and the primary-given-name
+> tie-break) were both generalised from `note` fields in the JSON, and are
+> documented there.
+
 This is the reviewable record for S5's people join: for each of the 18
 theses in `estudo_geral/`, does the author or a supervisor resolve to a
 person in `data/cisuc.sqlite3`'s `people` table, and if so, which of the six
@@ -13,10 +42,11 @@ group does this thesis belong to" cannot come from Estudo Geral at all — it
 has to come from joining the thesis's author/supervisor names against the
 existing `people` + `project_people` + `project_groups` tables. With only 18
 theses (50 unique names total) that join was verified by hand, name by name,
-rather than trusted to a script. This file is that verification record —
-`uc_phd_app/theses.py` loads the machine-readable twin,
-`docs/thesis-attribution.json`, at request time; nothing here is re-derived
-silently by the app.
+rather than trusted to a script. This file is that verification record.
+
+(As of 2026-09-23 the app no longer loads the machine-readable twin at
+request time — see the status note at the top. It reads `thesis_people` in
+the seed, which the matcher built and this file now guards.)
 
 ## Matching method — exact only, no similarity scoring
 
@@ -55,7 +85,17 @@ field for the two names.
 
 ## Result
 
-**36 of 50 unique names (72%) resolved; 14 (28%) are unattributed.** All 14
+**36 of 50 unique names (72%) resolved; 14 (28%) are unattributed.**
+
+The deterministic matcher reproduces that result exactly, and reports it in
+tiers: **31 `exact`, 5 `confident`, 0 `ambiguous`, 14 `unmatched`**. The five
+`confident` ones are the cases a rule beyond whole-token equality reached —
+three standard initials (Arrais, Cardoso, Rebelo), one duplicate-row union
+(Bicker), one primary-given-name tie-break (Antunes). Zero names are
+ambiguous today; that tier exists because it will not stay zero at 181
+theses.
+
+All 14
 unattributed names are thesis **authors** or **foreign/external
 co-supervisors** (e.g. `Frerichs, Inéz`, `Morais, Antônio Higor Freire de`) —
 expected, since PhD students and external collaborators are not CISUC

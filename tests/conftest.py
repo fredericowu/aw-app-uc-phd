@@ -33,8 +33,8 @@ def build_fixture_db(path: Path) -> Path:
     """A handful of rows covering every shape the queries care about:
     two research groups, a project in both, a project with no detail page, a
     project with no parsed budget, coordinators and researchers, keywords,
-    one academic and one industry partner, and a completed scrape run with
-    its manifest."""
+    one academic and one industry partner, a completed scrape run with its
+    manifest, and the thesis-facts corpus below."""
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA.read_text(encoding="utf-8"))
     conn.executescript(
@@ -71,8 +71,11 @@ def build_fixture_db(path: Path) -> Path:
         INSERT INTO project_groups (project_id, group_code) VALUES
             (1, 'NCS'), (1, 'AC'), (2, 'NCS');
 
+        -- 'grace' is on no project at all: a name can resolve to a real
+        -- person and still carry zero groups, which is not the same thing as
+        -- failing to resolve.
         INSERT INTO people (slug, name) VALUES
-            ('ada', 'Ada Lovelace'), ('alan', 'Alan Turing');
+            ('ada', 'Ada Lovelace'), ('alan', 'Alan Turing'), ('grace', 'Grace Hopper');
         INSERT INTO project_people (project_id, person_slug, role, ordinal) VALUES
             (1, 'ada',  'coordinator', 0),
             (1, 'alan', 'researcher',  1),
@@ -99,6 +102,48 @@ def build_fixture_db(path: Path) -> Path:
             (1, 1, 'Alpha Project', 'https://example.test/alpha', 'ok'),
             (2, 1, 'Beta Project',  'https://example.test/beta',  'ok'),
             (3, 1, 'Gamma Stub',    NULL,                          'no_detail_url');
+
+        -- The thesis facts the offline builder writes (analysis/
+        -- build_thesis_facts.py). Three theses covering every shape the
+        -- runtime join has to stay honest about: a supervisor who resolves
+        -- and carries groups, one who resolves and carries none, an author
+        -- who does not resolve at all, a person who is only ever a
+        -- *researcher* (the coordinator-then-researcher fallback), and a
+        -- thesis where nothing resolves.
+        INSERT INTO theses
+            (handle, slug, title, date, year, source_url, rights, full_text,
+             abstract_pt, abstract_en)
+        VALUES
+            ('10316/000001', '10316-000001', 'Thesis A', '2024-05-01', '2024',
+             'https://estudogeral.uc.pt/handle/10316/000001', 'openAccess', 1,
+             'Resumo A.', 'Abstract A.'),
+            ('10316/000002', '10316-000002', 'Thesis B', '2025-01-01', '2025',
+             'https://estudogeral.uc.pt/handle/10316/000002', 'embargoedAccess', 0,
+             NULL, NULL),
+            ('10316/000003', '10316-000003', 'Thesis C', '2023-11-20', '2023',
+             'https://estudogeral.uc.pt/handle/10316/000003', 'openAccess', 1,
+             NULL, NULL);
+
+        INSERT INTO thesis_people
+            (handle, name_raw, role, person_slug, match_status, match_confidence,
+             match_note, ordinal)
+        VALUES
+            ('10316/000001', 'Author, Ada Unresolved', 'author', NULL,
+             'unmatched', 0.0, 'no row in people carries that surname', 0),
+            ('10316/000001', 'Lovelace, Ada', 'supervisor', 'ada',
+             'exact', 1.0, 'every token matches', 0),
+            ('10316/000001', 'Hopper, Grace', 'supervisor', 'grace',
+             'exact', 1.0, 'every token matches', 1),
+            ('10316/000002', 'Turing, Alan', 'author', 'alan',
+             'exact', 1.0, 'every token matches', 0),
+            ('10316/000003', 'Nobody, At All', 'author', NULL,
+             'unmatched', 0.0, 'no row in people carries that surname', 0),
+            ('10316/000003', 'Ambiguous, Two People', 'supervisor', NULL,
+             'ambiguous', 0.4, 'two rows fit and nothing separates them', 0);
+
+        INSERT INTO thesis_keywords (handle, keyword, ordinal) VALUES
+            ('10316/000001', 'graphs', 0),
+            ('10316/000001', 'graphs', 1);
         """
     )
     conn.commit()
@@ -128,14 +173,26 @@ def live_db(isolated_data_dir):
     return build_fixture_db(isolated_data_dir / "cisuc.sqlite3")
 
 
-THESIS_FIXTURE_MD = """---
+#: One thesis in S1's real front-matter shape, for the offline builder's
+#: tests (tests/test_build_thesis_facts.py). The names are chosen against the
+#: fixture `people` rows above: "Lovelace, Ada" resolves, the other two do
+#: not — so one run covers both the matched and the preserved-unmatched path.
+#: `graphs` appears twice on purpose: 9 of the 18 real theses repeat a
+#: keyword, which is why thesis_keywords is keyed on ordinal.
+THESIS_MD = """---
 handle: 10316/000001
 title: Fixture Thesis
 authors:
-- Ada Author
+- Lovelace, Ada
 supervisors:
-- Curie Coord
+- Curie, Marie Sklodowska
+- Nobody, At All
 date: '2024-05-01'
+keywords:
+- graphs
+- graphs
+abstract_pt: Um resumo em portugues.
+abstract_en: An abstract in English.
 rights: openAccess
 full_text: true
 source_url: https://estudogeral.uc.pt/handle/10316/000001
@@ -143,11 +200,6 @@ source_url: https://estudogeral.uc.pt/handle/10316/000001
 
 # Fixture Thesis
 """
-
-THESIS_FIXTURE_ATTRIBUTION = {
-    "Ada Author": {"status": "unattributed", "note": "no exact match"},
-    "Curie Coord": {"status": "matched", "matches": [{"slug": "ada", "name": "Ada Lovelace"}]},
-}
 
 
 class _FakeTextEmbedding:

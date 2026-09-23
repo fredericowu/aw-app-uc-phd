@@ -80,13 +80,16 @@ def estudo_geral_dir() -> Path:
 
 
 def thesis_attribution_path() -> Path:
-    """The hand-verified thesis author/supervisor -> CISUC-person join (see
-    ``docs/thesis-attribution.md`` for the full record and methodology).
+    """``docs/thesis-attribution.json`` — the hand-verified name -> person
+    join, **no longer read at runtime**.
 
-    Overridable with ``AW_APP_UC_PHD_ATTRIBUTION_PATH`` for tests.
+    It is now the golden fixture the deterministic matcher is tested against
+    (``tests/test_name_match.py``): 50 decisions a human made, with written
+    reasoning on the hard ones. The app reads ``thesis_people`` in the seed
+    instead. This accessor stays because the test resolves the file through
+    it, and because nothing else in the repo should hardcode that path.
     """
-    override = os.environ.get("AW_APP_UC_PHD_ATTRIBUTION_PATH")
-    return Path(override) if override else PACKAGE_ROOT / "docs" / "thesis-attribution.json"
+    return PACKAGE_ROOT / "docs" / "thesis-attribution.json"
 
 
 def fastembed_cache_dir() -> Path:

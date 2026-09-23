@@ -32,6 +32,9 @@ things a static page could never do:
 | Budget by group / by year | `sql/budget_by_group.sql`, `sql/budget_by_year.sql` |
 | Projects started per year | `sql/start_date_timeline.sql` |
 | Top coordinators | `sql/top_coordinators.sql` |
+| The 18 Estudo Geral doctoral theses | `sql/theses.sql` |
+| Each thesis's authors/supervisors, resolved to a CISUC person or not | `sql/thesis_people.sql` |
+| How far the name matcher reaches (per tier, over distinct names) | `sql/thesis_match_tiers.sql` |
 | **Searchable, group-filterable project list** | live query, `uc_phd_app/api/projects.py` |
 | **Per-project detail**, including every raw `project_fields_raw` pair | live query |
 
@@ -123,11 +126,33 @@ one-shot CLI runs, never triggered by a route:
 ```bash
 .venv/bin/python -m scraper.run                    # CISUC projects -> data/cisuc.sqlite3
 .venv/bin/python -m estudo_geral_extractor.run      # DEI PhD theses -> estudo_geral/*.md
+.venv/bin/python -m analysis.build_thesis_facts     # estudo_geral/*.md -> the thesis tables
 ```
 
 Point the scraper at the data-dir database to refresh what the app serves.
 See "How the listing is fetched" below. See "The Estudo Geral extractor" at
 the bottom of this file for the thesis pull.
+
+The third one is the **identity spine**, and it is the step to re-run after
+either of the other two: it reads the committed `.md` front matter (checked
+against `manifest.json`, not just the glob), resolves every author and
+supervisor name against `people` with a deterministic matcher, and writes
+`theses` / `thesis_people` / `thesis_keywords` into the seed. It prints what
+it wrote, including how many names it could **not** resolve — today 14 of 50,
+all thesis authors or external co-supervisors. Those names are preserved as
+rows with a NULL `person_slug`, never dropped.
+
+Two halves that deliberately do not move together: **identity is frozen**
+into the seed by that script, while a matched person's **research group stays
+derived live** on every request from their project history
+(`uc_phd_app/theses.py`). A group is a live fact about a career; rebuilding
+the seed must never be what it takes for a new project to move someone's
+group.
+
+`docs/thesis-attribution.json` — 50 name decisions a human made by hand, with
+written reasoning — is no longer read at runtime. It is the **golden fixture**
+the matcher is replayed against in `tests/test_name_match.py`: reproduce all
+36 matches, resolve none of the 14 the human refused to, or the suite fails.
 
 ## Tests
 
@@ -143,9 +168,11 @@ readable and a schema change the app has not caught up with fails loudly.
 `tests/test_standalone.py` is the exception: it exercises the real committed
 artefacts (seed, `sql/`, `ui/dist`) on purpose.
 
-The coverage gate is **100%, scoped to `uc_phd_app`**. `scraper/` and
-`estudo_geral_extractor/` are deliberately outside it; `pyproject.toml`
-explains why next to the setting.
+The coverage gate is **100%, scoped to `uc_phd_app`**. `scraper/`,
+`estudo_geral_extractor/` and `analysis/` are deliberately outside it;
+`pyproject.toml` explains why next to the setting. (`analysis/` was at 100%
+when it landed regardless — what actually holds it is the golden fixture,
+not the gate.)
 
 `ui/dist` is **committed** — release CI ships the repo as-is and never runs
 `npm run build`. CI fails if a fresh build would change it.

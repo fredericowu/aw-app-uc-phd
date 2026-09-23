@@ -1,119 +1,26 @@
-"""uc_phd_app/theses.py — the estudo_geral/*.md -> people/project_groups join.
+"""uc_phd_app/theses.py — the seed's thesis facts -> live research groups.
 
-Uses the same small fixture database as test_routes.py/test_db.py (Ada
-Lovelace coordinates Alpha [AC, NCS] and Beta [NCS]; Alan Turing is only ever
-a *researcher* on Alpha, never a coordinator) so the coordinator-then-
-researcher fallback in ``_person_groups`` is exercised against real rows
-rather than asserted in the abstract.
+Runs against the same small fixture database as test_routes.py/test_db.py.
+Ada Lovelace coordinates Alpha [AC, NCS] and Beta [NCS]; Alan Turing is only
+ever a *researcher* on Alpha, never a coordinator; Grace Hopper is on no
+project at all — so the coordinator-then-researcher fallback and the
+"resolved to a real person who still has no group" case are both exercised
+against real rows rather than asserted in the abstract.
+
+The identity half of this join is no longer re-derived here at all: it is
+frozen in ``thesis_people`` by ``analysis/build_thesis_facts.py``, and
+tests/test_name_match.py is what holds that half honest.
 """
 from __future__ import annotations
-
-import json
 
 import pytest
 
 from uc_phd_app import theses
 
-THESIS_A = """---
-handle: 10316/000001
-title: Thesis A
-authors:
-- Ada Author
-supervisors:
-- Curie Coord
-- Nomatch Nobody
-date: '2024-05-01'
-rights: openAccess
-full_text: true
-source_url: https://estudogeral.uc.pt/handle/10316/000001
----
-
-# Thesis A
-
-Body text nobody needs to read for this test.
-"""
-
-THESIS_B = """---
-handle: 10316/000002
-title: Thesis B
-authors:
-- Turing Research
-supervisors: []
-date: '2025-01-01'
-rights: embargoedAccess
-full_text: false
-source_url: https://estudogeral.uc.pt/handle/10316/000002
----
-
-# Thesis B
-"""
-
-THESIS_C = """---
-handle: 10316/000003
-title: Thesis C
-authors:
-- Nobody Author
-supervisors:
-- Nobody Supervisor
-date: '2023-11-20'
-rights: openAccess
-full_text: true
-source_url: https://estudogeral.uc.pt/handle/10316/000003
----
-
-# Thesis C
-"""
-
-ATTRIBUTION = {
-    "Ada Author": {"status": "unattributed", "note": "no exact match in people"},
-    "Curie Coord": {
-        "status": "matched",
-        "matches": [{"slug": "ada", "name": "Ada Lovelace"}],
-        "note": "test fixture match",
-    },
-    # Matched to a real person-shaped slug with no project_people rows at
-    # all, so _person_groups legitimately returns an empty set for a
-    # *matched* name — distinct from "unattributed".
-    "Nomatch Nobody": {
-        "status": "matched",
-        "matches": [{"slug": "nope", "name": "Nobody Project-less"}],
-    },
-    # alan is only ever a researcher in the fixture DB (never a
-    # coordinator), so resolving this name exercises the fallback branch.
-    "Turing Research": {
-        "status": "matched",
-        "matches": [{"slug": "alan", "name": "Alan Turing"}],
-    },
-    # Thesis C's names are deliberately absent from this table entirely —
-    # covers the "no entry at all" unattributed path, distinct from
-    # "Ada Author" above where an entry exists but says unattributed.
-}
-
 
 @pytest.fixture()
-def estudo_geral_dir(tmp_path):
-    d = tmp_path / "estudo_geral"
-    d.mkdir()
-    (d / "10316-000001.md").write_text(THESIS_A, encoding="utf-8")
-    (d / "10316-000002.md").write_text(THESIS_B, encoding="utf-8")
-    (d / "10316-000003.md").write_text(THESIS_C, encoding="utf-8")
-    return d
-
-
-@pytest.fixture()
-def attribution_path(tmp_path):
-    p = tmp_path / "thesis-attribution.json"
-    p.write_text(json.dumps(ATTRIBUTION), encoding="utf-8")
-    return p
-
-
-@pytest.fixture()
-def theses_list(estudo_geral_dir, attribution_path, live_db):
-    return theses.list_theses(
-        estudo_geral_dir=estudo_geral_dir,
-        attribution_path=attribution_path,
-        db_path=live_db,
-    )
+def theses_list(live_db):
+    return theses.list_theses(db_path=live_db)
 
 
 def _by_handle(items, handle):
@@ -129,14 +36,20 @@ def test_a_matched_supervisor_carries_their_coordinator_groups(theses_list):
     assert a["source_url"] == "https://estudogeral.uc.pt/handle/10316/000001"
 
     author = a["authors"][0]
-    assert author == {"name": "Ada Author", "status": "unattributed", "note": "no exact match in people", "matched": [], "groups": []}
+    assert author["name"] == "Author, Ada Unresolved"
+    assert author["status"] == "unattributed"
+    assert author["match_status"] == "unmatched"
+    assert author["matched"] == []
+    assert author["groups"] == []
 
     supervisors = {s["name"]: s for s in a["supervisors"]}
-    assert supervisors["Curie Coord"]["status"] == "matched"
-    assert supervisors["Curie Coord"]["groups"] == ["AC", "NCS"]
-    # Matched to a real slug, but that slug coordinates/researches nothing —
-    # a matched name can still legitimately resolve to zero groups.
-    assert supervisors["Nomatch Nobody"]["groups"] == []
+    assert supervisors["Lovelace, Ada"]["status"] == "matched"
+    assert supervisors["Lovelace, Ada"]["match_status"] == "exact"
+    assert supervisors["Lovelace, Ada"]["matched"] == [{"slug": "ada", "name": "Ada Lovelace"}]
+    assert supervisors["Lovelace, Ada"]["groups"] == ["AC", "NCS"]
+    # Resolved to a real person who coordinates and researches nothing: a
+    # matched name can legitimately carry zero groups.
+    assert supervisors["Hopper, Grace"]["groups"] == []
 
     # Thesis-level groups are the union across every resolved name.
     assert a["groups"] == ["AC", "NCS"]
@@ -157,13 +70,28 @@ def test_researcher_role_is_the_fallback_when_a_person_never_coordinates(theses_
     assert b["groups"] == ["AC", "NCS"]
 
 
-def test_a_thesis_with_no_entry_at_all_for_any_name_is_unattributed(theses_list):
+def test_an_ambiguous_name_is_shown_unattributed_never_resolved(theses_list):
+    """Two real people fit and nothing separates them. Picking either is the
+    guess the whole spine exists to avoid — so the name is preserved, the
+    tier says why, and the thesis gains no group from it."""
     c = _by_handle(theses_list, "10316/000003")
+    supervisor = c["supervisors"][0]
+    assert supervisor["name"] == "Ambiguous, Two People"
+    assert supervisor["status"] == "unattributed"
+    assert supervisor["match_status"] == "ambiguous"
+    assert supervisor["confidence"] == 0.4
+    assert supervisor["matched"] == []
+
     assert c["authors"][0]["status"] == "unattributed"
-    assert c["authors"][0]["note"] is None
-    assert c["supervisors"][0]["status"] == "unattributed"
     assert c["groups"] == []
     assert c["attributed"] is False
+
+
+def test_the_matcher_note_survives_into_the_payload(theses_list):
+    """The UI renders it as the name's tooltip — it is the only place a
+    reader finds out *why* a name went unattributed."""
+    a = _by_handle(theses_list, "10316/000001")
+    assert a["authors"][0]["note"] == "no row in people carries that surname"
 
 
 def test_group_breakdown_is_many_to_many_and_counts_the_unattributed(theses_list):
@@ -173,37 +101,23 @@ def test_group_breakdown_is_many_to_many_and_counts_the_unattributed(theses_list
     assert breakdown["unattributed"] == 1  # Thesis C only
 
 
-def test_malformed_front_matter_raises(tmp_path, attribution_path):
-    bad_dir = tmp_path / "estudo_geral"
-    bad_dir.mkdir()
-    (bad_dir / "broken.md").write_text("# No front matter here\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="no YAML front matter"):
-        theses.list_theses(estudo_geral_dir=bad_dir, attribution_path=attribution_path)
+def test_match_tiers_counts_distinct_names_not_rows(live_db):
+    """Six thesis_people rows, six distinct names, and the tiers reported over
+    names — a supervisor on three theses is one identity decision."""
+    assert theses.match_tiers(live_db) == {"exact": 3, "unmatched": 2, "ambiguous": 1}
 
 
-def test_the_committed_attribution_table_covers_every_real_thesis_name():
-    """The reviewable record (docs/thesis-attribution.json) must not silently
-    drift out of sync with the real estudo_geral/*.md files it documents —
-    every author/supervisor name in the real theses needs an entry, matched
-    or explicitly unattributed."""
-    from uc_phd_app import paths
+def test_a_thesis_with_no_people_rows_at_all_still_lists(live_db, tmp_path):
+    """Nothing in the corpus should vanish because its names were lost — the
+    thesis is still a thesis, just fully unattributed."""
+    import sqlite3
 
-    with open(paths.thesis_attribution_path(), encoding="utf-8") as f:
-        attribution = json.load(f)
+    conn = sqlite3.connect(live_db)
+    conn.execute("DELETE FROM thesis_people WHERE handle = '10316/000003'")
+    conn.commit()
+    conn.close()
 
-    real_theses = theses._load_front_matters()
-    assert len(real_theses) == 18
-
-    all_names = set()
-    for fm in real_theses:
-        all_names.update(fm.get("authors") or [])
-        all_names.update(fm.get("supervisors") or [])
-
-    assert all_names == set(attribution), (
-        f"missing from docs/thesis-attribution.json: {all_names - set(attribution)}; "
-        f"stale entries no thesis references: {set(attribution) - all_names}"
-    )
-    for name, entry in attribution.items():
-        assert entry["status"] in ("matched", "unattributed")
-        if entry["status"] == "matched":
-            assert entry["matches"], f"{name}: matched status needs at least one match"
+    c = _by_handle(theses.list_theses(db_path=live_db), "10316/000003")
+    assert c["authors"] == []
+    assert c["supervisors"] == []
+    assert c["attributed"] is False

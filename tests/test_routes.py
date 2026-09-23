@@ -244,12 +244,12 @@ def test_project_detail_404s_for_an_unknown_id(client):
 # ── theses ──────────────────────────────────────────────────────────────────
 
 
-def test_theses_list_resolves_the_fixture_attribution(client, theses_env):
+def test_theses_list_resolves_identity_from_the_seed(client):
     body = client.get("/api/theses").json()
-    assert len(body["theses"]) == 1
+    assert len(body["theses"]) == 3
     thesis = body["theses"][0]
     assert thesis["handle"] == "10316/000001"
-    assert thesis["title"] == "Fixture Thesis"
+    assert thesis["title"] == "Thesis A"
     assert thesis["year"] == "2024"
     assert thesis["source_url"] == "https://estudogeral.uc.pt/handle/10316/000001"
     assert thesis["authors"][0]["status"] == "unattributed"
@@ -259,15 +259,18 @@ def test_theses_list_resolves_the_fixture_attribution(client, theses_env):
     assert thesis["attributed"] is True
     assert "more than 18" in body["caveat"]
     assert "docs/thesis-attribution.md" in body["attribution_note"]
+    # How far the identity spine reaches, reported next to the data rather
+    # than left for a reader to count.
+    assert body["match_tiers"] == {"exact": 3, "unmatched": 2, "ambiguous": 1}
 
 
-def test_theses_groups_breakdown_names_every_group_and_the_unattributed_count(client, theses_env):
+def test_theses_groups_breakdown_names_every_group_and_the_unattributed_count(client):
     body = client.get("/api/theses/groups").json()
-    assert body["total_theses"] == 1
-    assert body["unattributed"] == 0
+    assert body["total_theses"] == 3
+    assert body["unattributed"] == 1
     # The fixture DB only seeds NCS and AC (see conftest.build_fixture_db).
     counts = {g["code"]: g["thesis_count"] for g in body["groups"]}
-    assert counts == {"AC": 1, "NCS": 1}
+    assert counts == {"AC": 2, "NCS": 2}
     names = {g["code"]: g["name"] for g in body["groups"]}
     assert names["NCS"] == "Networks, Communications and Security"
     assert "more than 18" in body["caveat"]

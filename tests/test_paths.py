@@ -60,17 +60,13 @@ def test_estudo_geral_dir_follows_the_explicit_override(tmp_path, monkeypatch):
     assert paths.estudo_geral_dir() == tmp_path
 
 
-def test_thesis_attribution_path_defaults_to_the_committed_doc(monkeypatch):
-    monkeypatch.delenv("AW_APP_UC_PHD_ATTRIBUTION_PATH", raising=False)
+def test_thesis_attribution_path_points_at_the_golden_fixture():
+    """No longer runtime input and no longer overridable: it is the fixture
+    tests/test_name_match.py replays 50 hand-made decisions from, and a test
+    that could be pointed at a different file proves nothing."""
     default = paths.thesis_attribution_path()
     assert default == paths.PACKAGE_ROOT / "docs" / "thesis-attribution.json"
     assert default.is_file(), "docs/thesis-attribution.json must stay committed"
-
-
-def test_thesis_attribution_path_follows_the_explicit_override(tmp_path, monkeypatch):
-    target = tmp_path / "attribution.json"
-    monkeypatch.setenv("AW_APP_UC_PHD_ATTRIBUTION_PATH", str(target))
-    assert paths.thesis_attribution_path() == target
 
 
 def test_fastembed_cache_dir_is_under_the_data_dir_not_tmp(isolated_data_dir):

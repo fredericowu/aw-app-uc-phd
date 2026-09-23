@@ -84,9 +84,12 @@ def test_table_counts_covers_every_table_healthz_reports(fixture_db):
     assert counts["project_groups"] == 3
     assert counts["project_partners"] == 2
     assert counts["scrape_targets"] == 3
+    assert counts["theses"] == 3
+    assert counts["thesis_people"] == 6
     assert set(counts) == {
         "projects", "project_fields_raw", "research_groups", "project_groups",
         "people", "project_people", "project_keywords", "project_partners",
+        "theses", "thesis_people", "thesis_keywords",
         "scrape_runs", "scrape_targets",
     }
 

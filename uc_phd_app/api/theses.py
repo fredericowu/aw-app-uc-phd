@@ -15,11 +15,16 @@ router = APIRouter()
 @router.get("/theses")
 async def list_theses() -> dict:
     """Every thesis: title, author, supervisor(s), year, resolved research
-    group(s) (or none), whether full text was indexed, and the source URL."""
+    group(s) (or none), whether full text was indexed, and the source URL.
+
+    ``match_tiers`` reports how many distinct names the offline matcher
+    resolved and how many it could not — surfaced next to the data rather
+    than left for someone to discover by counting "(unattributed)" labels."""
     return {
         "theses": theses.list_theses(),
         "caveat": theses.GROUP_CAVEAT,
         "attribution_note": theses.ATTRIBUTION_NOTE,
+        "match_tiers": theses.match_tiers(),
     }
 
 

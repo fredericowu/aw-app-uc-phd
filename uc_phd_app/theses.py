@@ -1,27 +1,34 @@
-"""S1's extracted theses (``estudo_geral/*.md``) joined to CISUC research
-groups via the S5 hand-verified attribution table.
+"""The thesis corpus, read from the seed and joined to CISUC research groups.
 
-Estudo Geral has no research-group field, and its CISUC community holds zero
-theses (theses deposit under the department, not the research centre) — see
-``docs/thesis-attribution.md``. So a thesis's group comes from joining its
-author/supervisor names against the existing ``people`` table, then reading
-that matched person's own project history for their group(s). The name ->
-person identity join is the part that cannot be safely automated at this
-scale, so it was hand-verified once and recorded in
-``docs/thesis-attribution.json``; nothing here re-derives or guesses it. The
-person -> group step *is* re-derived live, on every request, from the same
-``project_people`` / ``project_groups`` tables every other figure in this app
-already reads — a group is a live fact about a person's project history, not
-something to freeze in the attribution file.
+Two halves that must stay apart, and did not before this module was rewritten.
+
+**Identity is frozen.** "Which person is `Carvalho, Paulo Fernando Pereira
+de`?" is answered once, offline, by ``analysis/name_match.py``, and committed
+into ``thesis_people``. It used to be answered by re-parsing 18 YAML front
+matters on every request against a hand-verified JSON file — fine at 18
+theses, not at the 181 the corpus is growing to, and not once the advisor
+view, the collaboration graph and the theme recommendation each need the same
+join. Each of them now queries this one table instead of inventing a fourth
+notion of who a person is.
+
+**Groups stay live.** A matched person's research group is still re-derived
+on every request from ``project_people`` / ``project_groups``, exactly as
+before. That is deliberate and worth keeping verbatim: a group is a live fact
+about a person's project history, not something to freeze into a thesis row.
+Rebuilding the seed must never be what it takes for a new project to move
+someone's group.
+
+A name the matcher could not resolve is still a row here, carrying
+``name_raw`` and its tier — never dropped, never guessed. 14 of today's 50
+names are unmatched, all of them thesis authors or external co-supervisors;
+``docs/thesis-attribution.md`` has the full record and the two deliberate
+near-misses.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import yaml
-
-from . import db, paths
+from . import db
 
 #: Carried with the theses payload — the per-thesis group list is
 #: many-to-many for the same reason projects are (see
@@ -36,34 +43,19 @@ GROUP_CAVEAT = (
 )
 
 ATTRIBUTION_NOTE = (
-    "Group attribution is a hand-verified join of each thesis's author/"
-    "supervisor names against the existing people/project_groups tables — "
-    "Estudo Geral itself has no research-group field. Exact matching only "
-    "(surname + given name or a standard initial); a name that does not "
-    "exactly resolve is left unattributed rather than guessed. Full "
-    "record: docs/thesis-attribution.md."
+    "Group attribution joins each thesis's author/supervisor names against "
+    "the existing people/project_groups tables — Estudo Geral itself has no "
+    "research-group field. The name -> person step is resolved once, offline, "
+    "by a deterministic matcher (analysis/name_match.py) whose every decision "
+    "carries a tier: exact, confident, ambiguous or unmatched. Ambiguous and "
+    "unmatched names are shown as unattributed rather than resolved by "
+    "guessing. Full record: docs/thesis-attribution.md."
 )
 
-
-def _load_front_matters(estudo_geral_dir: Path | None = None) -> list[dict]:
-    """Every thesis's YAML front matter, without reading the (much larger)
-    body text that follows it."""
-    directory = estudo_geral_dir or paths.estudo_geral_dir()
-    front_matters = []
-    for md_path in sorted(directory.glob("*.md")):
-        text = md_path.read_text(encoding="utf-8")
-        parts = text.split("---\n", 2)
-        if len(parts) < 3:
-            raise ValueError(f"{md_path}: no YAML front matter delimiters found")
-        front_matters.append(yaml.safe_load(parts[1]))
-    return front_matters
-
-
-def _load_attribution(attribution_path: Path | None = None) -> dict:
-    path = attribution_path or paths.thesis_attribution_path()
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
-
+#: Tiers that mean "this is a person". ``ambiguous`` is deliberately not one
+#: of them: more than one real person fits, and picking either is the guess
+#: this whole module exists to avoid.
+RESOLVED_TIERS = ("exact", "confident")
 
 _COORDINATOR_GROUPS_SQL = """
     SELECT DISTINCT pg.group_code
@@ -89,66 +81,81 @@ def _person_groups(slug: str, db_path: Path | None = None) -> set[str]:
     return {r["group_code"] for r in db.rows(_RESEARCHER_GROUPS_SQL, {"slug": slug}, db_path)}
 
 
-def _resolve_name(name: str, attribution: dict, db_path: Path | None = None) -> dict:
-    entry = attribution.get(name)
-    if not entry or entry.get("status") != "matched":
-        return {
-            "name": name,
-            "status": "unattributed",
-            "note": (entry or {}).get("note"),
-            "matched": [],
-            "groups": [],
-        }
-    matched = []
-    groups: set[str] = set()
-    for m in entry["matches"]:
-        matched.append(m)
-        groups |= _person_groups(m["slug"], db_path)
-    return {
-        "name": name,
-        "status": "matched",
-        "note": entry.get("note"),
-        "matched": matched,
-        "groups": sorted(groups),
-    }
+def _resolve_person_rows(rows: list[dict], db_path: Path | None = None) -> list[dict]:
+    """Collapse the ``thesis_people`` rows for one (name, role) into the shape
+    the dashboard renders.
+
+    ``status`` stays "matched"/"unattributed" — the frontend's existing
+    contract — and the finer ``match_status`` tier rides alongside it, so a
+    later view can distinguish "nobody fits" from "two people fit" without
+    this one changing.
+    """
+    by_name: dict[str, dict] = {}
+    slug_cache: dict[str, set[str]] = {}
+    for row in rows:
+        entry = by_name.get(row["name_raw"])
+        if entry is None:
+            resolved = row["match_status"] in RESOLVED_TIERS
+            entry = by_name[row["name_raw"]] = {
+                "name": row["name_raw"],
+                "status": "matched" if resolved else "unattributed",
+                "match_status": row["match_status"],
+                "confidence": row["match_confidence"],
+                "note": row["match_note"],
+                "matched": [],
+                "groups": [],
+            }
+        if entry["status"] != "matched" or row["person_slug"] is None:
+            continue
+        entry["matched"].append({"slug": row["person_slug"], "name": row["person_name"]})
+        slug = row["person_slug"]
+        if slug not in slug_cache:
+            slug_cache[slug] = _person_groups(slug, db_path)
+        entry["groups"] = sorted(set(entry["groups"]) | slug_cache[slug])
+    return list(by_name.values())
 
 
-def _thesis_summary(front_matter: dict, attribution: dict, db_path: Path | None = None) -> dict:
-    authors = [_resolve_name(n, attribution, db_path) for n in front_matter.get("authors") or []]
-    supervisors = [
-        _resolve_name(n, attribution, db_path) for n in front_matter.get("supervisors") or []
-    ]
-    groups: set[str] = set()
-    for resolved in (*authors, *supervisors):
-        groups.update(resolved["groups"])
-    date = front_matter.get("date") or ""
-    return {
-        "handle": front_matter["handle"],
-        "title": front_matter["title"],
-        "source_url": front_matter.get("source_url"),
-        "year": date[:4] or None,
-        "rights": front_matter.get("rights"),
-        "full_text": bool(front_matter.get("full_text")),
-        "authors": authors,
-        "supervisors": supervisors,
-        "groups": sorted(groups),
-        "attributed": bool(groups),
-    }
-
-
-def list_theses(
-    *,
-    estudo_geral_dir: Path | None = None,
-    attribution_path: Path | None = None,
-    db_path: Path | None = None,
-) -> list[dict]:
+def list_theses(db_path: Path | None = None) -> list[dict]:
     """Every thesis, with its author/supervisors resolved to a CISUC person
     (or flagged unattributed) and its research group(s) joined in live."""
-    attribution = _load_attribution(attribution_path)
-    return [
-        _thesis_summary(fm, attribution, db_path)
-        for fm in _load_front_matters(estudo_geral_dir)
-    ]
+    people_rows = db.rows(db.load_query("thesis_people"), (), db_path)
+    by_handle: dict[str, dict[str, list[dict]]] = {}
+    for row in people_rows:
+        by_handle.setdefault(row["handle"], {}).setdefault(row["role"], []).append(row)
+
+    theses = []
+    for thesis in db.rows(db.load_query("theses"), (), db_path):
+        roles = by_handle.get(thesis["handle"], {})
+        authors = _resolve_person_rows(roles.get("author", []), db_path)
+        supervisors = _resolve_person_rows(roles.get("supervisor", []), db_path)
+        groups: set[str] = set()
+        for resolved in (*authors, *supervisors):
+            groups.update(resolved["groups"])
+        theses.append(
+            {
+                "handle": thesis["handle"],
+                "title": thesis["title"],
+                "source_url": thesis["source_url"],
+                "year": thesis["year"],
+                "rights": thesis["rights"],
+                "full_text": bool(thesis["full_text"]),
+                "authors": authors,
+                "supervisors": supervisors,
+                "groups": sorted(groups),
+                "attributed": bool(groups),
+            }
+        )
+    return theses
+
+
+def match_tiers(db_path: Path | None = None) -> dict:
+    """How many distinct names landed in each matcher tier.
+
+    Reported rather than hidden: the unmatched count is the honest measure of
+    how far the identity spine reaches, and it will grow as the corpus does.
+    """
+    rows = db.rows(db.load_query("thesis_match_tiers"), (), db_path)
+    return {row["match_status"]: row["name_count"] for row in rows}
 
 
 def group_breakdown(theses: list[dict]) -> dict:

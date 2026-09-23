@@ -8,7 +8,7 @@ testpaths = ["tests"]
 # DELIBERATE NARROWING — read this before "fixing" it.
 #
 # aw-app-template measures `--cov=template_app`, its whole repo. This repo has
-# three Python packages, and only one of them is the app:
+# four Python packages, and only one of them is the app:
 #
 #   uc_phd_app/             the app. Runs inside the workspace, on every
 #                            request. 100%.
@@ -27,6 +27,20 @@ testpaths = ["tests"]
 #                            functions have fixture-based tests
 #                            (tests/test_estudo_geral_extractor.py); its
 #                            network paths do not.
+#   analysis/               offline build steps (`python -m
+#                            analysis.build_thesis_facts`) whose output is
+#                            committed into the seed. Not network-bound like
+#                            the two above — it is excluded for the other
+#                            reason: it does not run in production at all.
+#                            It is nonetheless the most heavily tested code
+#                            in the repo, because name_match.py is replayed
+#                            against 50 hand-verified decisions
+#                            (tests/test_name_match.py) and the builder
+#                            against a fixture corpus
+#                            (tests/test_build_thesis_facts.py). Coverage was
+#                            100% of both modules when they landed; the gate
+#                            below is not what holds them, the golden fixture
+#                            is.
 #
 # Holding either one-shot CLI to 100% would therefore buy fake tests, and
 # lowering the gate to accommodate them would drop the floor for the code

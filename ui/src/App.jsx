@@ -27,9 +27,7 @@ const TABS = [
   { id: 'fit', label: 'Fit' },
   { id: 'groups', label: 'Research groups' },
   { id: 'top', label: 'Top 10 per group' },
-  { id: 'money', label: 'Funding & budget' },
-  { id: 'coordinators', label: 'Coordinators' },
-  { id: 'collab', label: 'Collaboration' },
+  { id: 'coordinators', label: 'Coordinators & collaboration' },
   { id: 'partners', label: 'Partners' },
   { id: 'projects', label: 'All projects' },
   { id: 'theses', label: 'Theses' },
@@ -96,16 +94,22 @@ export default function App() {
     body = <Groups />;
   } else if (route.tab === 'top') {
     body = <TopProjects onOpenProject={openProject} />;
-  } else if (route.tab === 'money') {
-    body = <Money />;
   } else if (route.tab === 'coordinators') {
-    body = <Coordinators />;
-  } else if (route.tab === 'collab') {
-    body = <Collab />;
+    body = (
+      <>
+        <Coordinators />
+        <Collab />
+      </>
+    );
   } else if (route.tab === 'partners') {
     body = <Partners />;
   } else if (route.tab === 'projects') {
-    body = <Projects onOpenProject={openProject} />;
+    body = (
+      <>
+        <Projects onOpenProject={openProject} />
+        <Money />
+      </>
+    );
   } else if (route.tab === 'theses') {
     body = <Theses onOpenThesis={openThesis} />;
   } else {

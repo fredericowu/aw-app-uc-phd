@@ -9,7 +9,7 @@
 // site started publishing after the parser was written.
 
 import { api } from '../api';
-import { AsyncBoundary, DataTable, ExternalLink, useAsync } from '../components';
+import { AsyncBoundary, DataTable, ExternalLink, PersonLink, useAsync } from '../components';
 import { groupColorVar, partnerTypeColorVar } from '../colors';
 import { date, money } from '../format';
 
@@ -83,7 +83,11 @@ export default function ProjectDetail({ projectId, onBack }) {
                 {p.people.length ? (
                   <DataTable
                     columns={[
-                      { key: 'name', label: 'Name' },
+                      {
+                        key: 'name',
+                        label: 'Name',
+                        render: (r) => <PersonLink slug={r.slug}>{r.name}</PersonLink>,
+                      },
                       { key: 'role', label: 'Role' },
                     ]}
                     rows={p.people}

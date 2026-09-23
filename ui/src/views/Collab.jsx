@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { AsyncBoundary, Caveat, DataTable, Section, Tile, useAsync } from '../components';
+import { AsyncBoundary, Caveat, DataTable, PersonLink, Section, Tile, useAsync } from '../components';
 import { groupColorVar } from '../colors';
 import { count } from '../format';
 import CollabGraph from './CollabGraph';
@@ -123,9 +123,9 @@ function PairsTable({ kind, minWeight }) {
           </p>
           <DataTable
             columns={[
-              { key: 'person_a', label: 'Person' },
+              { key: 'person_a', label: 'Person', render: (r) => <PersonLink slug={r.person_a_slug}>{r.person_a}</PersonLink> },
               { key: 'person_a_groups', label: 'Groups', render: (r) => <GroupChips groups={r.person_a_groups} /> },
-              { key: 'person_b', label: 'Person' },
+              { key: 'person_b', label: 'Person', render: (r) => <PersonLink slug={r.person_b_slug}>{r.person_b}</PersonLink> },
               { key: 'person_b_groups', label: 'Groups', render: (r) => <GroupChips groups={r.person_b_groups} /> },
               { key: 'weight', label: 'Weight', numeric: true, render: (r) => count(r.weight) },
               ...(kind === 'co_project'
@@ -165,7 +165,9 @@ function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
       {(data) => (
         <div className="card">
           <p className="chart-note">
-            <strong>{data.person.name}</strong>
+            <strong>
+              <PersonLink slug={data.person.slug}>{data.person.name}</PersonLink>
+            </strong>
             {' — '}
             <GroupChips groups={data.person.groups} />
             {' · '}
@@ -178,7 +180,7 @@ function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
           </p>
           <DataTable
             columns={[
-              { key: 'name', label: 'Collaborator' },
+              { key: 'name', label: 'Collaborator', render: (r) => <PersonLink slug={r.slug}>{r.name}</PersonLink> },
               { key: 'groups', label: 'Groups', render: (r) => <GroupChips groups={r.groups} /> },
               { key: 'weight', label: 'Weight', numeric: true, render: (r) => count(r.weight) },
               ...(kind === 'co_project'

@@ -16,7 +16,7 @@
 //      document might well exist, we just could not load it this time.
 
 import { api } from '../api';
-import { AsyncBoundary, Caveat, ExternalLink, useAsync } from '../components';
+import { AsyncBoundary, Caveat, ExternalLink, ResolvedPersonName, useAsync } from '../components';
 import { groupColorVar } from '../colors';
 
 function PersonList({ people }) {
@@ -28,8 +28,10 @@ function PersonList({ people }) {
           {i > 0 ? ', ' : ''}
           {/* The match tier (exact/confident/ambiguous/unmatched) rides as a
               tooltip on the name — the same attribution-tier treatment used
-              in Theses.jsx, not re-derived here. */}
-          <span title={p.note || p.match_status || undefined}>{p.name}</span>
+              in Theses.jsx, not re-derived here. The name becomes a profile
+              link only when it resolves to exactly one person; see
+              ResolvedPersonName for why matched[0] is never picked. */}
+          <ResolvedPersonName person={p} title={p.note || p.match_status || undefined} />
           {p.status !== 'matched' ? (
             <span style={{ color: 'var(--text-muted)' }}> (unattributed)</span>
           ) : null}

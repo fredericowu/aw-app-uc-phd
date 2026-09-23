@@ -42,6 +42,7 @@ from . import store as store_mod
 from .api import collab as collab_api
 from .api import fit as fit_api
 from .api import partner_links as partner_links_api
+from .api import people as people_api
 from .api import projects as projects_api
 from .api import search as search_api
 from .api import theses as theses_api
@@ -87,6 +88,7 @@ def build_routes(store: store_mod.VectorStore | None = None) -> FastAPI:
     app.include_router(search_api.router, prefix="/api", tags=["search"])
     app.include_router(fit_api.router, prefix="/api", tags=["fit"])
     app.include_router(collab_api.router, prefix="/api", tags=["collab"])
+    app.include_router(people_api.router, prefix="/api", tags=["people"])
 
     # ------------------------------------------------------------------
     # MCP — Streamable HTTP, auto-discovered by aw-mcp-gateway's app-scan

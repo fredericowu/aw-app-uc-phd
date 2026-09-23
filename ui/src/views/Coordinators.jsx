@@ -8,6 +8,7 @@ import {
   AsyncBoundary,
   ChartWithTable,
   GroupLegend,
+  PersonLink,
   Section,
   StackedCategoryBars,
   useAsync,
@@ -78,7 +79,11 @@ export default function Coordinators() {
                 title="Coordinators by projects coordinated"
                 note="Every coordinator, not just the busiest ones — source: sql/top_coordinators.sql. At this row count the bar chart itself is tall rather than readable at a glance; the table (toggle above) is the real 'see everyone' view."
                 columns={[
-                  { key: 'coordinator', label: 'Coordinator' },
+                  {
+                    key: 'coordinator',
+                    label: 'Coordinator',
+                    render: (r) => <PersonLink slug={r.coordinator_slug}>{r.coordinator}</PersonLink>,
+                  },
                   {
                     key: 'project_count',
                     label: 'Projects',

@@ -13,6 +13,7 @@ import {
   CategoryBars,
   ChartWithTable,
   GroupLegend,
+  ResolvedPersonName,
   Section,
   Tile,
   useAsync,
@@ -35,7 +36,7 @@ function PersonList({ people }) {
       {people.map((p, i) => (
         <span key={p.name}>
           {i > 0 ? ', ' : ''}
-          <span title={p.note || undefined}>{p.name}</span>
+          <ResolvedPersonName person={p} title={p.note || undefined} />
           {p.status !== 'matched' ? (
             <span style={{ color: 'var(--text-muted)' }}> (unattributed)</span>
           ) : null}

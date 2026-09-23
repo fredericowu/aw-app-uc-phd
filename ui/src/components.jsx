@@ -65,6 +65,48 @@ export function ExternalLink({ href, children, title }) {
   );
 }
 
+/** A link to one person's profile page (`#/people/{slug}`).
+ *
+ *  A plain anchor on purpose, not a button calling App.jsx's `go()`. People
+ *  are named in six different views and `go()` is threaded down to almost
+ *  none of them, so a callback would mean a new prop on every one of them;
+ *  an anchor means none of them changes shape. It also makes middle-click and
+ *  open-in-new-tab work, and App.jsx's existing `hashchange` listener already
+ *  picks the navigation up.
+ *
+ *  Only ever render this where a slug is KNOWN. A name that resolved to more
+ *  than one slug, or to none, stays plain text — picking one would silently
+ *  send the reader to the wrong person. */
+export function PersonLink({ slug, children, title }) {
+  return (
+    <a href={`#/people/${encodeURIComponent(slug)}`} title={title}>
+      {children}
+    </a>
+  );
+}
+
+/** A thesis author/supervisor name, linked to a profile ONLY when it
+ *  unambiguously identifies one person.
+ *
+ *  `theses.py`'s `_resolve_person_rows` returns `matched` as a LIST — one
+ *  name on one thesis can resolve to several CISUC slugs, and it really does:
+ *  "Bicker, João Manuel Frade Belo" resolves to 2, "Rodrigues, Luís Eduardo
+ *  Teixeira" to 3. Linking `matched[0]` would silently send the reader to one
+ *  of three people with no sign that a choice was made, so a name with more
+ *  than one candidate — like one with none — stays plain text. The caller
+ *  keeps rendering its own unattributed/ambiguous marker around this. */
+export function ResolvedPersonName({ person, title }) {
+  const matched = person.matched || [];
+  if (person.status === 'matched' && matched.length === 1) {
+    return (
+      <PersonLink slug={matched[0].slug} title={title}>
+        {person.name}
+      </PersonLink>
+    );
+  }
+  return <span title={title}>{person.name}</span>;
+}
+
 export function Section({ title, note, children }) {
   return (
     <section className="section">

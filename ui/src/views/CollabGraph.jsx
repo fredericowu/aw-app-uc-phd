@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from 'd3-force';
 import { api } from '../api';
-import { AsyncBoundary, Caveat, useAsync } from '../components';
+import { AsyncBoundary, Caveat, PersonLink, useAsync } from '../components';
 import { fillClass, groupSlot, GROUP_ORDER } from '../colors';
 import { count } from '../format';
 import { GroupChips } from './Collab';
@@ -71,7 +71,13 @@ function NeighbourPanel({ slug, kind, visibleSlugs, onClose }) {
         {(person) => (
           <>
             <p className="chart-note">
-              <strong>{person.person.name}</strong>
+              {/* The panel HEADER links to the profile; the graph NODE itself
+                  deliberately does not. Clicking a node already means "select
+                  it and dim the non-incident edges", and giving that gesture a
+                  second meaning would break the interaction. */}
+              <strong>
+                <PersonLink slug={person.person.slug}>{person.person.name}</PersonLink>
+              </strong>
               {' — '}
               <GroupChips groups={person.person.groups} />
               {' · '}
@@ -84,7 +90,7 @@ function NeighbourPanel({ slug, kind, visibleSlugs, onClose }) {
             <ul className="graph-panel-list">
               {person.collaborators.map((c) => (
                 <li key={c.slug} className={visibleSlugs.has(c.slug) ? '' : 'graph-panel-hidden'}>
-                  {c.name} — weight {count(c.weight)}
+                  <PersonLink slug={c.slug}>{c.name}</PersonLink> — weight {count(c.weight)}
                   {!visibleSlugs.has(c.slug) ? ' (hidden by the current floor)' : ''}
                 </li>
               ))}

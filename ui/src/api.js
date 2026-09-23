@@ -132,6 +132,10 @@ export const api = {
     params.set('limit', String(limit));
     return getJSON(`/collab/people?${params}`);
   },
+  // One person's profile. Deliberately does NOT carry their collaborators —
+  // PersonDetail fetches `collabPerson` separately so the header never blocks
+  // on /collab recomputing all 4,242 pairs (see uc_phd_app/api/people.py).
+  person: (slug) => getJSON(`/people/${encodeURIComponent(slug)}`),
   collabPerson: (slug, { kind = 'co_project', minWeight = 1, limit = 100 } = {}) => {
     const params = new URLSearchParams({ kind, min_weight: String(minWeight), limit: String(limit) });
     return getJSON(`/collab/people/${encodeURIComponent(slug)}?${params}`);

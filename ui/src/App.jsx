@@ -18,6 +18,7 @@ import Projects from './views/Projects';
 import ProjectDetail from './views/ProjectDetail';
 import Theses from './views/Theses';
 import ThesisDetail from './views/ThesisDetail';
+import PersonDetail from './views/PersonDetail';
 import Fit from './views/Fit';
 
 const TABS = [
@@ -33,17 +34,33 @@ const TABS = [
 function parseHash() {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const detail = /^projects\/(\d+)$/.exec(raw);
-  if (detail) return { tab: 'projects', projectId: Number(detail[1]), thesisHandle: null };
+  if (detail) {
+    return { tab: 'projects', projectId: Number(detail[1]), thesisHandle: null, personSlug: null };
+  }
   const thesisDetail = /^theses\/(.+)$/.exec(raw);
   // location.hash never auto-decodes (unlike pathname), so the segments
   // openThesis() percent-encoded are still literal here — decode each one
   // back before rejoining, mirroring the encode on the way in.
   if (thesisDetail) {
     const handle = thesisDetail[1].split('/').map(decodeURIComponent).join('/');
-    return { tab: 'theses', projectId: null, thesisHandle: handle };
+    return { tab: 'theses', projectId: null, thesisHandle: handle, personSlug: null };
+  }
+  // A detail route like #/projects/{id}, NOT a tab — people are reached by
+  // clicking a name, never from the nav. `tab: 'coordinators'` keeps the nav
+  // highlight on the section people actually live under, the same way the
+  // project route returns `tab: 'projects'`. A slug carries no slash, so one
+  // decodeURIComponent is the whole mirror of PersonLink's encode.
+  const personDetail = /^people\/(.+)$/.exec(raw);
+  if (personDetail) {
+    return {
+      tab: 'coordinators',
+      projectId: null,
+      thesisHandle: null,
+      personSlug: decodeURIComponent(personDetail[1]),
+    };
   }
   const tab = TABS.find((t) => t.id === raw);
-  return { tab: tab ? tab.id : 'overview', projectId: null, thesisHandle: null };
+  return { tab: tab ? tab.id : 'overview', projectId: null, thesisHandle: null, personSlug: null };
 }
 
 function useTheme() {
@@ -83,6 +100,19 @@ export default function App() {
     body = <ProjectDetail projectId={route.projectId} onBack={() => go('#/projects')} />;
   } else if (route.thesisHandle != null) {
     body = <ThesisDetail handle={route.thesisHandle} onBack={() => go('#/theses')} />;
+  } else if (route.personSlug != null) {
+    // ProjectDetail/ThesisDetail hard-code their origin because each is
+    // reached from one place. A person is reached from five, so Back means
+    // "wherever you came from" — falling back to #/coordinators when there is
+    // no history to go back to, which is exactly the deep-link case.
+    body = (
+      <PersonDetail
+        slug={route.personSlug}
+        onBack={() =>
+          (window.history.length > 1 ? window.history.back() : go('#/coordinators'))
+        }
+      />
+    );
   } else if (route.tab === 'fit') {
     body = <Fit />;
   } else if (route.tab === 'groups') {

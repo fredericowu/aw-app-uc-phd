@@ -74,12 +74,28 @@ def build_fixture_db(path: Path) -> Path:
         -- 'grace' is on no project at all: a name can resolve to a real
         -- person and still carry zero groups, which is not the same thing as
         -- failing to resolve.
+        --
+        -- 'grace-1' carries the SAME display name as 'grace' under a second
+        -- slug. Three such pairs exist in the real snapshot (joao-bicker /
+        -- joao-bicker-1, nuno-seco / nuno-seco-1, teresa-pessoa /
+        -- teresa-pessoa-1) and this app has no evidence whether they are the
+        -- same human — nothing merges them, and the profile page has to say
+        -- so rather than silently present one of them as "the" person.
         INSERT INTO people (slug, name) VALUES
-            ('ada', 'Ada Lovelace'), ('alan', 'Alan Turing'), ('grace', 'Grace Hopper');
+            ('ada', 'Ada Lovelace'), ('alan', 'Alan Turing'),
+            ('grace', 'Grace Hopper'), ('grace-1', 'Grace Hopper');
+        -- 'ada' holds BOTH roles on Beta. project_people's primary key is
+        -- (project_id, person_slug, role), so that is a legal pair of rows
+        -- describing ONE membership — and every per-person count in this app
+        -- has to be COUNT(DISTINCT project_id) to survive it. The real
+        -- snapshot happens to contain zero such rows today, so without this
+        -- fixture row a regression from DISTINCT back to COUNT(*) would pass
+        -- the whole suite.
         INSERT INTO project_people (project_id, person_slug, role, ordinal) VALUES
             (1, 'ada',  'coordinator', 0),
             (1, 'alan', 'researcher',  1),
-            (2, 'ada',  'coordinator', 0);
+            (2, 'ada',  'coordinator', 0),
+            (2, 'ada',  'researcher',  1);
 
         INSERT INTO project_keywords (project_id, keyword, ordinal) VALUES
             (1, 'networks', 0), (1, 'security', 1);

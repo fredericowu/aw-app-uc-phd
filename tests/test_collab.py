@@ -29,9 +29,10 @@ def test_co_project_pairs_use_count_distinct_project_not_role_rows(live_db):
     """'ada' holds the coordinator role on both her projects — if the pair
     query grouped by (project_id, person_slug, role) instead of collapsing
     roles first, a person who was ever both coordinator and researcher on
-    one project would double that project's weight. The fixture does not
-    hit that exact case, but the single project-1 pair must still land at
-    weight 1, not 2, proving the DISTINCT membership CTE is doing its job."""
+    one project would double that project's weight. The fixture now hits
+    that exact case ('ada' is coordinator AND researcher on Beta), and the
+    single project-1 pair must still land at weight 1, not 2, proving the
+    DISTINCT membership CTE is doing its job."""
     pairs = {(p["person_a_slug"], p["person_b_slug"]): p for p in collab.enriched_pairs("co_project")}
     assert pairs[("ada", "alan")]["weight"] == 1
 
@@ -76,8 +77,10 @@ def test_co_supervision_cross_group_is_none_when_a_person_has_no_groups(live_db)
 
 def test_summary_reports_people_on_2_or_more_projects(live_db):
     s = collab.summary()
-    assert s["total_people"] == 3
-    # only 'ada' is on 2+ projects (Alpha and Beta); 'alan' is on 1, 'grace' on 0
+    assert s["total_people"] == 4
+    # only 'ada' is on 2+ projects (Alpha and Beta) — and she holds two roles
+    # on Beta, which must not make her count as being on three; 'alan' is on
+    # 1, 'grace' and 'grace-1' on 0
     assert s["people_on_multiple_projects"] == 1
     assert s["co_project"]["pair_count"] == 1
     assert s["co_supervision"]["pair_count"] == 1
@@ -115,7 +118,7 @@ def test_summary_route_carries_default_floors_and_caveats(client):
     body = client.get("/api/collab/summary").json()
     assert body["default_min_weight"] == {"co_project": 2, "co_supervision": 1}
     assert "co_project" in body["caveats"] and "co_supervision" in body["caveats"]
-    assert body["total_people"] == 3
+    assert body["total_people"] == 4
 
 
 def test_pairs_route_defaults_to_a_floor_of_2_for_co_project(client):

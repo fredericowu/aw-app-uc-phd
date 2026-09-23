@@ -26,7 +26,7 @@
 
 import { useEffect, useState } from 'react';
 import { ApiError, api } from '../api';
-import { Caveat, ExternalLink, Section } from '../components';
+import { Caveat, ExternalLink, ResolvedPersonName, Section } from '../components';
 
 const K = 8;
 
@@ -60,7 +60,9 @@ function Supervisors({ supervisors }) {
       {supervisors.map((s, i) => (
         <span key={s.name}>
           {i > 0 ? ', ' : ''}
-          <strong>{s.name}</strong>
+          <strong>
+            <ResolvedPersonName person={s} />
+          </strong>
           {s.status === 'matched' ? null : (
             <span
               className="chip chip-warn"

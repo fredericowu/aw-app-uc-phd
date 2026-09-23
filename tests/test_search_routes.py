@@ -173,6 +173,18 @@ def test_index_status_reports_vector_store_state_even_without_the_model():
     assert resp.json()["vector_store"]["state"] == "missing_extension"
 
 
+def test_index_status_carries_the_latency_block():
+    """Not enough samples yet (a fresh VectorStore), but the block must be
+    present with its loadavg — the two-watches replacement for the retired
+    150ms search-stage trigger."""
+    store = store_mod.VectorStore(_FakeDb())
+    resp = _client(store).get("/api/index/status")
+    body = resp.json()
+    assert body["latency"]["evaluated"] is False
+    assert body["latency"]["window_size"] == 0
+    assert "loadavg1" in body["latency"]
+
+
 # ── healthz ────────────────────────────────────────────────────────────
 
 
@@ -180,3 +192,9 @@ def test_healthz_carries_the_search_block(live_db):
     store = store_mod.VectorStore(_FakeDb(extension_present=False))
     resp = _client(store).get("/healthz")
     assert resp.json()["search"]["state"] == "missing_extension"
+
+
+def test_healthz_carries_the_latency_block(live_db):
+    store = store_mod.VectorStore(_FakeDb())
+    resp = _client(store).get("/healthz")
+    assert "loadavg1" in resp.json()["latency"]

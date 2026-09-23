@@ -74,7 +74,9 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
+from collections import deque
 from typing import Any
 
 from . import paths
@@ -87,6 +89,25 @@ CHUNKS_TABLE = "app__aw-app-uc-phd__chunks"
 
 VECTOR_DIM = 768
 MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
+
+# Two watches replacing the single 150ms search-stage trigger (Architect
+# decision, 2026-09-23): that trigger sat on vector search, which measures
+# single-digit ms and can essentially never fire; query embedding is ~90% of
+# what a user feels. Both are app config values, overridable per-deployment,
+# not bare constants — see paths.py's AW_APP_UC_PHD_* convention.
+#
+# User-experience watch — query embedding (ONNX forward pass), scale-invariant
+# with corpus size. Healthy band measured on this host: 47-85ms p95.
+EMBED_P95_BUDGET_MS = float(os.environ.get("AW_APP_UC_PHD_EMBED_P95_BUDGET_MS", "250"))
+# Scale/headroom watch — vector search, recalibrated from a measured 5.7ms p95
+# at 6513 rows. Do NOT delete: the corpus is being widened 18 -> 181 theses on
+# a card running concurrently, which will move this number.
+SEARCH_P95_BUDGET_MS = float(os.environ.get("AW_APP_UC_PHD_SEARCH_P95_BUDGET_MS", "50"))
+
+# How many recent (embed_ms, db_ms) samples the rolling window keeps, and how
+# many it needs before a p95 is trustworthy enough to evaluate against budget.
+_LATENCY_WINDOW_MAXLEN = 200
+_LATENCY_MIN_SAMPLES = 100
 
 # Matches the P0 prototype and kb_pg.py's own chunk size (kb's own
 # per-input embedding cap, reused here as the chunk size — see
@@ -276,6 +297,31 @@ def abstract_content(front_matter: dict) -> str:
 
 
 # --------------------------------------------------------------------------
+# Latency percentiles — pure functions, unit-tested without Postgres or the
+# model (same convention as the chunking functions above).
+# --------------------------------------------------------------------------
+
+def _percentile(sorted_xs: list[float], p: float) -> float:
+    """Nearest-rank percentile over an already-sorted list. Same method
+    ``estudo_geral_extractor/pgvector_index.py``'s own ``bench`` command
+    uses, so a p95 reported here means the same thing as the one in that
+    CLI's output."""
+    idx = min(len(sorted_xs) - 1, max(0, int(round(p / 100 * len(sorted_xs))) - 1))
+    return sorted_xs[idx]
+
+
+def _stage_verdict(sorted_ms: list[float], budget_ms: float) -> dict:
+    p50 = _percentile(sorted_ms, 50)
+    p95 = _percentile(sorted_ms, 95)
+    return {
+        "p50_ms": p50,
+        "p95_ms": p95,
+        "budget_ms": budget_ms,
+        "healthy": p95 <= budget_ms,
+    }
+
+
+# --------------------------------------------------------------------------
 # VectorStore — the one place every query lives.
 # --------------------------------------------------------------------------
 
@@ -286,6 +332,17 @@ class VectorStore:
 
     def __init__(self, db: Any | None) -> None:
         self._db = db
+        # (embed_ms, db_ms) per search() call, bounded so memory never grows.
+        # PER-PROCESS: at WORKERS>1 each worker holds its own window with no
+        # cross-worker merge, so a verdict here means "this worker is slow",
+        # not "the service is slow" — a global view would need Redis, out of
+        # scope for this card. Mutated from multiple asyncio.to_thread worker
+        # threads (search() runs off the event loop), so every read/write
+        # goes through ``_latency_lock``: ``deque.append`` alone is atomic
+        # under CPython, but snapshotting-then-sorting for a percentile is
+        # not, and a torn read would misreport the verdict.
+        self._latency_window: deque[tuple[float, float]] = deque(maxlen=_LATENCY_WINDOW_MAXLEN)
+        self._latency_lock = threading.Lock()
 
     # -- state -------------------------------------------------------
 
@@ -601,8 +658,48 @@ class VectorStore:
             }
             for r in rows
         ]
+        embed_ms = round((t1 - t0) * 1000, 1)
+        db_ms = round((t2 - t1) * 1000, 1)
+        with self._latency_lock:
+            self._latency_window.append((embed_ms, db_ms))
         return {
             "results": results,
-            "embed_ms": round((t1 - t0) * 1000, 1),
-            "db_ms": round((t2 - t1) * 1000, 1),
+            "embed_ms": embed_ms,
+            "db_ms": db_ms,
         }
+
+    # -- latency watches ------------------------------------------------
+
+    def latency_verdict(self) -> dict:
+        """p50/p95 for the embedding and search stages over the rolling
+        window, each judged against its own budget, plus the loadavg the
+        verdict was measured under (every verdict MUST carry it — a p95 spike
+        is meaningless without knowing whether the host was loaded).
+
+        Evaluated only once the window holds ``_LATENCY_MIN_SAMPLES`` — below
+        that a percentile is noise, so ``stages`` stays empty and callers see
+        ``evaluated: False`` plus the current ``window_size`` instead of a
+        misleadingly precise number.
+
+        PER-PROCESS, not per-service: see ``__init__``'s docstring on
+        ``_latency_window``. "healthy" here means "this worker is keeping up",
+        not "the service is".
+        """
+        with self._latency_lock:
+            samples = list(self._latency_window)
+        loadavg1 = os.getloadavg()[0]
+        verdict = {
+            "window_size": len(samples),
+            "window_capacity": _LATENCY_WINDOW_MAXLEN,
+            "evaluated": len(samples) >= _LATENCY_MIN_SAMPLES,
+            "loadavg1": loadavg1,
+            "cpu_count": os.cpu_count(),
+            "stages": {},
+        }
+        if len(samples) < _LATENCY_MIN_SAMPLES:
+            return verdict
+        embed_samples = sorted(s[0] for s in samples)
+        db_samples = sorted(s[1] for s in samples)
+        verdict["stages"]["embed"] = _stage_verdict(embed_samples, EMBED_P95_BUDGET_MS)
+        verdict["stages"]["search"] = _stage_verdict(db_samples, SEARCH_P95_BUDGET_MS)
+        return verdict

@@ -70,6 +70,7 @@ def build_routes(store: store_mod.VectorStore | None = None) -> FastAPI:
         }
         try:
             payload["row_counts"] = db.table_counts()
+            payload["latency"] = app.state.vector_store.latency_verdict()
         except Exception as exc:  # database missing or unreadable
             payload["status"] = "degraded"
             payload["error"] = str(exc)

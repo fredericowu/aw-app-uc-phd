@@ -278,6 +278,67 @@ def test_search_carries_handle_and_source_url_for_every_result(fake_fastembed):
     assert "embed_ms" in result and "db_ms" in result
 
 
+def test_search_appends_its_timings_to_the_latency_window(fake_fastembed):
+    db = _RecordingDb()
+    db.execute_multi = lambda sql, names, params=None: []
+    vs = store.VectorStore(db)
+    vs.search("audiovisual metaphors", k=3)
+    assert len(vs._latency_window) == 1
+
+
+# ── latency watches: percentile/window logic, no Postgres/model needed ────
+
+
+def test_percentile_nearest_rank():
+    xs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+    assert store._percentile(xs, 50) == 5.0
+    assert store._percentile(xs, 95) == 10.0
+    assert store._percentile([42.0], 95) == 42.0
+
+
+def test_stage_verdict_reports_healthy_within_budget():
+    verdict = store._stage_verdict([1.0, 2.0, 3.0], budget_ms=10.0)
+    assert verdict == {"p50_ms": 2.0, "p95_ms": 3.0, "budget_ms": 10.0, "healthy": True}
+
+
+def test_stage_verdict_reports_unhealthy_past_budget():
+    verdict = store._stage_verdict([100.0, 200.0, 300.0], budget_ms=250.0)
+    assert verdict["p95_ms"] == 300.0
+    assert verdict["healthy"] is False
+
+
+def test_latency_verdict_not_evaluated_below_min_samples():
+    """Below the sample floor a percentile is noise — ``stages`` must stay
+    empty rather than report a misleadingly precise number off 3 samples."""
+    vs = store.VectorStore(None)
+    for _ in range(store._LATENCY_MIN_SAMPLES - 1):
+        vs._latency_window.append((10.0, 1.0))
+    verdict = vs.latency_verdict()
+    assert verdict["evaluated"] is False
+    assert verdict["stages"] == {}
+    assert verdict["window_size"] == store._LATENCY_MIN_SAMPLES - 1
+    assert "loadavg1" in verdict  # carried even when not yet evaluated
+
+
+def test_latency_verdict_evaluates_once_window_reaches_min_samples():
+    vs = store.VectorStore(None)
+    for _ in range(store._LATENCY_MIN_SAMPLES):
+        vs._latency_window.append((50.0, 5.0))
+    verdict = vs.latency_verdict()
+    assert verdict["evaluated"] is True
+    assert verdict["stages"]["embed"]["healthy"] is True
+    assert verdict["stages"]["search"]["healthy"] is True
+    assert verdict["loadavg1"] >= 0
+    assert verdict["cpu_count"] >= 1
+
+
+def test_latency_verdict_window_is_bounded_by_maxlen():
+    vs = store.VectorStore(None)
+    for i in range(store._LATENCY_WINDOW_MAXLEN + 50):
+        vs._latency_window.append((float(i), float(i)))
+    assert len(vs._latency_window) == store._LATENCY_WINDOW_MAXLEN
+
+
 # ── per-thesis abstract embedding (migrations/0002) ──────────────────────
 
 

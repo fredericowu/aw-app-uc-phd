@@ -31,7 +31,7 @@ def packaged_seed(tmp_path, monkeypatch):
 
 
 def test_activate_seeds_the_database_then_registers_routes(packaged_seed):
-    ctx = MagicMock()
+    ctx = MagicMock(package_dir=str(packaged_seed))
 
     asyncio.run(UcPhdAppPlugin().activate(ctx))
 
@@ -44,18 +44,32 @@ def test_activate_seeds_the_database_then_registers_routes(packaged_seed):
 def test_activate_is_idempotent(packaged_seed):
     """The reconciler re-runs activate on every boot and once per worker."""
     for _ in range(3):
-        asyncio.run(UcPhdAppPlugin().activate(MagicMock()))
+        asyncio.run(UcPhdAppPlugin().activate(MagicMock(package_dir=str(packaged_seed))))
     assert paths.live_db_path().is_file()
 
 
 def test_activate_installs_no_system_cli(packaged_seed):
     """This app contributes no CLI, so it must never touch ctx.commands — it
     does not request `commands:install` and the call would be refused."""
-    ctx = MagicMock()
+    ctx = MagicMock(package_dir=str(packaged_seed))
 
     asyncio.run(UcPhdAppPlugin().activate(ctx))
 
     ctx.commands.install_system_cli.assert_not_called()
+
+
+def test_activate_registers_the_phd_knowledge_base_mcp_server(packaged_seed, monkeypatch):
+    """S4: activate() must self-register the MCP server the same way it
+    registers routes — a missing call here is a silent zero-tool gateway
+    upstream, not a visible failure."""
+    monkeypatch.setenv("AW_PORT", "9482")
+    ctx = MagicMock(package_dir=str(packaged_seed))
+
+    asyncio.run(UcPhdAppPlugin().activate(ctx))
+
+    data = json.loads((packaged_seed / "mcp.json").read_text())
+    entry = data["mcpServers"]["phd_knowledge_base"]
+    assert entry["url"].endswith(":9482/api/apps/aw-app-uc-phd/mcp")
 
 
 class _DegradedDb:
@@ -67,7 +81,7 @@ class _DegradedDb:
 
 
 def test_activate_notifies_when_the_vector_store_is_degraded(packaged_seed):
-    ctx = MagicMock()
+    ctx = MagicMock(package_dir=str(packaged_seed))
     ctx.db = _DegradedDb()
 
     asyncio.run(UcPhdAppPlugin().activate(ctx))

@@ -121,3 +121,67 @@ def test_a_thesis_with_no_people_rows_at_all_still_lists(live_db, tmp_path):
     assert c["authors"] == []
     assert c["supervisors"] == []
     assert c["attributed"] is False
+
+
+# ── get_thesis / thesis_body (S4's get_phd_thesis tool) ─────────────────────
+
+
+def test_get_thesis_carries_both_abstracts_and_the_identity_join(live_db):
+    """get_thesis must not just re-run list_theses' join — it also has to
+    surface abstract_pt/abstract_en, which list_theses() never selects."""
+    t = theses.get_thesis("10316/000001", db_path=live_db)
+    assert t["title"] == "Thesis A"
+    assert t["abstract_pt"] == "Resumo A."
+    assert t["abstract_en"] == "Abstract A."
+    assert t["source_url"] == "https://estudogeral.uc.pt/handle/10316/000001"
+    # Identity join still runs — same shape as list_theses().
+    assert t["groups"] == ["AC", "NCS"]
+
+
+def test_get_thesis_abstracts_are_none_when_the_seed_has_none(live_db):
+    t = theses.get_thesis("10316/000002", db_path=live_db)
+    assert t["abstract_pt"] is None
+    assert t["abstract_en"] is None
+
+
+def test_get_thesis_returns_none_for_an_unknown_handle(live_db):
+    assert theses.get_thesis("10316/999999", db_path=live_db) is None
+
+
+def test_get_thesis_body_is_none_when_no_md_file_exists(live_db, tmp_path, monkeypatch):
+    empty_dir = tmp_path / "estudo_geral_empty"
+    empty_dir.mkdir()
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(empty_dir))
+    t = theses.get_thesis("10316/000001", db_path=live_db)
+    assert t["body"] is None
+
+
+def test_thesis_body_splits_off_the_yaml_front_matter(tmp_path, monkeypatch):
+    estudo_geral = tmp_path / "estudo_geral"
+    estudo_geral.mkdir()
+    (estudo_geral / "10316-000001.md").write_text(
+        "---\nhandle: 10316/000001\ntitle: Fixture Thesis\n---\n\n# Fixture Thesis\n\nBody text.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
+
+    assert theses.thesis_body("10316/000001") == "# Fixture Thesis\n\nBody text.\n"
+
+
+def test_thesis_body_returns_the_raw_file_when_there_is_no_front_matter(tmp_path, monkeypatch):
+    estudo_geral = tmp_path / "estudo_geral"
+    estudo_geral.mkdir()
+    (estudo_geral / "10316-000002.md").write_text("no front matter here", encoding="utf-8")
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
+
+    assert theses.thesis_body("10316/000002") == "no front matter here"
+
+
+def test_thesis_body_returns_the_raw_file_when_the_closing_delimiter_is_missing(tmp_path, monkeypatch):
+    estudo_geral = tmp_path / "estudo_geral"
+    estudo_geral.mkdir()
+    raw = "---\nhandle: 10316/000003\ntitle: Unterminated\n"
+    (estudo_geral / "10316-000003.md").write_text(raw, encoding="utf-8")
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
+
+    assert theses.thesis_body("10316/000003") == raw

@@ -350,16 +350,36 @@ export function TimeLine({ data, categoryKey, valueKey, valueFormat, seriesLabel
 }
 
 /** Identity legend for the six research groups. Always present where colour
- *  carries identity across more than one chart. */
-export function GroupLegend({ groups, colorOf }) {
+ *  carries identity across more than one chart.
+ *
+ *  Pass `selected` (a Set of codes) and `onToggle` to make it double as a
+ *  click-to-filter control: each entry becomes a toggle button, an empty
+ *  `selected` means "show everything" (never an empty chart), and the
+ *  currently-selected entries stay full-strength while the rest dim. */
+export function GroupLegend({ groups, colorOf, selected, onToggle }) {
+  const interactive = typeof onToggle === 'function';
+  const filtering = interactive && selected && selected.size > 0;
   return (
-    <div className="legend">
-      {groups.map((g) => (
-        <span className="legend-item" key={g.code}>
-          <span className="swatch" style={{ background: colorOf(g) }} />
-          {g.code} — {g.name}
-        </span>
-      ))}
+    <div className={`legend${filtering ? ' legend-filtering' : ''}`}>
+      {groups.map((g) =>
+        interactive ? (
+          <button
+            type="button"
+            key={g.code}
+            className="legend-item legend-item-button"
+            aria-pressed={selected.has(g.code)}
+            onClick={() => onToggle(g.code)}
+          >
+            <span className="swatch" style={{ background: colorOf(g) }} />
+            {g.code} — {g.name}
+          </button>
+        ) : (
+          <span className="legend-item" key={g.code}>
+            <span className="swatch" style={{ background: colorOf(g) }} />
+            {g.code} — {g.name}
+          </span>
+        ),
+      )}
     </div>
   );
 }

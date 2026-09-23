@@ -414,6 +414,22 @@ table.data tbody tr:hover {
   width: 10px;
 }
 
+.legend-item-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.legend-item-button[aria-pressed='true'] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.legend-filtering .legend-item-button[aria-pressed='false'] {
+  opacity: 0.45;
+}
+
 /* ── controls ───────────────────────────────────────────────────────────── */
 
 .filters {

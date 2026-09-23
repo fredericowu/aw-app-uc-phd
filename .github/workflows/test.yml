@@ -11,6 +11,22 @@ name: Test
 # workflow ships the repo as-is and never builds the frontend — so a commit
 # that changes ui/src without rebuilding produces an app whose UI is silently
 # a version behind, with nothing anywhere reporting it.
+#
+# runs-on is ubuntu-latest, not the [self-hosted, aw-baremetal] pair this
+# repo used under tekflox, and that is load-bearing twice over:
+#   1. Those runners live in tekflox org runner group 3 (aw-private), and a
+#      GitHub org runner group can only be shared with repos IN that org.
+#      This repo is owned by a personal account, so it can never be added.
+#      The jobs would not fail — they would queue forever, which reads as
+#      "still running" rather than "gone".
+#   2. The `pull_request:` trigger below is unqualified, so now that this
+#      repo is public anyone can open one from a fork. Fork PR + self-hosted
+#      runner is arbitrary code execution on the bare-metal host that runs
+#      the whole workspace: checkout fetches the stranger's branch and
+#      pytest runs it. GitHub-hosted runners are disposable VMs with a
+#      read-only token, which is the configuration that makes an open
+#      `pull_request:` trigger safe. They are also free and unmetered on a
+#      public repo — going public is what pays for this.
 on:
   push:
     branches: [master]
@@ -19,7 +35,7 @@ on:
 
 jobs:
   coverage:
-    runs-on: [self-hosted, aw-baremetal]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -59,7 +75,7 @@ jobs:
           retention-days: 30
 
   ui-dist-is-current:
-    runs-on: [self-hosted, aw-baremetal]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v5

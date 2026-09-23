@@ -6,7 +6,7 @@
   "description": "Explore every research project at CISUC / UC DEI — 400 of them — as interactive charts and a searchable catalogue. See which research groups run what, where the money comes from and goes, how project starts are spread over the years, who coordinates the most, and the biggest projects in each group. Open any project for its synopsis, budgets, partners, keywords, people and every field the site publishes about it.",
   "tier": "inprocess",
   "requires_ui_refresh": true,
-  "publisher": "TekFlox",
+  "publisher": "fredericowu",
   "resource_estimate": {
     "cpu": "low",
     "memory": "low",

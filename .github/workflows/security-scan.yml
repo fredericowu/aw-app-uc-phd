@@ -1,11 +1,19 @@
 name: Security scan
 
 # Free SAST + SCA + Secrets pilot (Semgrep + Trivy + Gitleaks), decided with
-# Frederico as a no-cost alternative to Veracode. Runs on its own weekly cron (staggered per repo
-# to avoid all 50+ repos hammering the 4 shared self-hosted runners at once) rather than on every push — a new CVE in a dependency doesn't change per
+# Frederico as a no-cost alternative to Veracode. Runs on its own weekly cron
+# rather than on every push — a new CVE in a dependency doesn't change per
 # commit, and this keeps the everyday CI in test.yml/release.yml fast.
 # Additive only: does not touch the release or test workflows. DAST is a
 # separate, later card (it will reuse aw-automation's staging/prod URLs).
+#
+# runs-on is ubuntu-latest for the same reason as test.yml: the
+# [self-hosted, aw-baremetal] runners belong to tekflox org runner group 3,
+# and an org runner group cannot be shared outside its org — so from this
+# personal-account repo those jobs would queue forever rather than fail.
+# The staggered cron slot below is a leftover from when 50+ tekflox repos
+# shared 4 self-hosted runners; it is harmless on GitHub-hosted runners and
+# kept only to avoid a needless schedule change.
 #
 # Findings surface in this repo's Security > Code scanning tab via SARIF
 # upload — no extra infra. This job intentionally does not fail the build on
@@ -23,7 +31,7 @@ permissions:
 
 jobs:
   semgrep:
-    runs-on: [self-hosted, aw-baremetal]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -44,7 +52,7 @@ jobs:
           category: semgrep
 
   trivy:
-    runs-on: [self-hosted, aw-baremetal]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Run Trivy (SCA + secrets + IaC/Dockerfile misconfig)
@@ -64,7 +72,7 @@ jobs:
           category: trivy
 
   gitleaks:
-    runs-on: [self-hosted, aw-baremetal]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

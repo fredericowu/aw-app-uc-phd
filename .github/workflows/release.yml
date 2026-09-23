@@ -1,31 +1,55 @@
-# aw-app-crispal releases into the PRIVATE catalog, tekflox/aw-marketplace-private.
+# Release into the PUBLIC catalog, tekflox/aw-marketplace.
 #
-# History worth keeping, because the failure mode was silent: this caller
-# used to invoke the shared workflow with no way to name a catalog. That
-# workflow hardcoded tekflox/aw-marketplace AND auto-merges first-party
-# tekflox/* sync PRs, so every push to master here was one merged PR away
-# from publishing a private store's WordPress, its DB credentials and its
-# MCP surface into the PUBLIC marketplace. It never fired only because this
-# repo happened to be missing the org secret MARKETPLACE_SYNC_TOKEN —
-# granting it was all it would have taken, and one migration pass in Aug
-# 2026 did exactly that. The file was then replaced by a hand-release note
-# as a stopgap lock.
+# ⚠️ THIS WORKFLOW CANNOT RUN YET, AND THAT IS DELIBERATE. It is
+# workflow_dispatch-only rather than push-triggered so that master does not
+# sit permanently red and teach everyone here to ignore red CI. Dispatch-only
+# rather than deleted, because the day the privilege question below is
+# answered this is one setting away from working, and the reasoning is worth
+# more in the file than on a Kanban card.
 #
-# The real fix, now in place: app-release.yml takes a `catalog_repo` input,
-# and refuses outright to sync a PRIVATE app repo into the public catalog —
-# derived from the repo's own visibility, so it cannot drift out of sync
-# with a forgotten input here. Automation is back on, pointed at the
-# catalog aw-workspace actually reads (Settings → Marketplace →
-# "TekFlox Private", tekflox/aw-marketplace-private@master).
+# Three separate things block it. Only the third is a credential, and none of
+# them is a Coder's to decide:
 #
-# Rebuild the image with `gh workflow run publish.yml` when the package or
-# its deps change — that is still a separate, manual workflow.
+#   1. THE RUNNER. tekflox/aw-marketplace's reusable app-release.yml hardcodes
+#      `runs-on: [self-hosted, aw-baremetal]`. Those runners live in tekflox
+#      org runner group 3 (aw-private), and a GitHub org runner group can only
+#      be shared with repositories IN that org. This repo is owned by a
+#      personal account, so it can never be added. The job would not fail — it
+#      would queue forever. Unlike test.yml and security-scan.yml, we cannot
+#      fix this locally: `runs-on` lives inside the called workflow, not in
+#      this caller. Fixing it properly means a `runs_on` input on
+#      aw-marketplace's reusable workflow, which affects 50+ apps and is its
+#      own card.
+#
+#   2. THE SECRET DELIVERY. `secrets: inherit` on a personal-account repo
+#      inherits repo-level and environment secrets only. There are no org
+#      secrets to inherit, so MARKETPLACE_SYNC_TOKEN would have to exist as a
+#      repo secret on fredericowu/aw-app-uc-phd itself.
+#
+#   3. WHAT THAT SECRET WOULD HAVE TO BE ABLE TO DO. Push a branch to, and
+#      open a PR on, tekflox/aw-marketplace — i.e. write access to a TekFlox
+#      org repo, stored inside a repo Frederico owns personally. That is a
+#      privilege decision, and it is his. Nothing was minted, stored or
+#      widened to make this workflow pass. If he wants it green, the smallest
+#      safe shape is a FINE-GRAINED PAT scoped to tekflox/aw-marketplace
+#      (Contents: write, Pull requests: write) plus this repo (Contents:
+#      write) — far narrower than a full-scope admin:org / delete_repo PAT.
+#      It still does not solve (1).
+#
+# Not a blocker, and actually the behaviour we want: the reusable workflow's
+# auto-merge step is gated on `startsWith(github.repository, 'tekflox/')`,
+# which this repo does not match. So a sync PR would open and wait for a
+# human. For a catalog every workspace in the world reads, a human gate on a
+# non-org contributor is correct. Do not try to defeat it.
+#
+# Until then, catalog entries for this app are hand-synced with
+# aw-marketplace's own scripts/sync_catalog_entry.py — the same script this
+# workflow would run — and the PR is merged by a human. v0.1.0 was published
+# that way.
 
 name: Release
 
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
     inputs:
       bump:
@@ -47,5 +71,5 @@ jobs:
     uses: tekflox/aw-marketplace/.github/workflows/app-release.yml@master
     with:
       bump: ${{ inputs.bump || '' }}
-      catalog_repo: tekflox/aw-marketplace-private
+      catalog_repo: tekflox/aw-marketplace
     secrets: inherit

@@ -49,21 +49,30 @@ the UI copy — so they cannot be dropped by a frontend change:
 
 ## Why no `ui:code` (read before "simplifying" the frontend)
 
-This app is distributed through the **private** catalog
-`tekflox/aw-marketplace-private`. An app that is not in the *official public*
-marketplace is not `signed` (`src/apps/catalog.py`'s `is_marketplace_app`, and
-`app_installs.py` in aw-backend), and `filter_grants` refuses **every
-high-risk capability** to an unsigned app.
+The frontend is a plain SPA served by the app itself on its own subdomain,
+behind a `managed_app` window. It asks for exactly two permissions, both
+low-risk: `routes:register` and `fs:workspace-data`.
 
-A refused capability **does not raise**. The app activates anyway. So a
-`component`-mode frontend here would produce windows with intact chrome and a
-completely empty body — which reads as a bug in the app, not as a permission
-problem. The same argument rules out Tier-2 (`containers:manage` is also high
-risk).
+That design was originally forced. While the app was distributed through the
+**private** catalog it was not `signed` (`src/apps/catalog.py`'s
+`is_marketplace_app`, and `app_installs.py` in aw-backend compute `signed`
+only from membership of the *official public* marketplace), and
+`filter_grants` refuses **every high-risk capability** to an unsigned app —
+`ui:code` among them. A refused capability **does not raise**: the app
+activates anyway, so a `component`-mode frontend would have produced windows
+with intact chrome and a completely empty body, which reads as a bug in the
+app rather than a permission problem.
 
-Hence: a plain SPA on the app's own subdomain, two low-risk permissions, and
-nothing that can be silently taken away. `docs/app-migration-plan.md` §2 and
-§13 have the full argument and name the doors it closes.
+It is no longer forced. This app now ships from the public catalog
+`tekflox/aw-marketplace` and reports `signed: true`, so `ui:code` and Tier-2's
+`containers:manage` are both available again.
+
+**Keep it anyway.** Being signed *permits* high-risk capabilities; it does not
+require them. This SPA is built, tested and driven live through every view,
+and the design asks for nothing that can ever be silently taken away — which
+is worth more than the capability it declines. `docs/app-migration-plan.md` §2
+and §13 have the original argument; `docs/distribution-migration-plan.md` has
+the move that relaxed the constraint.
 
 ## Where the data lives
 

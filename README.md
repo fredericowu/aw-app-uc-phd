@@ -473,11 +473,15 @@ rather than a wrong netns. Run it as:
 podman exec aw-remote-host-workspace sh -c \
   'cd /opt/aw-workspace/repos/aw-app-uc-phd && \
    FASTEMBED_CACHE_PATH=/opt/aw-workspace/.aw-workspace/data/aw-app-uc-phd/fastembed_cache \
-   PYTHONPATH=/opt/aw-workspace <venv>/bin/python -m estudo_geral_extractor.index ...'
+   PYTHONPATH="${PYTHONPATH}:/opt/aw-workspace" <venv>/bin/python -m estudo_geral_extractor.index ...'
 ```
 
-`PYTHONPATH=/opt/aw-workspace` is what makes `src.apps.db_tables` importable;
-the connection URL and schema come from `AW_WORKSPACE_DB_URL` /
+`PYTHONPATH="${PYTHONPATH}:/opt/aw-workspace"` **appends** — plain
+`PYTHONPATH=/opt/aw-workspace` replaces the inherited `PYTHONPATH` (which
+carries the venv's own site-packages), and every invocation then dies with
+`ModuleNotFoundError: sqlalchemy`. The append is what makes
+`src.apps.db_tables` importable on top of the venv, not instead of it; the
+connection URL and schema come from `AW_WORKSPACE_DB_URL` /
 `AW_WORKSPACE_SCHEMA`, which the workspace container already exports.
 
 The repo's own `.venv` does **not** work there — it was built by a different
@@ -524,7 +528,18 @@ which means re-downloading it on every container restart; point it at
 `threads=4` is measured, not guessed: on this host (12 cores, load ~20 from
 the rest of the workspace) 1 thread gives 0.83 chunks/s, 2 gives 1.50, 4 gives
 2.14 and **8 gives 1.25** — more ONNX intra-op threads than the box has
-*spare* cores is slower, not faster.
+*spare* cores is slower, not faster (4 over 8 is a 1.7x throughput gap).
+
+**That gap is a `batch_size=8` indexing measurement — it does not transfer to
+per-query latency.** `estudo_geral_extractor/index.py:101` pins `threads=4`
+from the benchmark above; `uc_phd_app/store.py`'s `embed_query` (used on
+every `/api/search` call, `batch_size=1`) passes no `threads` argument at
+all. A controlled A/B on the query-embedding stage specifically (same host,
+same query set) measured only a ~1.15x p95 difference between the two —
+batching is most of where extra threads pay off, and a single query is the
+`batch_size=1` case where they mostly don't. Worth writing down, not worth
+pinning `threads` on the query path for a 1.15x that the loaded-host noise
+above is the same order as.
 
 Chunking is 1500 characters with a 200-character overlap, both boundaries
 snapped to whitespace so no chunk opens or closes on a word fragment. 1500 is

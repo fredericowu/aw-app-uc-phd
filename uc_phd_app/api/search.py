@@ -65,6 +65,7 @@ async def index_status(request: Request) -> dict:
         "model_error": model_error,
         "model_name": store_mod.MODEL_NAME,
         "vector_store": state,
+        "latency": vs.latency_verdict(),
     }
     if state["state"] == "ready":
         payload["stats"] = vs.stats()

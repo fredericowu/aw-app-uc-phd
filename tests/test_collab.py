@@ -89,8 +89,23 @@ def test_neighbours_returns_the_other_person_sorted_by_weight(live_db):
     assert rows[0]["weight"] == 1
 
 
+def test_neighbours_matches_when_the_anchor_is_person_b_in_the_pair(live_db):
+    """Pairs are keyed (person_a < person_b) — 'alan' sits on the person_b
+    side of the (ada, alan) pair, exercising the other branch of
+    ``neighbours``' person_a/person_b matching."""
+    rows = collab.neighbours("alan", "co_project", min_weight=1)
+    assert [r["slug"] for r in rows] == ["ada"]
+
+
 def test_neighbours_respects_the_floor(live_db):
     assert collab.neighbours("ada", "co_project", min_weight=2) == []
+
+
+def test_pairs_for_and_enriched_pairs_reject_an_unknown_kind():
+    with pytest.raises(ValueError):
+        collab._pairs_for("bogus")
+    with pytest.raises(ValueError):
+        collab.enriched_pairs("bogus")
 
 
 # ── uc_phd_app/api/collab.py ─────────────────────────────────────────────────
@@ -111,6 +126,12 @@ def test_pairs_route_defaults_to_a_floor_of_2_for_co_project(client):
     assert body["min_weight"] == 2
     assert body["total"] == 0
     assert body["pairs"] == []
+
+
+def test_pairs_route_sort_normalized_for_co_project(client):
+    body = client.get("/api/collab/pairs?kind=co_project&min_weight=1&sort=normalized").json()
+    assert body["sort"] == "normalized"
+    assert body["total"] == 1
 
 
 def test_pairs_route_min_weight_1_surfaces_the_pair(client):

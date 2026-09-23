@@ -58,6 +58,10 @@ tmp/
 temp/
 *.log
 
+# Estudo Geral thesis PDFs (~228 MB) — the .md extracts + manifest.json under
+# estudo_geral/ ARE committed (provenance), the source PDFs are not.
+estudo_geral/pdfs/
+
 # ui/dist IS committed: the release workflow runs tests only, never
 # `npm run build`, so a gitignored bundle means the installed app points at a
 # file that does not exist and its whole frontend silently vanishes.

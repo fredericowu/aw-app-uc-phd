@@ -68,9 +68,11 @@ def test_manifest_requests_only_low_risk_permissions():
     """This app is distributed through a PRIVATE catalog, so it is not
     `signed`, so `filter_grants` silently drops every high-risk capability it
     asks for. Nothing would raise — the app would just activate with a missing
-    piece. Requesting only these two is what makes that impossible.
+    piece. Requesting only low-risk permissions is what makes that impossible.
+    `net:outbound` (added for the one-shot `estudo_geral_extractor` CLI) is
+    `risk: low` too — no signing gate, same invariant holds.
     """
-    assert sorted(MANIFEST["permissions"]) == ["fs:workspace-data", "routes:register"]
+    assert sorted(MANIFEST["permissions"]) == ["fs:workspace-data", "net:outbound", "routes:register"]
 
 
 def test_manifest_has_no_component_frontend():

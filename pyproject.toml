@@ -8,22 +8,32 @@ testpaths = ["tests"]
 # DELIBERATE NARROWING — read this before "fixing" it.
 #
 # aw-app-template measures `--cov=template_app`, its whole repo. This repo has
-# two Python packages, and only one of them is the app:
+# three Python packages, and only one of them is the app:
 #
-#   uc_phd_app/  the app. Runs inside the workspace, on every request. 100%.
-#   scraper/     a network-bound one-shot CLI (`python -m scraper.run`) that
-#                talks to a live website over HTTP for ~10 minutes. Its
-#                parsers already have fixture-based tests
-#                (tests/test_parse.py, tests/test_detail_parser.py); its
-#                fetch/retry/pagination paths cannot be covered without either
-#                hitting cisuc.uc.pt from CI or building a mock HTTP site
-#                whose only reader is the mock itself.
+#   uc_phd_app/             the app. Runs inside the workspace, on every
+#                            request. 100%.
+#   scraper/                a network-bound one-shot CLI (`python -m
+#                            scraper.run`) that talks to a live website over
+#                            HTTP for ~10 minutes. Its parsers already have
+#                            fixture-based tests (tests/test_parse.py,
+#                            tests/test_detail_parser.py); its fetch/retry/
+#                            pagination paths cannot be covered without
+#                            either hitting cisuc.uc.pt from CI or building a
+#                            mock HTTP site whose only reader is the mock
+#                            itself.
+#   estudo_geral_extractor/ same shape, same reasoning, different site
+#                            (estudogeral.uc.pt, OAI-PMH + a cookie-gated
+#                            bitstream download). Its pure parsing/selection
+#                            functions have fixture-based tests
+#                            (tests/test_estudo_geral_extractor.py); its
+#                            network paths do not.
 #
-# Holding scraper/ to 100% would therefore buy fake tests, and lowering the
-# gate to accommodate it would drop the floor for the code that actually runs
-# in production. So the gate stays at 100% and the scope is the app package.
-# If a future change moves real app logic into scraper/, move the boundary
-# with it rather than quietly lowering the number.
+# Holding either one-shot CLI to 100% would therefore buy fake tests, and
+# lowering the gate to accommodate them would drop the floor for the code
+# that actually runs in production. So the gate stays at 100% and the scope
+# is the app package. If a future change moves real app logic into either
+# CLI package, move the boundary with it rather than quietly lowering the
+# number.
 source = ["uc_phd_app"]
 omit = ["*/__pycache__/*"]
 

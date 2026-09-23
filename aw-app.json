@@ -23,7 +23,8 @@
   },
   "permissions": [
     "fs:workspace-data",
-    "routes:register"
+    "routes:register",
+    "net:outbound"
   ],
   "contributes": {
     "routes": [

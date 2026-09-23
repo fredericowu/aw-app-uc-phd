@@ -1,0 +1,218 @@
+[
+  {
+    "handle": "10316/116663",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/116663",
+    "title": "Deep Learning for Spatial Graph Optimization: Applications in Vascular Networks",
+    "date": "2024-07-29",
+    "rights": "openAccess",
+    "authors": [
+      "Simões, João Miguel Moreira de Carvalho Brás"
+    ],
+    "pdf_bytes": 39142495,
+    "full_text": true
+  },
+  {
+    "handle": "10316/117181",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/117181",
+    "title": "Dynamically Predicting Content Comprehension Through Intelligent Wearables and Biofeedback Sensors (TellBack)",
+    "date": "2024-09-27",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Hijazi, Haytham Wael Ismail"
+    ],
+    "pdf_bytes": 48675328,
+    "full_text": true
+  },
+  {
+    "handle": "10316/117187",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/117187",
+    "title": "A Computer-Supported Collaborative Learning Environment to Foster the Regulation of Learning Skills in Programming Education",
+    "date": "2024-09-25",
+    "rights": "openAccess",
+    "authors": [
+      "Silva, Leonardo Soares e"
+    ],
+    "pdf_bytes": 7708756,
+    "full_text": true
+  },
+  {
+    "handle": "10316/117373",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/117373",
+    "title": "SecFL: Secure Federated Learning Framework for Collaborative Defect Prediction in Manufacturing",
+    "date": "2024-11-08",
+    "rights": "openAccess",
+    "authors": [
+      "Dib, Mário Alberto da Silveira"
+    ],
+    "pdf_bytes": 2904237,
+    "full_text": true
+  },
+  {
+    "handle": "10316/117599",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/117599",
+    "title": "Audiovisual Metaphors Based on Perceptually Relevant Principles",
+    "date": "2024-12-12",
+    "rights": "openAccess",
+    "authors": [
+      "Rodrigues, Ana Cláudia Leitão Teixeira"
+    ],
+    "pdf_bytes": 59312887,
+    "full_text": true
+  },
+  {
+    "handle": "10316/118274",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/118274",
+    "title": "Designing Engaging Digital Workplaces for a Multigenerational Workforce",
+    "date": "2025-01-09",
+    "rights": "openAccess",
+    "authors": [
+      "Moraes, Caroline Relva de"
+    ],
+    "pdf_bytes": 5633898,
+    "full_text": true
+  },
+  {
+    "handle": "10316/118279",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/118279",
+    "title": "Evaluation and Improvement of Security in Microservice-based Systems",
+    "date": "2025-01-16",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Flora, José Eduardo Ferreira"
+    ],
+    "pdf_bytes": 15539622,
+    "full_text": true
+  },
+  {
+    "handle": "10316/118328",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/118328",
+    "title": "Optimising Resource Allocation in Fog Computing",
+    "date": "2025-01-31",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Godinho, Noé Paulo Lopes"
+    ],
+    "pdf_bytes": 2276002,
+    "full_text": true
+  },
+  {
+    "handle": "10316/118421",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/118421",
+    "title": "Applications of Network and System Virtualization in Multiservice Context",
+    "date": "2025-02-24",
+    "rights": "openAccess",
+    "authors": [
+      "Proença, Jorge Diogo Gomes"
+    ],
+    "pdf_bytes": 8934609,
+    "full_text": true
+  },
+  {
+    "handle": "10316/118700",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/118700",
+    "title": "Network Monitoring for Industrial IoT",
+    "date": "2025-03-24",
+    "rights": "openAccess",
+    "authors": [
+      "Júnior, Ivanilson França Vieira"
+    ],
+    "pdf_bytes": 2936888,
+    "full_text": true
+  },
+  {
+    "handle": "10316/118764",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/118764",
+    "title": "Automatic Respiratory Function Analysis using Respiratory Sound and Electrical Impedance Tomography",
+    "date": "2025-04-16",
+    "rights": "openAccess",
+    "authors": [
+      "Pessoa, Diogo Rafael Mendes"
+    ],
+    "pdf_bytes": 32244125,
+    "full_text": true
+  },
+  {
+    "handle": "10316/118766",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/118766",
+    "title": "A Privacy Aware Architecture for Electronic Health Records",
+    "date": "2025-05-07",
+    "rights": "openAccess",
+    "authors": [
+      "Silva, Rodrigo Ronner Tertulino da"
+    ],
+    "pdf_bytes": 3033735,
+    "full_text": true
+  },
+  {
+    "handle": "10316/119251",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/119251",
+    "title": "Deep Learning in Drug Development: Optimizing de novo Molecular Design with Deep Reinforcement Learning",
+    "date": "2025-05-09",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Pereira, Tiago Oliveira"
+    ],
+    "download_error": "HTTP 200: 200 but content-type='text/html;charset=UTF-8' (likely login/embargo page)",
+    "full_text": false
+  },
+  {
+    "handle": "10316/119257",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/119257",
+    "title": "Collaborative Remaining Useful Life prediction via Federated Learning",
+    "date": "2025-04-24",
+    "rights": "openAccess",
+    "authors": [
+      "Rosero, Raúl Homero Llasag"
+    ],
+    "pdf_bytes": 49200765,
+    "full_text": true
+  },
+  {
+    "handle": "10316/119336",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/119336",
+    "title": "Missing Data Methodologies Applied to Healthcare Images",
+    "date": "2025-06-03",
+    "rights": "openAccess",
+    "authors": [
+      "Santos, Joana Cristo dos"
+    ],
+    "pdf_bytes": 7303825,
+    "full_text": true
+  },
+  {
+    "handle": "10316/119444",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/119444",
+    "title": "Cognitive Load Assessment Using Physiological Features Towards A New Software Engineering Paradigm Using Biofeedback",
+    "date": "2025-06-04",
+    "rights": "openAccess",
+    "authors": [
+      "Medeiros, Júlio Cordeiro"
+    ],
+    "pdf_bytes": 41954775,
+    "full_text": true
+  },
+  {
+    "handle": "10316/119468",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/119468",
+    "title": "Computational Graphic Design and Typography Practices",
+    "date": "2025-06-16",
+    "rights": "openAccess",
+    "authors": [
+      "Rebelo, Sérgio Miguel Martins"
+    ],
+    "pdf_bytes": 167722003,
+    "full_text": true
+  },
+  {
+    "handle": "10316/119520",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/119520",
+    "title": "Security in Virtualized Systems: Contributions on Anomaly Detection and Intrusion Injection",
+    "date": "2025-07-17",
+    "rights": "openAccess",
+    "authors": [
+      "Gonçalves, Charles Ferreira"
+    ],
+    "pdf_bytes": 8072034,
+    "full_text": true
+  }
+]

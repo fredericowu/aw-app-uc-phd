@@ -9,7 +9,10 @@ scraper's history, its design decisions and its data all came across intact.
 Built for Frederico Wu's UC DEI/CISUC PhD work.
 
 - **Tier-1** (`inprocess`) — no container, no image build.
-- **Permissions: `routes:register` and `fs:workspace-data`. Nothing else.**
+- **Permissions: `routes:register`, `fs:workspace-data`, and `net:outbound`.**
+  The last one is `risk: low` (no signing gate) and exists solely for the
+  one-shot `estudo_geral_extractor/` CLI below — the app itself makes no
+  outbound calls at request time.
 - The frontend is a **self-hosted React SPA**, served by the app's own FastAPI
   sub-app and surfaced through a `managed_app` window — deliberately *not* a
   `component`-mode bundle. See "Why no `ui:code`" below; this is the single
@@ -114,15 +117,17 @@ cannot disagree with the mode users get.
 
 ### Refreshing the data
 
-Re-scraping is **not** in the app (no `net:outbound`, deliberately). It stays
-a CLI run:
+Re-scraping is **not** in the app at request time — both data pulls stay
+one-shot CLI runs, never triggered by a route:
 
 ```bash
-.venv/bin/python -m scraper.run
+.venv/bin/python -m scraper.run                    # CISUC projects -> data/cisuc.sqlite3
+.venv/bin/python -m estudo_geral_extractor.run      # DEI PhD theses -> estudo_geral/*.md
 ```
 
-Point it at the data-dir database to refresh what the app serves. See
-"How the listing is fetched" below.
+Point the scraper at the data-dir database to refresh what the app serves.
+See "How the listing is fetched" below. See "The Estudo Geral extractor" at
+the bottom of this file for the thesis pull.
 
 ## Tests
 
@@ -138,8 +143,9 @@ readable and a schema change the app has not caught up with fails loudly.
 `tests/test_standalone.py` is the exception: it exercises the real committed
 artefacts (seed, `sql/`, `ui/dist`) on purpose.
 
-The coverage gate is **100%, scoped to `uc_phd_app`**. `scraper/` is
-deliberately outside it; `pyproject.toml` explains why next to the setting.
+The coverage gate is **100%, scoped to `uc_phd_app`**. `scraper/` and
+`estudo_geral_extractor/` are deliberately outside it; `pyproject.toml`
+explains why next to the setting.
 
 `ui/dist` is **committed** — release CI ships the repo as-is and never runs
 `npm run build`. CI fails if a fresh build would change it.
@@ -238,3 +244,132 @@ than from this table.
   yet; §12 of the migration plan explains what this app already does to
   accommodate it.
 - `docs/uc/` — reference decks.
+
+---
+
+# The Estudo Geral extractor
+
+A one-shot Python CLI (`python -m estudo_geral_extractor.run`) that pulls
+every UC DEI doctoral thesis published 2024-or-later from
+[estudogeral.uc.pt](https://estudogeral.uc.pt/) — the University of
+Coimbra's institutional repository — into `estudo_geral/<handle>.md`, one
+file per thesis, full YAML front-matter plus extracted body text. Stage 1 of
+the Estudo Geral roadmap (Kanban target `uc-dei-phd-estudo-geral-kb`); later
+stages (semantic index, `phd_knowledge_base` MCP, dashboard, search UI) are
+separate cards and out of scope here.
+
+## The population — 18, and why it isn't 28
+
+OAI-PMH's `set=com_10316_255` (the DEI community) `ListRecords` with
+`from=2024-01-01` returns **211** records — that filter is the *deposit*
+datestamp, not publication year. Of those, **18** are
+`dc:type=doctoralThesis` with a `dc:date` (publication year) of 2024 or
+later — that's the actual population, re-derived independently of the
+Product Owner's own count and matching it exactly. `oai.py`'s
+`select_dei_doctoral_theses_2024_plus` does this filter and is unit-tested
+against a fixture. CISUC's own community (`com_10316_27707`) has zero
+theses — Estudo Geral files them under the department, not the research
+centre.
+
+## The bot gate
+
+Every bitstream/PDF URL on this site self-redirects up to 50x unless the
+request carries the `browser_check=human` + `JSESSIONID` cookies the site's
+own **item landing page** (`/handle/<handle>`) issues on first load. A
+`requests.Session()` gets both for free by hitting the item page before the
+PDF — no auth, no ToS problem, an anti-hotlink gate rather than access
+control. `download.py` documents the isolation that confirmed this.
+
+The gate applies to the item page's own redirect too, which is easy to
+misdiagnose with a bare `curl -IL`: `curl`'s `-L` does **not** persist
+cookies across redirects unless you also pass `-c/-b` a cookie jar, so a
+plain `curl -IL https://estudogeral.uc.pt/handle/<handle>` loops 50x and
+looks broken, while the same URL opens instantly in any real browser or
+`requests.Session` (both persist cookies across redirects by default).
+`source_url` in every front-matter block is exactly this URL — it resolves,
+this curl gotcha is not a defect in it.
+
+## The one real unknown, resolved: two download-link shapes, not client vs. server rendering
+
+6 of the 18 (handles `.../119251`, `/119257`, `/119336`, `/119444`,
+`/119468`, `/119520`) were flagged as needing investigation — their item
+pages appeared not to expose a `/bitstream/<handle>/<seq>/<name>` link.
+Measured directly: they are **not** client-side rendered. Their "View/Open"
+link is a second, equally server-rendered pattern DSpace-CRIS uses for some
+items — `/retrieve/<bitstream_id>/<filename>` — sitting in the same HTML
+next to a `/bitstream/.../-1/<filename>` decoy link (an OpenURL/citation
+artifact that always 404s). `download.find_download_link` tries the real
+`/bitstream/.../<seq>/` pattern first (skipping any `-1` sequence), then
+falls back to `/retrieve/<id>/`. No headless browser needed — the Playwright
+escalation the parent card warned about never became necessary.
+
+## The one genuine gap: an actual embargo, not a scraping problem
+
+`10316/119251` is `dc.rights = embargoedAccess` with
+`embargoEnd = 2028-05-08` (still ~19 months out as of this run) — its REST
+bitstream list is empty and its item page's download link redirects to a
+login page. **This corrects the parent card's premise** that all 6 were
+`openAccess`: 5 were, 1 genuinely is not, independent of anything this
+extractor could do differently. Its `.md` still carries full metadata and
+both abstracts (`full_text: false` in front-matter records this
+explicitly) — consistent with the Product Owner's own finding that all 18
+serve the correlation goal on metadata alone; only the semantic-search goal
+(a later stage) needs the body text.
+
+Net result: **17/18 with full text extracted**, exceeding the ≥12
+acceptance bar, and the 6-thesis unknown resolved to 5 solved + 1 correctly
+reported as blocked by a real embargo rather than a technical gap.
+
+## Where the metadata comes from
+
+OAI-PMH (`oai.py`) is used only for enumeration — it is cheap to paginate
+but its `oai_dc` format carries no language tags, so bilingual
+titles/abstracts/subjects cannot be told apart reliably from element order
+alone. Every field that lands in front-matter instead comes from the legacy
+`/rest/` API (`restapi.py`), which tags each value with its language
+(`eng`/`por`) — `title` prefers the English `dc.title`/`dc.title.alternative`
+value, falling back to whatever exists.
+
+## Rate limiting
+
+~0.8s between every request (item page, REST call, PDF download) —
+comfortably under the ~1 req/s throttling threshold hit while investigating
+this card. `download_pdf` retries transient (5xx/network) failures with
+exponential backoff; a non-retryable failure (embargo redirect, 404) is
+recorded in the manifest instead of aborting the run.
+
+## Output
+
+- `estudo_geral/<handle-with-dash>.md` — one per thesis, front-matter keys
+  `handle`, `title`, `authors`, `supervisors`, `date`, `keywords`,
+  `abstract_pt`, `abstract_en`, `source_url`, `rights`, `full_text`.
+- `estudo_geral/manifest.json` — one row per thesis: title, date, rights,
+  authors, byte count, and (for the one that failed) the exact error — the
+  count this README states is a query over this file, not an assertion.
+- `estudo_geral/pdfs/` — the downloaded PDFs (~480 MB; sizes match each
+  bitstream's `sizeBytes` in REST exactly — one thesis alone is 167 MB).
+  **Gitignored** — the `.md` extracts are the committed provenance, not the
+  source PDFs.
+
+## Tests
+
+`tests/test_estudo_geral_extractor.py` covers the pure functions — OAI
+record parsing/selection, the two download-link shapes (including the `-1`
+decoy), REST metadata language-splitting, and front-matter/markdown
+rendering — against fixtures, same convention as `tests/test_parse.py` for
+the scraper. The network paths (OAI pagination, REST fetch, item-page fetch,
+PDF download) are exercised for real by running the CLI, not by the test
+suite — see the coverage-gate comment in `pyproject.toml`.
+
+## What this makes harder later
+
+- `/retrieve/<bitstream_id>/` requires the bitstream's numeric REST id,
+  which is a live lookup, not something derivable from the handle alone —
+  fine at 18 items scanned per run, would need caching at a much larger
+  scale.
+- The embargoed thesis's full text will not become available until 2028
+  without a re-run after `embargoEnd` passes; nothing here polls for that.
+- PDF text extraction (`pypdf`) is not layout-aware — tables, footnotes and
+  multi-column pages extract as a single text stream. Fine for the
+  correlation/keyword-search goals; a later semantic-search stage may want a
+  layout-aware extractor if chunk quality suffers.

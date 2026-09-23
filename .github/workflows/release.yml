@@ -1,0 +1,51 @@
+# aw-app-crispal releases into the PRIVATE catalog, tekflox/aw-marketplace-private.
+#
+# History worth keeping, because the failure mode was silent: this caller
+# used to invoke the shared workflow with no way to name a catalog. That
+# workflow hardcoded tekflox/aw-marketplace AND auto-merges first-party
+# tekflox/* sync PRs, so every push to master here was one merged PR away
+# from publishing a private store's WordPress, its DB credentials and its
+# MCP surface into the PUBLIC marketplace. It never fired only because this
+# repo happened to be missing the org secret MARKETPLACE_SYNC_TOKEN —
+# granting it was all it would have taken, and one migration pass in Aug
+# 2026 did exactly that. The file was then replaced by a hand-release note
+# as a stopgap lock.
+#
+# The real fix, now in place: app-release.yml takes a `catalog_repo` input,
+# and refuses outright to sync a PRIVATE app repo into the public catalog —
+# derived from the repo's own visibility, so it cannot drift out of sync
+# with a forgotten input here. Automation is back on, pointed at the
+# catalog aw-workspace actually reads (Settings → Marketplace →
+# "TekFlox Private", tekflox/aw-marketplace-private@master).
+#
+# Rebuild the image with `gh workflow run publish.yml` when the package or
+# its deps change — that is still a separate, manual workflow.
+
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Force bump kind"
+        type: choice
+        options: [major]
+
+jobs:
+  release:
+    # Moving ref: bumping app-release.yml in aw-marketplace propagates here
+    # automatically. Move to @v1 once aw-marketplace cuts a first tag.
+    #
+    # permissions here is the CEILING the called workflow's own
+    # `contents: write` request is checked against — this repo's default
+    # workflow permissions are read-only, so without this the run fails at
+    # startup (startup_failure, zero jobs) before ever reaching aw-marketplace.
+    permissions:
+      contents: write
+    uses: tekflox/aw-marketplace/.github/workflows/app-release.yml@master
+    with:
+      bump: ${{ inputs.bump || '' }}
+      catalog_repo: tekflox/aw-marketplace-private
+    secrets: inherit

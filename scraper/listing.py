@@ -10,7 +10,7 @@ import re
 LISTING_URL = "https://www.cisuc.uc.pt/en/projects"
 
 USER_AGENT = (
-    "uc-dei-phd-scraper/0.1 (+https://github.com/tekflox; "
+    "aw-app-uc-phd-scraper/0.1 (+https://github.com/tekflox; "
     "one-shot personal research read for Frederico Wu, UC DEI/CISUC PhD work; "
     "contact via the linked GitHub account)"
 )

@@ -1,12 +1,148 @@
-# uc-dei-phd — CISUC projects scraper
+# aw-app-uc-phd — UC PhD Projects
+
+A **private** aw-workspace app that turns the scraped CISUC / UC DEI projects
+dataset into an interactive dashboard and a searchable project catalogue.
+
+Born from [`aw-app-template`](https://github.com/tekflox/aw-app-template)'s
+skeleton, grafted onto the original `uc-dei-phd` scraper repo — so the
+scraper's history, its design decisions and its data all came across intact.
+Built for Frederico Wu's UC DEI/CISUC PhD work.
+
+- **Tier-1** (`inprocess`) — no container, no image build.
+- **Permissions: `routes:register` and `fs:workspace-data`. Nothing else.**
+- The frontend is a **self-hosted React SPA**, served by the app's own FastAPI
+  sub-app and surfaced through a `managed_app` window — deliberately *not* a
+  `component`-mode bundle. See "Why no `ui:code`" below; this is the single
+  most important design constraint in the repo.
+
+## What it shows
+
+Everything the old static `analysis/presentation.html` covered, plus the two
+things a static page could never do:
+
+| View | Source |
+|---|---|
+| Coverage — 400 projects, 398 detail pages, the scrape manifest | `sql/coverage.sql` |
+| Field completeness, per field | `sql/fill_rates.sql` |
+| Projects per research group (all 6) | `sql/projects_per_group.sql` |
+| Top 10 projects per group (all 6), each linking to its CISUC page | `sql/top_projects_per_group.sql` |
+| Funding sources | `sql/funding_breakdown.sql` |
+| Budget by group / by year | `sql/budget_by_group.sql`, `sql/budget_by_year.sql` |
+| Projects started per year | `sql/start_date_timeline.sql` |
+| Top coordinators | `sql/top_coordinators.sql` |
+| **Searchable, group-filterable project list** | live query, `uc_phd_app/api/projects.py` |
+| **Per-project detail**, including every raw `project_fields_raw` pair | live query |
+
+**Every figure still traces to a committed `.sql` file.** That was the best
+property of the original repo and it survives the move: `uc_phd_app/db.py`
+loads the query from `sql/` at request time. No query was re-expressed as a
+Python string literal, and the endpoint docstrings name the file they read.
+
+Two honesty caveats are carried in the API payloads themselves — not just in
+the UI copy — so they cannot be dropped by a frontend change:
+
+- Research-group membership is **many-to-many**: the per-group columns sum to
+  more than 400 because a project in two groups is counted under both.
+- The top-10 ranking is **total budget descending, a documented proxy**. The
+  request never specified a metric; budget is the most objective one the data
+  offers, and it measures size, not quality or impact.
+
+## Why no `ui:code` (read before "simplifying" the frontend)
+
+This app is distributed through the **private** catalog
+`tekflox/aw-marketplace-private`. An app that is not in the *official public*
+marketplace is not `signed` (`src/apps/catalog.py`'s `is_marketplace_app`, and
+`app_installs.py` in aw-backend), and `filter_grants` refuses **every
+high-risk capability** to an unsigned app.
+
+A refused capability **does not raise**. The app activates anyway. So a
+`component`-mode frontend here would produce windows with intact chrome and a
+completely empty body — which reads as a bug in the app, not as a permission
+problem. The same argument rules out Tier-2 (`containers:manage` is also high
+risk).
+
+Hence: a plain SPA on the app's own subdomain, two low-risk permissions, and
+nothing that can be silently taken away. `docs/app-migration-plan.md` §2 and
+§13 have the full argument and name the doors it closes.
+
+## Where the data lives
+
+```
+data/cisuc.sqlite3                                   the committed SEED
+<AW_WORKSPACE_HOME>/data/aw-app-uc-phd/cisuc.sqlite3 the LIVE database
+```
+
+An installed app's package directory is **deleted and re-fetched wholesale on
+every update**. Reading the database from there would mean any scrape a user
+ran disappeared at the next version bump, with no error. So `activate()` seeds
+the committed snapshot into the app's own data dir and everything reads from
+there (`uc_phd_app/seed.py`).
+
+The copy is **atomic and idempotent**, because at `AW_WORKSPACE_WORKERS>1`
+every worker activates the app independently and a naive `shutil.copy` race
+produces a truncated database that opens fine and answers with garbage.
+
+Upgrade rule: a newer packaged snapshot replaces the live database **unless**
+the live one has a `scrape_runs` row newer than the seed's — i.e. your own
+`python -m scraper.run` always wins over ours.
+
+## Running it
+
+### Standalone (how the UI is developed)
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt fastapi uvicorn
+cd ui && npm install && npm run build && cd ..
+
+AW_APP_UC_PHD_DATA_DIR=/tmp/uc-phd .venv/bin/python -m uc_phd_app
+# http://127.0.0.1:9482/
+```
+
+The standalone app mounts the same sub-app at **both** roots the runtime
+exposes it on — `/` (standing in for the app's subdomain) and
+`/api/apps/aw-app-uc-phd` (the path mount) — so the mode you develop in
+cannot disagree with the mode users get.
+
+### Refreshing the data
+
+Re-scraping is **not** in the app (no `net:outbound`, deliberately). It stays
+a CLI run:
+
+```bash
+.venv/bin/python -m scraper.run
+```
+
+Point it at the data-dir database to refresh what the app serves. See
+"How the listing is fetched" below.
+
+## Tests
+
+```bash
+.venv/bin/python -m pytest tests/ -q --cov=uc_phd_app
+bash tests/standalone_test.sh          # boots standalone, checks /healthz + both roots
+.venv/bin/python tests/validate_manifest.py aw-app.json
+```
+
+Route and seed tests run against a **small fixture database built from
+`scraper/schema.sql`**, never the real 400-row snapshot — so assertions stay
+readable and a schema change the app has not caught up with fails loudly.
+`tests/test_standalone.py` is the exception: it exercises the real committed
+artefacts (seed, `sql/`, `ui/dist`) on purpose.
+
+The coverage gate is **100%, scoped to `uc_phd_app`**. `scraper/` is
+deliberately outside it; `pyproject.toml` explains why next to the setting.
+
+`ui/dist` is **committed** — release CI ships the repo as-is and never runs
+`npm run build`. CI fails if a fresh build would change it.
+
+---
+
+# The scraper
 
 A one-shot Python scraper that pulls every project listed at
-[cisuc.uc.pt/en/projects](https://www.cisuc.uc.pt/en/projects) into a local
-SQLite database, plus a script that builds an exploratory-analysis
-presentation on top of it.
-
-Built for Frederico Wu's UC DEI/CISUC PhD work. Single-user, offline
-artefact — not an aw-workspace app, no deploy, no scheduling.
+[cisuc.uc.pt/en/projects](https://www.cisuc.uc.pt/en/projects) into
+`data/cisuc.sqlite3`.
 
 ## How the listing is fetched — no browser
 
@@ -30,44 +166,9 @@ uses a different class from every other field on the page and a
 class-based selector would silently drop it. Every (label, value) pair
 found is persisted verbatim into `project_fields_raw`, so a field nobody
 thought to name (e.g. `Keywords`, present on ~70% of pages but in no spec
-this scraper was built against) still ends up in the database.
-
-See `.tmp/uc-dei-phd/DESIGN.md` in the aw-workspace repo for the full design
-rationale (not shipped in this repo — this is a standalone project).
-
-## Setup
-
-```bash
-cd repos/uc-dei-phd
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-```
-
-Own `.venv/`, own `requirements.txt` — does not use the aw-workspace venv.
-
-## Running the scraper
-
-```bash
-.venv/bin/python -m scraper.run
-```
-
-One-shot: fetches the listing, writes a `scrape_targets` manifest row per
-listing row, then fetches each detail page 1.5s apart (retrying on
-5xx/timeout), upserting into `data/cisuc.sqlite3` as it goes. Takes roughly
-10 minutes for ~400 pages. Safe to re-run — every write is
-`INSERT ... ON CONFLICT(title_norm) DO UPDATE`, and per-project child rows
-(fields, groups, people, keywords) are replaced, not appended.
-
-## Building the presentation
-
-```bash
-.venv/bin/python -m analysis.build_presentation
-```
-
-Reads every chart's query from a committed file in `sql/`, renders the
-result with matplotlib, and writes one self-contained HTML file to
-`analysis/presentation.html`. That file is then loaded into the
-aw-workspace `aw-presentation` app.
+this scraper was built against) still ends up in the database — and the
+app's project-detail view renders that table in full for exactly that
+reason.
 
 ## Schema
 
@@ -78,73 +179,33 @@ aw-workspace `aw-presentation` app.
 - `project_fields_raw` — every (label, value, href) pair seen on a detail
   page, verbatim, in document order. The catch-all that makes "is every
   labelled field on the live page in the DB?" a SQL query instead of an
-  eyeball, and that will keep catching a field this scraper doesn't
-  currently promote to a typed column — anything new lands here first, and
-  nowhere else, until someone decides to promote it (see "What this makes
-  harder later" below).
+  eyeball.
 - `research_groups` / `project_groups` — many-to-many. The site's own
-  facet counts sum to 478 memberships across 400 projects; a project can
-  belong to more than one research group.
+  facet counts sum to 478 memberships across 400 projects.
 - `people` / `project_people` — coordinators and researchers, role-tagged.
 - `project_keywords` — comma-split from the `Keywords` field, when present.
 - `scrape_runs` — one row per scraper invocation.
 - `scrape_targets` — **the coverage manifest.** One row per listing row,
   written before that row's detail fetch, updated to a terminal status
-  (`ok` / `no_detail_url` / `http_error`) as each completes. Query this,
-  filtered to the latest `run_id`, to answer "did we get everything?"
-  without trusting a bare row count.
+  (`ok` / `no_detail_url` / `http_error`) as each completes.
 
-## Coverage (criterion 3, amended)
+Full schema: `scraper/schema.sql`, applied idempotently with
+`CREATE TABLE IF NOT EXISTS` on every run — which is also what lets the
+publications/researchers graph (`docs/graph-db-plan.md`) land as new tables
+in this same file rather than a migration.
 
-The 400 listing rows resolve to 399 distinct URLs and 398 reachable detail
-pages — two projects (`HealthyW8`, `FOCUS-PA`) are listed with an empty
-slug and the site itself publishes no detail page for them.
-
-Measured against the live site (scrape completed 2026-09-22):
+## Coverage (measured 2026-09-22)
 
 | Metric | Value |
 |---|---|
 | `COUNT(*) FROM projects` | **400** (matches the site's own `totalData`) |
 | `COUNT(*) WHERE detail_fetched = 1` | **398** |
-| Rows with `detail_unavailable_reason` set | **2** (`HealthyW8`, `FOCUS-PA` — `"no detail url published by site"`) |
+| Rows with `detail_unavailable_reason` set | **2** (`HealthyW8`, `FOCUS-PA`) |
 | Rows with NULL `title` | **0** |
-| `scrape_targets` rows for the latest run | **400**, all terminal (398 `ok`, 2 `no_detail_url`, 0 `http_error`) |
-| `detail_url` for the 2 stubs | NULL (not the bare listing URL) |
+| `scrape_targets` rows for the latest run | **400**, all terminal |
 
-Query: `sql/coverage.sql`.
-
-## Field fill rates (criterion 4)
-
-Per-field fill rate across the 398 fetched detail pages, driven by
-`project_fields_raw` (the site's own label universe — not a hardcoded
-field list). Query: `sql/fill_rates.sql`.
-
-| Field | Projects with value | Fill rate |
-|---|---|---|
-| Scope | 398 | 100.0% |
-| Total budget | 398 | 100.0% |
-| coordinator | 398 | 100.0% |
-| Start Date | 395 | 99.2% |
-| End Date | 388 | 97.5% |
-| Research Group | 387 | 97.2% |
-| Synopsis | 372 | 93.5% |
-| Funding | 363 | 91.2% |
-| Researchers | 341 | 85.7% |
-| Keywords | 288 | 72.4% |
-| CISUC budget | 271 | 68.1% |
-| Partners | 261 | 65.6% |
-
-`Keywords` is in no spec this scraper was built against, yet is present on
-72.4% of pages — exactly the case the label-driven parser (rather than a
-hardcoded field list) exists to catch.
-
-A live-vs-DB spot check on 3 randomly sampled fetched projects (ids 167,
-79, 205) found zero missing and zero extra labelled fields between the
-live page and `project_fields_raw`.
-
-Research group membership: 476 memberships across 400 projects (some
-projects belong to 2+ groups) — CMS 117 · AC 101 · SSE 87 · NCS 68 · IS 55
-· bAI 48. Query: `sql/projects_per_group.sql`.
+The app's Coverage view renders these live from `sql/coverage.sql` rather
+than from this table.
 
 ## What this makes harder later
 
@@ -152,20 +213,20 @@ projects belong to 2+ groups) — CMS 117 · AC 101 · SSE 87 · NCS 68 · IS 55
   columns — a new field lands there and is invisible to `sql/` until
   someone promotes it. Right default (nothing is lost), but a future "why
   isn't X on the chart" has a boring answer: nobody promoted it.
-- Keying on `title_norm` bakes in "CISUC never renames a project." A
-  rename would insert a second row rather than update the existing one.
-  Fine for a one-shot; would need revisiting for an incremental scrape,
-  which is explicitly out of scope here.
+- Keying on `title_norm` bakes in "CISUC never renames a project."
 - The CSRF handshake is undocumented site behaviour. If it changes, the
-  scraper fails loudly at the listing step (raises rather than returning
-  zero rows) rather than silently degrading.
-- SQLite + a committed binary DB file means every re-run produces a binary
-  diff in git. Fine at this size (~400 projects).
+  scraper fails loudly at the listing step rather than silently degrading.
+- Committing the SQLite seed puts binary data in git history. Fine at 1.9 MB
+  and this cadence; if the graph data lands as another 20 MB, move the seed
+  to a release asset.
 - The 2 stub projects (`detail_fetched = 0`) will never gain detail data
   unless CISUC publishes pages for them.
 
-## Out of scope (explicit, per Product Owner)
+## Docs
 
-Nothing beyond `cisuc.uc.pt/en/projects` + its detail pages. No PDFs, no
-scheduled/incremental scraping, not an aw-workspace app, no deploy/CI, no
-LLM-derived fields, no dashboard, no Postgres.
+- `docs/app-migration-plan.md` — the architect's design for this conversion,
+  with the code references behind every constraint above.
+- `docs/graph-db-plan.md` — the researchers/publications graph plan. Not built
+  yet; §12 of the migration plan explains what this app already does to
+  accommodate it.
+- `docs/uc/` — reference decks.

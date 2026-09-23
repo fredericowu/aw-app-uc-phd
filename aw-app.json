@@ -1,0 +1,49 @@
+{
+  "manifest_version": 1,
+  "id": "aw-app-uc-phd",
+  "name": "UC PhD Projects",
+  "version": "0.1.0",
+  "description": "Explore every research project at CISUC / UC DEI — 400 of them — as interactive charts and a searchable catalogue. See which research groups run what, where the money comes from and goes, how project starts are spread over the years, who coordinates the most, and the biggest projects in each group. Open any project for its synopsis, budgets, partners, keywords, people and every field the site publishes about it.",
+  "tier": "inprocess",
+  "requires_ui_refresh": true,
+  "publisher": "TekFlox",
+  "resource_estimate": {
+    "cpu": "low",
+    "memory": "low",
+    "disk": "low"
+  },
+  "runtime": {
+    "python": ">=3.11",
+    "entrypoint": "uc_phd_app.plugin:UcPhdAppPlugin",
+    "pip_requires": [],
+    "standalone": {
+      "module": "uc_phd_app",
+      "default_port": 9482
+    }
+  },
+  "permissions": [
+    "fs:workspace-data",
+    "routes:register"
+  ],
+  "contributes": {
+    "routes": [
+      {
+        "prefix": "/api/apps/aw-app-uc-phd"
+      }
+    ],
+    "windows": [
+      {
+        "id": "aw-app-uc-phd.main",
+        "title": "UC PhD Projects",
+        "icon": "chart-bar",
+        "body": {
+          "type": "managed_app",
+          "kind": "web",
+          "path": "/"
+        }
+      }
+    ]
+  },
+  "dependencies": {},
+  "migrations": {}
+}

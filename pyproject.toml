@@ -1,0 +1,46 @@
+[tool.pytest.ini_options]
+# tests/ imports `tests.conftest` for the fixture-DB builder, so the repo root
+# has to be importable as a package root.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+# DELIBERATE NARROWING — read this before "fixing" it.
+#
+# aw-app-template measures `--cov=template_app`, its whole repo. This repo has
+# two Python packages, and only one of them is the app:
+#
+#   uc_phd_app/  the app. Runs inside the workspace, on every request. 100%.
+#   scraper/     a network-bound one-shot CLI (`python -m scraper.run`) that
+#                talks to a live website over HTTP for ~10 minutes. Its
+#                parsers already have fixture-based tests
+#                (tests/test_parse.py, tests/test_detail_parser.py); its
+#                fetch/retry/pagination paths cannot be covered without either
+#                hitting cisuc.uc.pt from CI or building a mock HTTP site
+#                whose only reader is the mock itself.
+#
+# Holding scraper/ to 100% would therefore buy fake tests, and lowering the
+# gate to accommodate it would drop the floor for the code that actually runs
+# in production. So the gate stays at 100% and the scope is the app package.
+# If a future change moves real app logic into scraper/, move the boundary
+# with it rather than quietly lowering the number.
+source = ["uc_phd_app"]
+omit = ["*/__pycache__/*"]
+
+[tool.coverage.report]
+# Exemptions 1-4 from docs/standards/pipeline-testing.md §3 (glue, properties,
+# dunder reprs, pure re-exports), inherited from aw-app-template.
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "def __main__",
+    "if __name__ == .__main__",
+    "raise NotImplementedError",
+    "except ImportError",
+]
+show_missing = true
+precision = 1
+# Hard 100% gate on uc_phd_app, matching the template this app was born from.
+# Never lower this without writing the reason next to it.
+fail_under = 100

@@ -21,6 +21,10 @@ On activate, in this order:
 3. **Register the backend sub-app** through the gated ``ctx.routes`` facade
    (capability ``routes:register``), mounted by the runtime at
    ``/api/apps/aw-app-uc-phd`` and on the app's own subdomain.
+4. **Self-register the ``phd_knowledge_base`` MCP server** (S4) by writing
+   ``mcp.json`` into the package dir — see ``mcp/self_register.py``. No new
+   capability: the gateway discovers it by scanning the installed app dir,
+   the same mechanism ``aw-app-whiteboard`` and ``aw-app-architecture`` use.
 
 This app requests four permissions: ``routes:register``, ``fs:workspace-data``,
 ``net:outbound`` and ``db:own-tables`` — all **low risk**
@@ -43,10 +47,12 @@ for.
 from __future__ import annotations
 
 import logging
+import os
 
 from . import routes as routes_mod
 from . import seed
 from . import store
+from .mcp import self_register as mcp_self_register
 
 log = logging.getLogger("aw_apps.uc_phd")
 
@@ -67,6 +73,11 @@ class UcPhdAppPlugin:
             )
 
         ctx.routes.register(routes_mod.build_routes(store=vector_store))
+
+        # Discoverable by aw-mcp-gateway's app-scan — see mcp/self_register.py.
+        port = int(os.environ.get("AW_PORT", "9030"))
+        mcp_self_register.register_self(ctx.package_dir, port)
+
         log.info(
             "aw-app-uc-phd activated: database %s (%s), routes mounted",
             result.get("db"), result.get("action"),

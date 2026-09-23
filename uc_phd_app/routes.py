@@ -26,10 +26,15 @@ socket; this app has nothing to stream, and an unused socket is a maintenance
 liability. If a later feature needs one, ``aw-app-template``'s handler is the
 reference to copy back in — along with the ``aw-ws/1`` envelope rules and the
 ``aw_app_uc_phd`` domain prefix (the app id with ``-`` -> ``_``, mechanically).
+
+``/mcp`` (S4) is registered directly on ``app`` — like every other route
+here it must precede the static mount below, for the same reason. See
+``mcp/self_register.py`` for how aw-mcp-gateway discovers it and
+``mcp/http_handler.py`` for the JSON-RPC handling.
 """
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Body, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from . import db, paths, seed
@@ -75,6 +80,33 @@ def build_routes(store: store_mod.VectorStore | None = None) -> FastAPI:
     app.include_router(projects_api.router, prefix="/api", tags=["projects"])
     app.include_router(theses_api.router, prefix="/api", tags=["theses"])
     app.include_router(search_api.router, prefix="/api", tags=["search"])
+
+    # ------------------------------------------------------------------
+    # MCP — Streamable HTTP, auto-discovered by aw-mcp-gateway's app-scan
+    # (see mcp/self_register.py + mcp/http_handler.py). Guarded by the same
+    # IdentityGuard every other route here is.
+    # ------------------------------------------------------------------
+
+    @app.post("/mcp")
+    async def mcp_post(data: dict | list = Body(...)):
+        from fastapi.responses import JSONResponse, Response
+
+        from .mcp.http_handler import handle_request as mcp_handle_request
+
+        messages = data if isinstance(data, list) else [data]
+        responses = []
+        for m in messages:
+            r = await mcp_handle_request(m, store=app.state.vector_store)
+            if r is not None:
+                responses.append(r)
+        if not responses:
+            return Response(status_code=202)
+        return JSONResponse(responses if isinstance(data, list) else responses[0])
+
+    @app.get("/mcp")
+    async def mcp_get():
+        from fastapi.responses import Response
+        return Response(status_code=405)
 
     # LAST. See the module docstring.
     dist = paths.ui_dist()

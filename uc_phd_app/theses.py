@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import db
+from . import db, paths
 
 #: Carried with the theses payload — the per-thesis group list is
 #: many-to-many for the same reason projects are (see
@@ -170,3 +170,51 @@ def group_breakdown(theses: list[dict]) -> dict:
         for code in thesis["groups"]:
             counts[code] = counts.get(code, 0) + 1
     return {"counts": counts, "unattributed": unattributed}
+
+
+def get_thesis(handle: str, db_path: Path | None = None) -> dict | None:
+    """One thesis's full record for ``uc_phd_app/mcp``'s ``get_phd_thesis``
+    tool (S4) — everything ``list_theses()`` already resolves (identity,
+    groups) plus the two abstracts it doesn't surface, and the extracted
+    body text. ``None`` if the handle does not exist.
+
+    Reuses ``list_theses()`` rather than a second identity join: at 18
+    theses a linear scan is cheap, and it keeps the resolution logic in one
+    place instead of two SQL paths drifting apart.
+    """
+    match = next((t for t in list_theses(db_path) if t["handle"] == handle), None)
+    if match is None:
+        return None
+    row = db.one(db.load_query("thesis_by_handle"), {"handle": handle}, db_path)
+    return {
+        **match,
+        "abstract_pt": row["abstract_pt"] if row else None,
+        "abstract_en": row["abstract_en"] if row else None,
+        "body": thesis_body(handle),
+    }
+
+
+def thesis_body(handle: str) -> str | None:
+    """The extracted markdown body for one thesis, read from its committed
+    ``estudo_geral/<handle>.md`` (S1) — title + abstracts live in the seed
+    (``theses`` table), but the full extracted text does not, so this reads
+    the source file directly rather than duplicating it into the database.
+
+    ``None`` when the file does not exist (an unindexed or embargoed-with-no-
+    extraction thesis). Splitting on the front-matter delimiter is
+    deliberately re-implemented here rather than imported from
+    ``estudo_geral_extractor`` — see that package's own
+    ``split_front_matter()`` docstring for why: it is expected to be deleted
+    by another card, and this app's coverage gate cannot depend on it.
+    """
+    filename = handle.replace("/", "-") + ".md"
+    path = paths.estudo_geral_dir() / filename
+    if not path.is_file():
+        return None
+    raw = path.read_text(encoding="utf-8")
+    if not raw.startswith("---\n"):
+        return raw
+    end = raw.find("\n---\n", 4)
+    if end == -1:
+        return raw
+    return raw[end + len("\n---\n"):].lstrip("\n")

@@ -430,6 +430,73 @@ table.data tbody tr:hover {
   opacity: 0.45;
 }
 
+/* ── collaboration graph ────────────────────────────────────────────────── */
+
+.graph-layout {
+  display: flex;
+  gap: 16px;
+}
+
+.viz-graph {
+  background: var(--page);
+  border-radius: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 4,242 hit-testable lines at floor 1 is its own slowdown, and only nodes
+ * need to be interactive — see CollabGraph.jsx's layout() docstring. */
+.viz-graph-edge {
+  pointer-events: none;
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+
+.viz-graph-edge-dim {
+  stroke-opacity: 0.15;
+}
+
+.viz-graph-node {
+  cursor: pointer;
+  stroke: var(--surface-1);
+  stroke-width: 1;
+}
+
+.viz-graph-node-dim {
+  opacity: 0.2;
+}
+
+.viz-graph-node-selected {
+  stroke: var(--text-primary);
+  stroke-width: 2;
+}
+
+.graph-panel {
+  flex: 0 0 260px;
+}
+
+.graph-panel-list {
+  font-size: 12px;
+  list-style: none;
+  margin: 0;
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.graph-panel-list li {
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+}
+
+.graph-panel-list li:first-child {
+  border-top: none;
+}
+
+.graph-panel-hidden {
+  color: var(--text-muted);
+}
+
 /* ── controls ───────────────────────────────────────────────────────────── */
 
 .filters {

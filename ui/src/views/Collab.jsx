@@ -1,19 +1,22 @@
 // Collaboration & teams — who works with whom (co_project) and who
-// co-supervises (co_supervision). Ranked table + person-anchored
-// neighbourhood, deliberately never a raw node-link graph: 4,242 edges over
-// 475 people drawn without an anchor is a hairball, not an answer.
+// co-supervises (co_supervision). Ranked table, person-anchored
+// neighbourhood, and — since the floor makes it an answer rather than a
+// hairball — a filtered node-link graph (CollabGraph.jsx) drawn above both.
+// Floor 1 still draws the full 4,242-edge tangle, on purpose: seeing it is a
+// better argument for the floor than this comment.
 
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { AsyncBoundary, Caveat, DataTable, Section, Tile, useAsync } from '../components';
 import { groupColorVar } from '../colors';
 import { count } from '../format';
+import CollabGraph from './CollabGraph';
 
 const PAGE_SIZE = 50;
 const KIND_LABEL = { co_project: 'Co-project', co_supervision: 'Co-supervision' };
-const FLOOR_OPTIONS = [1, 2, 3, 5];
+const FLOOR_OPTIONS = [1, 2, 3, 4, 5];
 
-function GroupChips({ groups }) {
+export function GroupChips({ groups }) {
   if (!groups || !groups.length) return <span className="chart-note">—</span>;
   return (
     <span className="chips">
@@ -33,6 +36,7 @@ function CrossGroupCell({ value }) {
 }
 
 function FloorPicker({ kind, value, onChange }) {
+  const pinned = kind === 'co_supervision';
   return (
     <div className="group-pills">
       <span className="chart-note">
@@ -44,11 +48,18 @@ function FloorPicker({ kind, value, onChange }) {
           type="button"
           className="group-pill"
           aria-pressed={value === n}
+          disabled={pinned}
           onClick={() => onChange(n)}
         >
           ≥{n}
         </button>
       ))}
+      {pinned ? (
+        <span className="chart-note">
+          Pinned at ≥1 — 49 of 53 co-supervision pairs share exactly one thesis, so ≥2 leaves a
+          degenerate 4-edge graph, not a network.
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -186,66 +197,75 @@ function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
   );
 }
 
-const DEFAULT_FLOOR = { co_project: 2, co_supervision: 1 };
-
 export default function Collab() {
   const summaryState = useAsync(() => api.collabSummary(), []);
   const [kind, setKind] = useState('co_project');
-  const [minWeight, setMinWeight] = useState(DEFAULT_FLOOR.co_project);
+  // null until a floor is explicitly picked — the effective floor is seeded
+  // from /collab/summary's graph_min_weight below, once it resolves. One
+  // fetch, one source of truth: no correcting effect, so no double fetch of
+  // pairs/graph on mount.
+  const [minWeight, setMinWeight] = useState(null);
   const [anchor, setAnchor] = useState(null);
 
   const changeKind = (next) => {
     setKind(next);
-    setMinWeight(DEFAULT_FLOOR[next]);
+    setMinWeight(null);
   };
 
   return (
     <Section
       title="Collaboration & teams"
-      note="Who works with whom, derived from data already in the seed — 4,242 co-project pairs and 21 co-supervision pairs, zero new scraping. Two edge kinds, kept separate and never summed: sharing a project is not the same fact as co-supervising a thesis."
+      note="Who works with whom, derived from data already in the seed — 4,242 co-project pairs and 53 co-supervision pairs, zero new scraping. Two edge kinds, kept separate and never summed: sharing a project is not the same fact as co-supervising a thesis."
     >
       <AsyncBoundary state={summaryState}>
-        {(summary) => (
-          <div className="tiles">
-            <Tile value={count(summary.total_people)} label="People" />
-            <Tile value={count(summary.people_on_multiple_projects)} label="On 2+ projects" />
-            <Tile
-              value={count(summary.co_project.pair_count)}
-              label="Co-project pairs"
-              note={`${count(summary.co_project.pairs_below_floor)} share exactly 1 project`}
-            />
-            <Tile
-              value={count(summary.co_supervision.pair_count)}
-              label="Co-supervision pairs"
-              note={`max ${count(summary.co_supervision.max_weight)} shared theses`}
-            />
-          </div>
-        )}
+        {(summary) => {
+          const floor = minWeight ?? summary.graph_min_weight[kind];
+          return (
+            <>
+              <div className="tiles">
+                <Tile value={count(summary.total_people)} label="People" />
+                <Tile value={count(summary.people_on_multiple_projects)} label="On 2+ projects" />
+                <Tile
+                  value={count(summary.co_project.pair_count)}
+                  label="Co-project pairs"
+                  note={`${count(summary.co_project.pairs_below_floor)} share exactly 1 project`}
+                />
+                <Tile
+                  value={count(summary.co_supervision.pair_count)}
+                  label="Co-supervision pairs"
+                  note={`max ${count(summary.co_supervision.max_weight)} shared theses`}
+                />
+              </div>
+
+              <div className="group-pills">
+                {Object.entries(KIND_LABEL).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className="group-pill"
+                    aria-pressed={kind === k}
+                    onClick={() => changeKind(k)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <FloorPicker kind={kind} value={floor} onChange={setMinWeight} />
+
+              <CollabGraph kind={kind} minWeight={floor} />
+
+              <AnchorPicker onSelect={setAnchor} />
+
+              {anchor ? (
+                <PersonNeighbourhood anchor={anchor} kind={kind} minWeight={floor} onClear={() => setAnchor(null)} />
+              ) : (
+                <PairsTable kind={kind} minWeight={floor} />
+              )}
+            </>
+          );
+        }}
       </AsyncBoundary>
-
-      <div className="group-pills">
-        {Object.entries(KIND_LABEL).map(([k, label]) => (
-          <button
-            key={k}
-            type="button"
-            className="group-pill"
-            aria-pressed={kind === k}
-            onClick={() => changeKind(k)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <FloorPicker kind={kind} value={minWeight} onChange={setMinWeight} />
-
-      <AnchorPicker onSelect={setAnchor} />
-
-      {anchor ? (
-        <PersonNeighbourhood anchor={anchor} kind={kind} minWeight={minWeight} onClear={() => setAnchor(null)} />
-      ) : (
-        <PairsTable kind={kind} minWeight={minWeight} />
-      )}
     </Section>
   );
 }

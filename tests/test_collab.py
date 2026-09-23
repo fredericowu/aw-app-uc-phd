@@ -194,3 +194,136 @@ def test_person_neighbours_route_empty_is_not_an_error(client):
     body = client.get("/api/collab/people/grace?kind=co_project&min_weight=1").json()
     assert body["total"] == 0
     assert body["collaborators"] == []
+
+
+# ── uc_phd_app/collab.py — build_graph() (pure, hand-written pairs) ────────
+#
+# The shared fixture (see conftest.py) has exactly one co_project edge and
+# one co_supervision edge — every node has degree 1, no edge has weight >= 2,
+# so it cannot exercise degree ordering, floor filtering, a node losing its
+# last edge, or max_degree. Hand-written pair dicts instead, matching
+# enriched_pairs()'s shape.
+
+
+def _pair(a, b, weight, a_groups=None, b_groups=None, weight_normalized=None, cross_group=None):
+    return {
+        "person_a_slug": a,
+        "person_b_slug": b,
+        "person_a": a.capitalize(),
+        "person_b": b.capitalize(),
+        "person_a_groups": a_groups or [],
+        "person_b_groups": b_groups or [],
+        "weight": weight,
+        "weight_normalized": weight_normalized,
+        "cross_group": cross_group,
+    }
+
+
+def test_build_graph_degree_counts_only_surviving_edges():
+    # hub-a has 3 edges at floor 1, but only 2 survive floor 2.
+    pairs = [
+        _pair("hub", "a", 1),
+        _pair("hub", "b", 2),
+        _pair("hub", "c", 2),
+    ]
+    result = collab.build_graph(pairs, min_weight=2)
+    nodes = {n["slug"]: n for n in result["nodes"]}
+    assert nodes["hub"]["degree"] == 2
+    assert "a" not in nodes  # its only edge (weight 1) was dropped
+
+
+def test_build_graph_degree_full_is_unaffected_by_the_floor():
+    pairs = [_pair("hub", "a", 1), _pair("hub", "b", 2)]
+    result = collab.build_graph(pairs, min_weight=2)
+    nodes = {n["slug"]: n for n in result["nodes"]}
+    # 'hub' survives at floor 2 with degree 1, but degree_full counts both.
+    assert nodes["hub"]["degree"] == 1
+    assert nodes["hub"]["degree_full"] == 2
+
+
+def test_build_graph_drops_an_edge_below_the_floor():
+    pairs = [_pair("x", "y", 1)]
+    result = collab.build_graph(pairs, min_weight=2)
+    assert result["edges"] == []
+    assert result["edge_count"] == 0
+
+
+def test_build_graph_a_node_that_loses_its_last_edge_disappears():
+    pairs = [_pair("x", "y", 1)]
+    result = collab.build_graph(pairs, min_weight=2)
+    assert result["nodes"] == []
+    assert result["node_count"] == 0
+
+
+def test_build_graph_max_degree():
+    pairs = [_pair("hub", "a", 2), _pair("hub", "b", 2), _pair("a", "b", 2)]
+    result = collab.build_graph(pairs, min_weight=2)
+    assert result["max_degree"] == 2
+
+
+def test_build_graph_empty_input_is_not_an_error():
+    result = collab.build_graph([], min_weight=1)
+    assert result == {"nodes": [], "edges": [], "node_count": 0, "edge_count": 0, "max_degree": 0}
+
+
+def test_build_graph_carries_groups_through_from_the_pair():
+    pairs = [_pair("x", "y", 1, a_groups=["AC"], b_groups=["NCS", "AC"])]
+    result = collab.build_graph(pairs, min_weight=1)
+    nodes = {n["slug"]: n for n in result["nodes"]}
+    assert nodes["x"]["groups"] == ["AC"]
+    assert nodes["y"]["groups"] == ["NCS", "AC"]
+
+
+def test_build_graph_edge_carries_weight_normalized_and_cross_group():
+    pairs = [_pair("x", "y", 3, weight_normalized=1.5, cross_group=True)]
+    result = collab.build_graph(pairs, min_weight=1)
+    edge = result["edges"][0]
+    assert edge["source"] == "x"
+    assert edge["target"] == "y"
+    assert edge["weight"] == 3
+    assert edge["weight_normalized"] == 1.5
+    assert edge["cross_group"] is True
+
+
+def test_graph_rejects_an_unknown_kind(live_db):
+    with pytest.raises(ValueError):
+        collab.graph("bogus", min_weight=1)
+
+
+# ── uc_phd_app/api/collab.py — GET /collab/graph (DB-backed wiring) ────────
+
+
+def test_graph_route_returns_the_fixtures_single_edge_and_two_nodes(client):
+    body = client.get("/api/collab/graph?kind=co_project&min_weight=1").json()
+    assert body["kind"] == "co_project"
+    assert body["min_weight"] == 1
+    assert body["node_count"] == 2
+    assert body["edge_count"] == 1
+    slugs = {n["slug"] for n in body["nodes"]}
+    assert slugs == {"ada", "alan"}
+    assert body["edges"][0]["source"] in slugs and body["edges"][0]["target"] in slugs
+    assert "caveat" in body and "degree_caveat" in body and "cross_group_caveat" in body
+
+
+def test_graph_route_rejects_an_unknown_kind(client):
+    resp = client.get("/api/collab/graph?kind=bogus")
+    assert resp.status_code == 400
+
+
+def test_graph_route_min_weight_omitted_echoes_graph_min_weight(client):
+    body = client.get("/api/collab/graph?kind=co_project").json()
+    assert body["min_weight"] == collab.GRAPH_MIN_WEIGHT["co_project"]
+    body = client.get("/api/collab/graph?kind=co_supervision").json()
+    assert body["min_weight"] == collab.GRAPH_MIN_WEIGHT["co_supervision"]
+
+
+def test_graph_route_edge_count_matches_pairs_route_total_for_same_floor(client):
+    for kind, floor in (("co_project", 1), ("co_supervision", 1)):
+        graph_body = client.get(f"/api/collab/graph?kind={kind}&min_weight={floor}").json()
+        pairs_body = client.get(f"/api/collab/pairs?kind={kind}&min_weight={floor}").json()
+        assert graph_body["edge_count"] == pairs_body["total"]
+
+
+def test_summary_route_carries_graph_min_weight(client):
+    body = client.get("/api/collab/summary").json()
+    assert body["graph_min_weight"] == collab.GRAPH_MIN_WEIGHT

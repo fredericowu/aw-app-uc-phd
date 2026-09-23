@@ -32,7 +32,7 @@ things a static page could never do:
 | Budget by group / by year | `sql/budget_by_group.sql`, `sql/budget_by_year.sql` |
 | Projects started per year | `sql/start_date_timeline.sql` |
 | Top coordinators | `sql/top_coordinators.sql` |
-| **Collaboration & teams** — ranked co-project/co-supervision pairs, or one person's own neighbourhood | `sql/collab_co_project.sql`, `sql/collab_co_supervision.sql`, `sql/collab_person_groups.sql`, aggregated in `uc_phd_app/collab.py` |
+| **Collaboration & teams** — ranked co-project/co-supervision pairs, one person's own neighbourhood, or a filtered node-link graph (node size = degree within the rendered floor) | `sql/collab_co_project.sql`, `sql/collab_co_supervision.sql`, `sql/collab_person_groups.sql`, aggregated in `uc_phd_app/collab.py` — degree is derived in Python over those same rows, not a new query (see `collab.py`'s docstring for why) |
 | The 18 Estudo Geral doctoral theses | `sql/theses.sql` |
 | Each thesis's authors/supervisors, resolved to a CISUC person or not | `sql/thesis_people.sql` |
 | How far the name matcher reaches (per tier, over distinct names) | `sql/thesis_match_tiers.sql` |

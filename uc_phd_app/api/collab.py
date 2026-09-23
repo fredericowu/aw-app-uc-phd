@@ -1,9 +1,14 @@
 """v1 HTTP surface for the collaboration graph (``uc_phd_app/collab.py``).
 
-Ranked-table-first, deliberately: ``/collab/pairs`` and the person-anchored
-``/collab/people/{slug}`` are the two shapes the design notes ask for — no
-raw force-directed node-link endpoint exists, because 4,242 edges over 475
-nodes drawn without an anchor is a hairball, not an answer.
+Three shapes now, not two. ``/collab/graph`` exists because the thing the
+earlier note rejected was one unfiltered draw — 4,242 edges over 470 nodes
+with no anchor is a hairball — and not node-link drawing as such. The floor
+is what makes it an answer: at the default of 4 shared projects it is 282
+edges over 91 nodes, where individual hubs read as distinguishable circles
+rather than a dense core (3 shared projects, 577/132, still looked like a
+blob in a real screenshot — see ``collab.GRAPH_MIN_WEIGHT``). Floor 1 still
+draws the hairball, on purpose, because seeing it is a better argument for
+the floor than this paragraph.
 """
 from __future__ import annotations
 
@@ -31,6 +36,7 @@ async def collab_summary() -> dict:
     return {
         **collab.summary(),
         "default_min_weight": collab.DEFAULT_MIN_WEIGHT,
+        "graph_min_weight": collab.GRAPH_MIN_WEIGHT,
         "caveats": {"co_project": collab.CO_PROJECT_CAVEAT, "co_supervision": collab.CO_SUPERVISION_CAVEAT},
     }
 
@@ -64,6 +70,33 @@ async def collab_pairs(
         "offset": offset,
         "pairs": page,
         "caveat": _caveat_for(kind),
+        "cross_group_caveat": collab.CROSS_GROUP_CAVEAT,
+    }
+
+
+@router.get("/collab/graph")
+async def collab_graph(
+    kind: str = Query(default="co_project"),
+    min_weight: int | None = Query(default=None, ge=1),
+) -> dict:
+    """Node-aggregated, unpaginated graph for one kind at one floor — the
+    shape a node-link rendering needs. Not paginated: at the default floor
+    this is 91 nodes / 282 edges, well under 100 KB, and half a graph is
+    not a smaller graph. ``source``/``target`` rather than
+    ``person_a_slug``/``person_b_slug``: this is the one endpoint in the app
+    that is graph-shaped, and source/target is the node-link vocabulary
+    ``d3-force``'s ``forceLink`` expects by default.
+
+    ``edge_count`` equals ``/collab/pairs``'s ``total`` for the same
+    kind+floor by construction — both filter ``weight >= floor`` over
+    ``enriched_pairs(kind)`` — pinned by a test rather than left to drift."""
+    _validate_kind(kind)
+    floor = min_weight if min_weight is not None else collab.GRAPH_MIN_WEIGHT[kind]
+    result = collab.graph(kind, floor)
+    return {
+        **result,
+        "caveat": _caveat_for(kind),
+        "degree_caveat": collab.DEGREE_CAVEAT,
         "cross_group_caveat": collab.CROSS_GROUP_CAVEAT,
     }
 

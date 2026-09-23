@@ -121,6 +121,11 @@ export const api = {
     if (minWeight != null) params.set('min_weight', String(minWeight));
     return getJSON(`/collab/pairs?${params}`);
   },
+  collabGraph: ({ kind = 'co_project', minWeight } = {}) => {
+    const params = new URLSearchParams({ kind });
+    if (minWeight != null) params.set('min_weight', String(minWeight));
+    return getJSON(`/collab/graph?${params}`);
+  },
   collabPeople: ({ q, limit = 20 } = {}) => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);

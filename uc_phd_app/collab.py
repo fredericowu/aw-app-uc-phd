@@ -2,12 +2,12 @@
 
 Derived, not collected (docs/graph-db-plan.md's live-people-feed proposal
 stays valid for what it uniquely offers — publication counts — but is not a
-prerequisite here): 4,242 co-project pairs and ~21 co-supervision pairs, both
+prerequisite here): 4,242 co-project pairs and 53 co-supervision pairs, both
 computable offline from data already in the seed (``project_people``,
-``thesis_people``). NetworkX territory, not Neo4j — this module never builds
-an in-memory graph object at all, because every consumer so far is either a
-ranked table or one person's neighbourhood, and a dict of aggregated pairs
-answers both without a graph library.
+``thesis_people``). NetworkX territory, not Neo4j — a third consumer now
+exists alongside the ranked table and the person-anchored neighbourhood: a
+node-link graph (``graph()``/``build_graph()`` below), allowed precisely
+because it is always drawn behind a floor — see ``GRAPH_MIN_WEIGHT``.
 
 Two edge kinds, kept distinct, never summed:
 
@@ -49,6 +49,19 @@ from . import db
 #: pass min_weight=1 to see every pair including the near-meaningless ones.
 DEFAULT_MIN_WEIGHT = {"co_project": 2, "co_supervision": 1}
 
+#: Floor the GRAPH defaults to. Kept separate from DEFAULT_MIN_WEIGHT on
+#: purpose: that constant answers "which pairs are worth listing" for the
+#: ranked table; this one answers "how many marks fit on a screen" for the
+#: node-link graph. Folding them into one constant would mean a future
+#: rendering tweak silently re-ranks the table. co_project's floor of 3
+#: (577 edges / 132 nodes) still read as a dense, hard-to-parse core in a
+#: screenshot of the actual rendering — moved to 4 (282 edges / 91 nodes),
+#: where individual hubs are visibly distinguishable, with that screenshot
+#: as the evidence (PO pre-authorised this exact move without a re-scope).
+#: co_supervision stays pinned at 1 — every weight >= 2 pair is a degenerate
+#: 4-edge graph (histogram {1: 49, 2: 3, 5: 1}), not a network.
+GRAPH_MIN_WEIGHT = {"co_project": 4, "co_supervision": 1}
+
 KINDS = ("co_project", "co_supervision")
 
 CO_PROJECT_CAVEAT = (
@@ -85,6 +98,14 @@ CROSS_GROUP_CAVEAT = (
     "otherwise. A true cross_group means two people who work together "
     "despite sitting in different groups on paper — it is not a measure of "
     "how well they complement each other, which this data cannot answer."
+)
+
+DEGREE_CAVEAT = (
+    "degree is the count of distinct collaborators at the current floor, "
+    "not a centrality measure — it counts people, not projects, so someone "
+    "on one 30-person project has degree 29 at floor 1 and (usually) 0 at "
+    "floor 3. degree_full is the same count with the floor removed (floor "
+    "1) and is never what sizes a node — it only ever appears on hover."
 )
 
 
@@ -176,6 +197,82 @@ def enriched_pairs(kind: str) -> list[dict]:
         pair["person_b_groups"] = sorted(gb) if gb else []
         pair["cross_group"] = _cross_group(ga, gb)
     return pairs
+
+
+def build_graph(pairs: list[dict], min_weight: int) -> dict:
+    """Pure: aggregates already-enriched ``pairs`` (see ``enriched_pairs``)
+    into a node-link graph at ``min_weight``, touching no database. Kept
+    separate from ``graph()`` so degree — a new figure the shared test
+    fixture cannot exercise (it has exactly one edge per kind) — is testable
+    with hand-written pair dicts instead of a widened fixture.
+
+    Degree is computed twice in one pass: ``degree`` counts only edges that
+    survive the floor (the sole number allowed to size a node — see
+    DEGREE_CAVEAT), ``degree_full`` counts every edge regardless of floor
+    (hover-only, costs nothing extra since ``pairs`` already has them all).
+    A node appears in ``nodes`` only if its ``degree >= 1`` — nodes derive
+    from surviving edges, so degree 0 is impossible by construction and an
+    isolated person is simply absent, not a zero-degree node."""
+    people: dict[str, dict] = {}
+
+    def touch(slug: str, name: str, groups: list[str]) -> dict:
+        person = people.get(slug)
+        if person is None:
+            person = {
+                "slug": slug,
+                "name": name,
+                "groups": groups,
+                "degree": 0,
+                "degree_full": 0,
+            }
+            people[slug] = person
+        return person
+
+    edges = []
+    for pair in pairs:
+        a = touch(pair["person_a_slug"], pair["person_a"], pair["person_a_groups"])
+        b = touch(pair["person_b_slug"], pair["person_b"], pair["person_b_groups"])
+        a["degree_full"] += 1
+        b["degree_full"] += 1
+        if pair["weight"] < min_weight:
+            continue
+        a["degree"] += 1
+        b["degree"] += 1
+        edges.append(
+            {
+                "source": pair["person_a_slug"],
+                "target": pair["person_b_slug"],
+                "weight": pair["weight"],
+                "weight_normalized": pair["weight_normalized"],
+                "cross_group": pair["cross_group"],
+            }
+        )
+
+    nodes = [p for p in people.values() if p["degree"] >= 1]
+    nodes.sort(key=lambda p: (-p["degree"], p["name"]))
+    max_degree = max((n["degree"] for n in nodes), default=0)
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "node_count": len(nodes),
+        "edge_count": len(edges),
+        "max_degree": max_degree,
+    }
+
+
+def graph(kind: str, min_weight: int) -> dict:
+    """DB-backed wrapper: ``build_graph`` over ``enriched_pairs(kind)``. See
+    ``build_graph`` for why degree is computed here rather than in a
+    committed ``sql/collab_degree.sql`` — the floor is a request parameter
+    and ``db.query()`` takes none, so a parameterised query cannot run
+    through the loader, and interpolating the floor into SQL is exactly the
+    'query as a Python string literal' this repo forbids elsewhere."""
+    if kind not in KINDS:
+        raise ValueError(f"unknown collaboration kind: {kind!r}")
+    result = build_graph(enriched_pairs(kind), min_weight)
+    result["kind"] = kind
+    result["min_weight"] = min_weight
+    return result
 
 
 def summary() -> dict:

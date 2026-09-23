@@ -1,5 +1,1963 @@
 [
   {
+    "handle": "10316/1899",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1899",
+    "title": "Mecanismos de checkpointing para aplicações paralelas de cálculo científico",
+    "date": "1997-03-25",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Silva, Luís Alexandre Serras de Moura e"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1901",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1901",
+    "title": "Modelação e simulação de sistemas de eventos discretos com estrutura dinâmica : uma abordagem baseada na teoria dos sistemas",
+    "date": "1997-03-14",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Silva, Fernando José Barros Rodrigues da"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/5868",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/5868",
+    "title": "The exploration of unknown environments by affective agents",
+    "date": "2007-12-21",
+    "rights": "openAccess",
+    "authors": [
+      "Macedo, Luís Miguel Machado Lopes"
+    ],
+    "pdf_bytes": 2296674,
+    "full_text": true
+  },
+  {
+    "handle": "10316/1764",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1764",
+    "title": "Contribuição para a calibração de sistemas de aquisição de imagem  : tratamento da complexidade por selecção automática da estrutura de modelos",
+    "date": "2002-10-11",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Carvalho, Paulo Fernando Pereira de"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1753",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1753",
+    "title": "Estudos sobre o paradigma tuple space em programação paralela",
+    "date": "1999-10-15",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Carreira, João Fernando Viegas"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1749",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1749",
+    "title": "Mapeamento entre arquitecturas de serviços integrados e de serviços diferenciados para suporte de qualidade de serviço na Internet",
+    "date": "2006-07-05",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Pereira, António Manuel de Jesus"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1756",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1756",
+    "title": "Técnicas para o aumento do desempenho e da disponibilidade em data warehouses",
+    "date": "2002-01-24",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Bernardino, Jorge Fernandes Rodrigues"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1763",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1763",
+    "title": "Session-aware popularity-based resource allocation : support for streaming applications in networks with differentiated services",
+    "date": "2004-01-19",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Mendes, Paulo Jorge Milheiro"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1750",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1750",
+    "title": "ARMS - uma plataforma para aplicações multimédia distribuídas, com qualidade de serviço",
+    "date": "2001-11-13",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Orvalho, João Gilberto de Matos"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1755",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1755",
+    "title": "Representações reduzidas de dados multidimensionais.",
+    "date": "2000-12-06",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Furtado, Pedro Nuno San-Bento"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1761",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1761",
+    "title": "Estudo de um modelo para o suporte de classes de tráfego em redes IP",
+    "date": "2002-04-08",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Quadros, Manuel Gonçalo Lopes Almeida"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1766",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1766",
+    "title": "Propondo uma abordagem sócio- técnica e reflexiva para aperfeiçoar a acção de conhecer riscos associados aos SI/TI.",
+    "date": "2005-03-04",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Neto, Edgard Dias de Medeiros"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1751",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1751",
+    "title": "Contribuições para o desenvolvimento de aplicações educacionais que envolvam técnicas de simulação.",
+    "date": "1999-05-25",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Marcelino, Maria José Patrício"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1754",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1754",
+    "title": "Contribuição para a aprendizagem por instrução em sistemas de planeamento",
+    "date": "1999-10-29",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Ferreira, José Luís da Silva"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1765",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1765",
+    "title": "A case-based approach to software design",
+    "date": "2004-04-23",
+    "rights": "openAccess",
+    "authors": [
+      "Gomes, Paulo Jorge de Sousa"
+    ],
+    "pdf_bytes": 1445652,
+    "full_text": true
+  },
+  {
+    "handle": "10316/1743",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1743",
+    "title": "Contribuição para uma engenharia do contexto",
+    "date": "2004-01-19",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Roque, Licínio Gomes"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1748",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1748",
+    "title": "Encaminhamento com qualidade de serviço em redes com diferenciação de tráfego por classe",
+    "date": "2005-10-18",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Oliveira, Marília Pascoal Curado de"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1760",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1760",
+    "title": "Redução de complexidade e análise de interpretabilidade de sistemas neuro-difusos",
+    "date": "2003-10-10",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Pereira, Carlos Manuel Jorge da Silva"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1752",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1752",
+    "title": "Método orientado por objectos para a análise da arquitectura de informação no decurso do planeamento de sistemas de informação.",
+    "date": "1999-03-15",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Gomes, Rui Manuel da Silva"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1745",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1745",
+    "title": "Projecto de Sistemas de Informação para a Realidade Emergente: Proposta Baseada num Modelo de Carteira de Soluções",
+    "date": "2001-06-25",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Cunha, Paulo José Osório Rupino da"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1767",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1767",
+    "title": "Testes padronizados de confiabilidade para sistemas transaccionais",
+    "date": "2005-12-19",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Vieira, Marco Paulo Amorim"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1762",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1762",
+    "title": "Component-based development of mobile agent systems",
+    "date": "2003-11-27",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Marques, Paulo Jorge Pimenta"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1768",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1768",
+    "title": "Faultloads based on software faults for dependability benchmarking",
+    "date": "2006-06-20",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Durães, João António Pereira Almeida"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1757",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1757",
+    "title": "Proposta de Extensões ao MARS para redesIPv6 sobre ATM",
+    "date": "2001-09-20",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Silva, Jorge Miguel Sá"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1746",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1746",
+    "title": "Avaliação e Ciclo de Vida das Aplicações Educativas: Uma Proposta com Base na Análise do Desempenho do Aluno",
+    "date": "2001-06-18",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Gomes, Maria Cristina Coelho de Carvalho de Azevedo"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1744",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1744",
+    "title": "Estudo das interacções entre evolução e aprendizagem em ambientes de computação evolucionária",
+    "date": "2002-06-07",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Pereira, Francisco José Baptista"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1747",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1747",
+    "title": "Um modelo computacional de criatividade",
+    "date": "2005-01-14",
+    "rights": "openAccess",
+    "authors": [
+      "Pereira, Francisco Colunas Pereira da Câmara"
+    ],
+    "pdf_bytes": 2640556,
+    "full_text": true
+  },
+  {
+    "handle": "10316/1758",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1758",
+    "title": "Contribuição para o Controlo Adptativo não Linear: Redes Neuronais Recorrentes no Contexto da Regulação da Saída",
+    "date": "2001-07-09",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Henriques, Jorge Manuel Oliveira"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/1759",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/1759",
+    "title": "Gestão distribuída de redes baseada em tecnologia de agentes móveis",
+    "date": "2002-05-13",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Simões, Paulo Alexandre Ferreira"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/7557",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/7557",
+    "title": "Network middleware for mobile and pervasive large scale augmented reality games",
+    "date": "2008-09-09",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Ferreira, Pedro Miguel da Fonseca Marques"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/8543",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/8543",
+    "title": "Multi-service resource allocation in the next generation of networks",
+    "date": "2008-10-30",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Neto, Augusto José Venâncio"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/7554",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/7554",
+    "title": "Evolvability in optimization problems : the role of representations and heuristics",
+    "date": "2007-11-30",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Tavares, Jorge Alexandre Silva"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/7556",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/7556",
+    "title": "Multi-user session control in next generation networks",
+    "date": "2008-04-18",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Cerqueira, Eduardo Coelho"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/9689",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/9689",
+    "title": "Inductive inference for large scale text classification",
+    "date": "2009-03-09",
+    "rights": "openAccess",
+    "authors": [
+      "Silva, Catarina Helena Branco Simões da"
+    ],
+    "pdf_bytes": 1763790,
+    "full_text": true
+  },
+  {
+    "handle": "10316/8542",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/8542",
+    "title": "Controlling bloat : individual and population based approaches in genetic programming",
+    "date": "2008-07-25",
+    "rights": "openAccess",
+    "authors": [
+      "Silva, Sara Guilherme Oliveira da"
+    ],
+    "pdf_bytes": 2641732,
+    "full_text": true
+  },
+  {
+    "handle": "10316/7555",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/7555",
+    "title": "Proposal and evaluation of paradigms for the next generation wireless sensor networks",
+    "date": "2008-04-10",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Camilo, Tiago André Dias do Nascimento Pereira"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/9599",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/9599",
+    "title": "Inteligência artificial e arte",
+    "date": "2007-05-18",
+    "rights": "openAccess",
+    "authors": [
+      "Machado, Fernando Jorge Penousal Martins"
+    ],
+    "pdf_bytes": 356877350,
+    "full_text": true
+  },
+  {
+    "handle": "10316/8544",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/8544",
+    "title": "Segurança em redes com diferenciação de serviços",
+    "date": "2007-09-20",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Rabadão, Carlos Manuel da Silva"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/9904",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/9904",
+    "title": "Evolutionary computational intelligence for multi-agent simulations",
+    "date": "2009-03-25",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Menezes, Telmo de Lucena Torres de"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/10153",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/10153",
+    "title": "Supervisão e controlo de sistemas dinâmicos com tolerância a falhas : contribuição para uma abordagem estruturada e robusta",
+    "date": "2006-12-21",
+    "rights": "openAccess",
+    "authors": [
+      "Cardoso, Alberto Jorge Lebre"
+    ],
+    "pdf_bytes": 2143726,
+    "full_text": true
+  },
+  {
+    "handle": "10316/10159",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/10159",
+    "title": "Melody detection in polyphonic audio",
+    "date": "2007-02-16",
+    "rights": "openAccess",
+    "authors": [
+      "Paiva, Rui Pedro Pinto de Carvalho e"
+    ],
+    "pdf_bytes": 3464820,
+    "full_text": true
+  },
+  {
+    "handle": "10316/10194",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/10194",
+    "title": "Dependability Mechanisms for Desktop Grids",
+    "date": "2009-05-11",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Domingues, Patrício Rodrigues"
+    ],
+    "pdf_bytes": 4183341,
+    "full_text": true
+  },
+  {
+    "handle": "10316/10200",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/10200",
+    "title": "Position-based distributed hash tables",
+    "date": "2006",
+    "rights": "openAccess",
+    "authors": [
+      "Araújo, Filipe João Boavida de Mendonça Machado de"
+    ],
+    "pdf_bytes": 2325103,
+    "full_text": true
+  },
+  {
+    "handle": "10316/10430",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/10430",
+    "title": "Análise dinâmica de vibrações em manipuladores robóticos",
+    "date": "2009-06-22",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Veloso, Luís Alberto Morais"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/10429",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/10429",
+    "title": "Contributions on detection and classification of Internet traffic anomalies",
+    "date": "2009-06-17",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Farraposo, Sílvia dos Santos"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/12083",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/12083",
+    "title": "Controlo de congestão com suporte nos sistemas intermédios da rede",
+    "date": "2009-10-21",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Loureiro, Paulo Jorge Gonçalves"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/12181",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/12181",
+    "title": "A transactional model for automatic exception handling",
+    "date": "2009-11-26",
+    "rights": "openAccess",
+    "authors": [
+      "Cabral, Bruno Miguel Brás"
+    ],
+    "pdf_bytes": 6004030,
+    "full_text": true
+  },
+  {
+    "handle": "10316/14225",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/14225",
+    "title": "Perceptions of quality in e-learning:a case study",
+    "date": "2010-07-22",
+    "rights": "openAccess",
+    "authors": [
+      "Cação, Maria do Rosário Santos Cruz Andrade"
+    ],
+    "pdf_bytes": 8816822,
+    "full_text": true
+  },
+  {
+    "handle": "10316/14198",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/14198",
+    "title": "Improving memory-based evolutionary algorithms for dynamic environments",
+    "date": "2010-10-04",
+    "rights": "openAccess",
+    "authors": [
+      "Simões, Anabela Borges"
+    ],
+    "pdf_bytes": 4080313,
+    "full_text": true
+  },
+  {
+    "handle": "10316/14586",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/14586",
+    "title": "Dificuldades de aprendizagem de programação de computadores : contributos para a sua compreensão e resolução",
+    "date": "2010-12-15",
+    "rights": "openAccess",
+    "authors": [
+      "Gomes, Anabela de Jesus"
+    ],
+    "pdf_bytes": 7386672,
+    "full_text": true
+  },
+  {
+    "handle": "10316/17780",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/17780",
+    "title": "Quality of experience in database systems",
+    "date": "2010",
+    "rights": "openAccess",
+    "authors": [
+      "Costa, Rogério Luís de Carvalho"
+    ],
+    "pdf_bytes": 9729235,
+    "full_text": true
+  },
+  {
+    "handle": "10316/18218",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/18218",
+    "title": "Estratégias e dinâmicas em ambientes de aprendizagem mista",
+    "date": "2011",
+    "rights": "openAccess",
+    "authors": [
+      "Pereira, Maria Isabel Alves Rodrigues"
+    ],
+    "pdf_bytes": 3103528,
+    "full_text": true
+  },
+  {
+    "handle": "10316/20004",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/20004",
+    "title": "Intelligent Route Control for Inter-domain Routing",
+    "date": "2011",
+    "rights": "openAccess",
+    "authors": [
+      "Fonte, Alexandre José Pereira Duro da"
+    ],
+    "pdf_bytes": 6931623,
+    "full_text": true
+  },
+  {
+    "handle": "10316/20037",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/20037",
+    "title": "Uma Perspectiva Sociotécnica para a Governança de Tecnologia da Informação Baseada na Teoria Ator-Rede",
+    "date": "2011",
+    "rights": "openAccess",
+    "authors": [
+      "Martins, Luiz Mauricio Fraga"
+    ],
+    "pdf_bytes": 4190164,
+    "full_text": true
+  },
+  {
+    "handle": "10316/20280",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/20280",
+    "title": "QoS para Serviços Multi-Domínios em Redes de Próxima Geração",
+    "date": "2012-07-06",
+    "rights": "openAccess",
+    "authors": [
+      "Matos, Fernando Menezes"
+    ],
+    "pdf_bytes": 7532131,
+    "full_text": true
+  },
+  {
+    "handle": "10316/20314",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/20314",
+    "title": "Contributos para uma Abordagem Contextualizada na Aprendizagem Inicial de Programação",
+    "date": "2011",
+    "rights": "openAccess",
+    "authors": [
+      "Martins, Scheila Wesley"
+    ],
+    "pdf_bytes": 5216813,
+    "full_text": true
+  },
+  {
+    "handle": "10316/20316",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/20316",
+    "title": "Educational Modelling & Simulation for Kids. Proposta de uma Abordagem para o 1.º ciclo do Ensino Básico",
+    "date": "2011",
+    "rights": "openAccess",
+    "authors": [
+      "Brigas, Carlos Jorge Gonçalves"
+    ],
+    "pdf_bytes": 16078633,
+    "full_text": true
+  },
+  {
+    "handle": "10316/20536",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/20536",
+    "title": "Semantic enrichment of places. Understanding the meaning of public places from natural language texts",
+    "date": "2012-07-26",
+    "rights": "openAccess",
+    "authors": [
+      "Alves, Ana Cristina da Costa Oliveira"
+    ],
+    "pdf_bytes": 5877468,
+    "full_text": true
+  },
+  {
+    "handle": "10316/21129",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/21129",
+    "title": "Advancing Software Services Robustness. Techniques for Assessment and Improvement",
+    "date": "2012-09-20",
+    "rights": "openAccess",
+    "authors": [
+      "Laranjeiro, Carlos Nuno Bizarro e Silva"
+    ],
+    "pdf_bytes": 5427339,
+    "full_text": true
+  },
+  {
+    "handle": "10316/21225",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/21225",
+    "title": "Integration of Different Risk Assessment Tools to Improve the Event Risk Assessment in Cardiovascular Disease Patients",
+    "date": "2012-11-19",
+    "rights": "closedAccess",
+    "authors": [
+      "Paredes, Simão Pedro Mendes Cruz Reis"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/22105",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/22105",
+    "title": "Towards Scalable Routing for Wireless Multi-hop Networks",
+    "date": "2013-03-08",
+    "rights": "openAccess",
+    "authors": [
+      "Palma, David Fonseca"
+    ],
+    "pdf_bytes": 7129473,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23225",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23225",
+    "title": "Aeminium. Freeing Programmers from the Shackles of Sequentiality",
+    "date": "2013-03-19",
+    "rights": "closedAccess",
+    "authors": [
+      "Stork, Sven"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/23346",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23346",
+    "title": "A musical system for emotional expression",
+    "date": "2013-04-26",
+    "rights": "closedAccess",
+    "authors": [
+      "Oliveira, António Pedro Simões Pesqueira de"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/23364",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23364",
+    "title": "Context-based retrieval in software development",
+    "date": "2013-05-07",
+    "rights": "openAccess",
+    "authors": [
+      "Antunes, Bruno Emanuel Machado"
+    ],
+    "pdf_bytes": 4032726,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23366",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23366",
+    "title": "Complexity, beauty and creativity in visual arts : from cognition to computation",
+    "date": "2013-05-10",
+    "rights": "closedAccess",
+    "authors": [
+      "Pires, Paulo Sérgio Dias dos Santos"
+    ],
+    "download_error": "no download link found on item page",
+    "full_text": false
+  },
+  {
+    "handle": "10316/23380",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23380",
+    "title": "Similarity Based Approaches for the Analysis and Prediction of Physiologic Times Series",
+    "date": "2013-05-21",
+    "rights": "openAccess",
+    "authors": [
+      "Rocha, Teresa Raquel Corga Teixeira da"
+    ],
+    "pdf_bytes": 4011724,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23448",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23448",
+    "title": "Sound design guidance as a contribution towards the empowerment of indie game developers",
+    "date": "2013-05-28",
+    "rights": "openAccess",
+    "authors": [
+      "Alves, Valter Nelson Noronha"
+    ],
+    "pdf_bytes": 13382556,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23583",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23583",
+    "title": "Development of classification methods for real-time seizure prediction",
+    "date": "2013-06-21",
+    "rights": "openAccess",
+    "authors": [
+      "Leitão, Bruno Miguel Direito Pereira"
+    ],
+    "pdf_bytes": 13233964,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24163",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24163",
+    "title": "BIZ2BIS : a socio-technical approach to design inter-organizational business models and their undertlying information systems",
+    "date": "2013-09-20",
+    "rights": "openAccess",
+    "authors": [
+      "Costa, Cristina Margarida Chuva"
+    ],
+    "pdf_bytes": 5901556,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24350",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24350",
+    "title": "New models to support reliability in Mobile Wireless Sensor Networks",
+    "date": "2013-09-27",
+    "rights": "openAccess",
+    "authors": [
+      "Silva, Ricardo Nuno Mendão da"
+    ],
+    "pdf_bytes": 17634048,
+    "extract_error": "PdfReadError: LimitReachedError('Read stream length of 8176 exceeds maximum allowed length of 4096.')",
+    "pdf_kept": true,
+    "full_text": false
+  },
+  {
+    "handle": "10316/24404",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24404",
+    "title": "Operating Middleware na Timing Guarantees for Heterogeneous Sensor Networks",
+    "date": "2013-10-01",
+    "rights": "openAccess",
+    "authors": [
+      "Cecílio, José Manuel da Silva"
+    ],
+    "pdf_bytes": 6796298,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24429",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24429",
+    "title": "Proposta e Estudo de Soluções para Otimização de Rotas em Ambientes de Mobilidade de Redes",
+    "date": "2013-10-02",
+    "rights": "openAccess",
+    "authors": [
+      "Pinheiro, Pedro Alexandre Vale"
+    ],
+    "pdf_bytes": 16789813,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24526",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24526",
+    "title": "An environment for services offering in the Internet based on peer-to-peer service overlay networks",
+    "date": "2013-06-11",
+    "rights": "openAccess",
+    "authors": [
+      "Fiorese, Adriano"
+    ],
+    "pdf_bytes": 1501388,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24528",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24528",
+    "title": "Proposal and study of an architecture for the management of multiple wireless sensor networks",
+    "date": "2013-06-11",
+    "rights": "closedAccess",
+    "authors": [
+      "Rodrigues, André Miguel de Almeida Marrão"
+    ],
+    "download_error": "HTTP 200: 200 but content-type='text/html;charset=UTF-8' (likely login/embargo page)",
+    "full_text": false
+  },
+  {
+    "handle": "10316/24794",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24794",
+    "title": "Complexity and emergence in societies of agents",
+    "date": "2012",
+    "rights": "openAccess",
+    "authors": [
+      "Baptista, Tiago Rodrigues"
+    ],
+    "pdf_bytes": 5054293,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24220",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24220",
+    "title": "Dependability Benchmarking for Large and Complex Systems",
+    "date": "2013-12-13",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Costa, Pedro Miguel Lopes Nunes da"
+    ],
+    "pdf_bytes": 7247933,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23787",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23787",
+    "title": "Multihoming Aware Optimization Mechanism",
+    "date": "2014-01-10",
+    "rights": "openAccess",
+    "authors": [
+      "Sousa, Bruno"
+    ],
+    "pdf_bytes": 8008493,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23773",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23773",
+    "title": "Machine Learning for Adaptive Multi-Core Machines",
+    "date": "2014-01-27",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Lopes, Noel"
+    ],
+    "pdf_bytes": 10586604,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23751",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23751",
+    "title": "Contributions to the Completeness and Complementarity of Local Image Features",
+    "date": "2014-03-12",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Martins, Pedro"
+    ],
+    "pdf_bytes": 50977368,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24256",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24256",
+    "title": "Contributions to Electrical Energy Disaggregation in a Smart Home",
+    "date": "2014-03-07",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Figueiredo, Marisa"
+    ],
+    "pdf_bytes": 5756820,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24110",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24110",
+    "title": "Self-healing Techniques for Web-based Applications",
+    "date": "2014-05-26",
+    "rights": "openAccess",
+    "authors": [
+      "Magalhães, João Paulo"
+    ],
+    "pdf_bytes": 8489633,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24888",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24888",
+    "title": "An IEEE1451.0-compliant FPGA-based reconfigurable weblab",
+    "date": "2014-05-22",
+    "rights": "openAccess",
+    "authors": [
+      "Costa, Ricardo"
+    ],
+    "pdf_bytes": 4355857,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24296",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24296",
+    "title": "Performance Evaluation and Benchmarking of Event Processing Systems",
+    "date": "2014-10-01",
+    "rights": "openAccess",
+    "authors": [
+      "Mendes, Marcelo Rodrigues Nunes"
+    ],
+    "pdf_bytes": 4064615,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24532",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24532",
+    "title": "A supporting infrastructure for  Wireless Sensor Networks in  Critical Industrial Environments",
+    "date": "2014-10-22",
+    "rights": "openAccess",
+    "authors": [
+      "Tran, Thanh-Dien"
+    ],
+    "pdf_bytes": 5919510,
+    "full_text": true
+  },
+  {
+    "handle": "10316/25230",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/25230",
+    "title": "Enhancing Data Security in Data Warehousing",
+    "date": "2014-12-22",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Santos, Ricardo"
+    ],
+    "pdf_bytes": 5000147,
+    "full_text": true
+  },
+  {
+    "handle": "10316/25599",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/25599",
+    "title": "A Computational Model Inspired by Gene Regulatory Networks",
+    "date": "2015-01-27",
+    "rights": "openAccess",
+    "authors": [
+      "Lopes, Rui Miguel Lourenço"
+    ],
+    "pdf_bytes": 6002143,
+    "full_text": true
+  },
+  {
+    "handle": "10316/27097",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/27097",
+    "title": "Massively Scalable Data Warehouses with Performance Predictability",
+    "date": "2015-06-11",
+    "rights": "openAccess",
+    "authors": [
+      "Costa, João Pedro Matos da"
+    ],
+    "pdf_bytes": 4841641,
+    "full_text": true
+  },
+  {
+    "handle": "10316/27200",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/27200",
+    "title": "Enabling Wireless Cooperation in User Provided Networks",
+    "date": "2015-06-19",
+    "rights": "openAccess",
+    "authors": [
+      "Rolla, Vitor Guerra"
+    ],
+    "pdf_bytes": 2734406,
+    "full_text": true
+  },
+  {
+    "handle": "10316/26987",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/26987",
+    "title": "Cardiovascular Performance Assessment for p-Health Applications",
+    "date": "2015-04-10",
+    "rights": "openAccess",
+    "authors": [
+      "Couceiro, Ricardo Jorge dos Santos"
+    ],
+    "pdf_bytes": 38779525,
+    "full_text": true
+  },
+  {
+    "handle": "10316/27151",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/27151",
+    "title": "A Educação de uma Nova Geração de  Jornalistas:  Do Moodle ao Facebook",
+    "date": "2015-03-17",
+    "rights": "openAccess",
+    "authors": [
+      "Patrão, Carla Susana Ribeiro"
+    ],
+    "pdf_bytes": 5286429,
+    "full_text": true
+  },
+  {
+    "handle": "10316/27015",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/27015",
+    "title": "Automatic Heart Sound Analysis for Cardiovascular Disease Assessment",
+    "date": "2015-06-30",
+    "rights": "openAccess",
+    "authors": [
+      "Kumar, Dinesh"
+    ],
+    "pdf_bytes": 3929502,
+    "full_text": true
+  },
+  {
+    "handle": "10316/25654",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/25654",
+    "title": "End-to-end security solutions for Internet-integrated Wireless Sensor Networks",
+    "date": "2014-11-21",
+    "rights": "openAccess",
+    "authors": [
+      "Granjal, António Jorge da Costa"
+    ],
+    "pdf_bytes": 10298314,
+    "full_text": true
+  },
+  {
+    "handle": "10316/28384",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/28384",
+    "title": "Information systems and quality management systems: researching lifecycle synergies",
+    "date": "2015-09-01",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Barata, João Nuno Lopes"
+    ],
+    "pdf_bytes": 4509712,
+    "full_text": true
+  },
+  {
+    "handle": "10316/23765",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/23765",
+    "title": "Trust and Reputation for Critical Infrastructure Protection",
+    "date": "2014-03-25",
+    "rights": "openAccess",
+    "authors": [
+      "Caldeira, Filipe Manuel Simões"
+    ],
+    "pdf_bytes": 11893882,
+    "full_text": true
+  },
+  {
+    "handle": "10316/27608",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/27608",
+    "title": "Low-complexity measures for epileptic seizure prediction and early detection based on classification",
+    "date": "2015-02-09",
+    "rights": "openAccess",
+    "authors": [
+      "Bandarabadi, Mojtaba"
+    ],
+    "pdf_bytes": 4863237,
+    "full_text": true
+  },
+  {
+    "handle": "10316/24333",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/24333",
+    "title": "Software Vulnerability Detection in Service-Based Infrastructures: Techniques and Tools",
+    "date": "2014-03-20",
+    "rights": "openAccess",
+    "authors": [
+      "Antunes, Nuno Manuel dos Santos"
+    ],
+    "pdf_bytes": 8373290,
+    "full_text": true
+  },
+  {
+    "handle": "10316/28311",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/28311",
+    "title": "Energy Efficient Multimedia Communications in IEEE 802.11 Networks",
+    "date": "2015-11-16",
+    "rights": "openAccess",
+    "authors": [
+      "Bernardo, Vitor Manuel Henriques"
+    ],
+    "pdf_bytes": 7678486,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29182",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29182",
+    "title": "Fault Injection for Online Failure Prediction Assessment and Improvement",
+    "date": "2016-01-11",
+    "rights": "openAccess",
+    "authors": [
+      "Irrera, Ivano"
+    ],
+    "pdf_bytes": 4849224,
+    "full_text": true
+  },
+  {
+    "handle": "10316/28862",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/28862",
+    "title": "Performance Measurement in Wireless Sensor Networks",
+    "date": "2016-02-03",
+    "rights": "openAccess",
+    "authors": [
+      "Pereira, Vasco Nuno Simões"
+    ],
+    "pdf_bytes": 13210260,
+    "full_text": true
+  },
+  {
+    "handle": "10316/28986",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/28986",
+    "title": "Medium Access Control-Level Solutions for Optimized Spectrum Decision in Distributed Cognitive Radio Scenarios",
+    "date": "2015-12-14",
+    "rights": "openAccess",
+    "authors": [
+      "Marinho, José Manuel Meireles"
+    ],
+    "pdf_bytes": 5110143,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29090",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29090",
+    "title": "Elastic ETL+Q for any data-warehouse using time bounds",
+    "date": "2016-02-01",
+    "rights": "openAccess",
+    "authors": [
+      "Martins, Pedro Miguel de Oliveira"
+    ],
+    "pdf_bytes": 5480578,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29450",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29450",
+    "title": "Enhancing Grammar-Based Approaches for the Automatic Design of Algorithms",
+    "date": "2016-03-02",
+    "rights": "openAccess",
+    "authors": [
+      "Lourenço, Nuno António Marques"
+    ],
+    "pdf_bytes": 10134123,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29454",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29454",
+    "title": "Probabilistic models for learning from crowdsourced data",
+    "date": "2016-02-22",
+    "rights": "openAccess",
+    "authors": [
+      "Rodrigues, Filipe Manuel Pereira Duarte"
+    ],
+    "pdf_bytes": 7854367,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29628",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29628",
+    "title": "Self-healing Techniques for Video-streaming Applications",
+    "date": "2016-01-22",
+    "rights": "openAccess",
+    "authors": [
+      "Cunha, Carlos Augusto da Silva"
+    ],
+    "pdf_bytes": 7183721,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29634",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29634",
+    "title": "Segment-Based Temporal Information Retrieval",
+    "date": "2016-04-06",
+    "rights": "openAccess",
+    "authors": [
+      "Craveiro, Olga Marina Freitas"
+    ],
+    "pdf_bytes": 2961802,
+    "full_text": true
+  },
+  {
+    "handle": "10316/31011",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/31011",
+    "title": "Methods for Flexible Representation and Coding of 2D and 3D Visual Information",
+    "date": "2016-05-24",
+    "rights": "openAccess",
+    "authors": [
+      "Ferreira, Lino Miguel Moreira"
+    ],
+    "pdf_bytes": 7492074,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29620",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29620",
+    "title": "Security Benchmarks for Web Serving Systems",
+    "date": "2016-05-11",
+    "rights": "openAccess",
+    "authors": [
+      "Mendes, Naaliel Vicente"
+    ],
+    "pdf_bytes": 2230429,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29594",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29594",
+    "title": "Automated Reliability Prediction and Analysis from Software Architectures",
+    "date": "2016-04-27",
+    "rights": "openAccess",
+    "authors": [
+      "Franco, João Miguel da Costa Sousa"
+    ],
+    "pdf_bytes": 4819840,
+    "full_text": true
+  },
+  {
+    "handle": "10316/31166",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/31166",
+    "title": "Semantic figurative metaphors in information visualization",
+    "date": "2016-09-05",
+    "rights": "openAccess",
+    "authors": [
+      "Cruz, Pedro Miguel Amaral Melo da"
+    ],
+    "pdf_bytes": 32094837,
+    "full_text": true
+  },
+  {
+    "handle": "10316/30677",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/30677",
+    "title": "Analisys of taxi data for understanding urban dynamics",
+    "date": "2016-09-22",
+    "rights": "openAccess",
+    "authors": [
+      "Veloso, Marco"
+    ],
+    "pdf_bytes": 11856597,
+    "full_text": true
+  },
+  {
+    "handle": "10316/31075",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/31075",
+    "title": "Reliable Distributed Communication: Design Solutions and Protocols",
+    "date": "2016-09-30",
+    "rights": "openAccess",
+    "authors": [
+      "Ivaki, Naghmeh Ramezani"
+    ],
+    "pdf_bytes": 5713942,
+    "full_text": true
+  },
+  {
+    "handle": "10316/31249",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/31249",
+    "title": "Context-aware Clustering in Mobile Ad-hoc Networks",
+    "date": "2016-11-04",
+    "rights": "openAccess",
+    "authors": [
+      "Conceição, Luís Alexandre Morais da"
+    ],
+    "pdf_bytes": 5317111,
+    "full_text": true
+  },
+  {
+    "handle": "10316/33119",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/33119",
+    "title": "Performance Enhancement of Content Delivery in Mobile Networks",
+    "date": "2016-10-25",
+    "rights": "openAccess",
+    "authors": [
+      "Gomes, André Sérgio Nobre"
+    ],
+    "pdf_bytes": 12978322,
+    "full_text": true
+  },
+  {
+    "handle": "10316/32725",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/32725",
+    "title": "An Exploration of Generalization and Overfitting in Genetic Programming: Standard and Geometric Semantic Approaches",
+    "date": "2017-02-22",
+    "rights": "openAccess",
+    "authors": [
+      "Gonçalves, Ivo Carlos Pereira"
+    ],
+    "pdf_bytes": 11032441,
+    "full_text": true
+  },
+  {
+    "handle": "10316/32304",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/32304",
+    "title": "Automatic Optimization of Granularity Control Algorithms for Parallel Programs",
+    "date": "2017-05-31",
+    "rights": "openAccess",
+    "authors": [
+      "Fonseca, Alcides Miguel Cachulo Aguiar"
+    ],
+    "pdf_bytes": 2541446,
+    "full_text": true
+  },
+  {
+    "handle": "10316/29632",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/29632",
+    "title": "Assessing Maintainability in Software Architectures",
+    "date": "2017-01-16",
+    "rights": "openAccess",
+    "authors": [
+      "Anjos, Eudisley Gomes dos"
+    ],
+    "pdf_bytes": 3217913,
+    "full_text": true
+  },
+  {
+    "handle": "10316/31955",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/31955",
+    "title": "Emotion-based Analysis and Classification of Music Lyrics",
+    "date": "2017-04-27",
+    "rights": "openAccess",
+    "authors": [
+      "Malheiro, Ricardo Manuel da Silva"
+    ],
+    "pdf_bytes": 3396036,
+    "full_text": true
+  },
+  {
+    "handle": "10316/32348",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/32348",
+    "title": "Contributions of Computational Cognitive Modeling to the Understanding of the Financial Markets",
+    "date": "2017-11-20",
+    "rights": "openAccess",
+    "authors": [
+      "Baccan, Davi D'Andréa"
+    ],
+    "pdf_bytes": 10215838,
+    "full_text": true
+  },
+  {
+    "handle": "10316/41911",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/41911",
+    "title": "Human-in-the-Loop Cyber-Physical-Systems based on Smartphones",
+    "date": "2017-12-04",
+    "rights": "openAccess",
+    "authors": [
+      "Nunes, David Sousa"
+    ],
+    "pdf_bytes": 53955485,
+    "full_text": true
+  },
+  {
+    "handle": "10316/41880",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/41880",
+    "title": "RAPPORT: A Fact-Based Question Answering System for Portuguese",
+    "date": "2017-11-15",
+    "rights": "openAccess",
+    "authors": [
+      "Rodrigues, Ricardo Manuel da Conceição"
+    ],
+    "pdf_bytes": 2197452,
+    "full_text": true
+  },
+  {
+    "handle": "10316/36880",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/36880",
+    "title": "Mechanisms for Resilient Video Transmission",
+    "date": "2017-11-27",
+    "rights": "openAccess",
+    "authors": [
+      "Immich, Roger Kreutz"
+    ],
+    "pdf_bytes": 20031087,
+    "full_text": true
+  },
+  {
+    "handle": "10316/79528",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/79528",
+    "title": "Aperfeiçoamento das competências de resolução de problemas na aprendizagem introdutória de programação de computadores usando um jogo sério digital",
+    "date": "2018-03-19",
+    "rights": "openAccess",
+    "authors": [
+      "Vahldick, Adilson"
+    ],
+    "pdf_bytes": 9720475,
+    "full_text": true
+  },
+  {
+    "handle": "10316/79577",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/79577",
+    "title": "The Authorial Game Evolution Tool for Player Experience Design",
+    "date": "2018-02-02",
+    "rights": "openAccess",
+    "authors": [
+      "Craveirinha, Rui Alexandre Neves"
+    ],
+    "pdf_bytes": 3148263,
+    "full_text": true
+  },
+  {
+    "handle": "10316/79733",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/79733",
+    "title": "Security Benchmarking for Web Service Frameworks",
+    "date": "2018-03-07",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Oliveira, Rui André Correia de"
+    ],
+    "pdf_bytes": 3494682,
+    "full_text": true
+  },
+  {
+    "handle": "10316/79833",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/79833",
+    "title": "An Empirical Approach to Improve the Quality and Dependability of Critical Systems Engineering",
+    "date": "2018-04-02",
+    "rights": "openAccess",
+    "authors": [
+      "Silva, Nuno Pedro de Jesus"
+    ],
+    "pdf_bytes": 6164908,
+    "full_text": true
+  },
+  {
+    "handle": "10316/81235",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/81235",
+    "title": "A Prediction-based Approach for Anomaly Detection in the Cloud",
+    "date": "2018-10-01",
+    "rights": "openAccess",
+    "authors": [
+      "Dalmazo, Bruno Lopes"
+    ],
+    "pdf_bytes": 3085923,
+    "full_text": true
+  },
+  {
+    "handle": "10316/81287",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/81287",
+    "title": "Evolutionary Computation for Classifier Assessment and Improvement",
+    "date": "2018-09-28",
+    "rights": "openAccess",
+    "authors": [
+      "Correia, João Nuno Gonçalves Costa Cavaleiro"
+    ],
+    "pdf_bytes": 95060555,
+    "full_text": true
+  },
+  {
+    "handle": "10316/83813",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/83813",
+    "title": "Group communication mechanisms in Machine-to-Machine environments",
+    "date": "2018-12-20",
+    "rights": "openAccess",
+    "authors": [
+      "Riker, André Figueira"
+    ],
+    "pdf_bytes": 7608808,
+    "full_text": true
+  },
+  {
+    "handle": "10316/84807",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/84807",
+    "title": "Serious Games Utilizados como Mecanismos de Avaliação Cognitiva Aplicados à População Adulta Mais Velha",
+    "date": "2017-12-07",
+    "rights": "openAccess",
+    "authors": [
+      "Neto, Helio Cavalcante Silva"
+    ],
+    "pdf_bytes": 5652453,
+    "full_text": true
+  },
+  {
+    "handle": "10316/87398",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/87398",
+    "title": "Portfolio Selection in Evolutionary Algorithms",
+    "date": "2018-12-19",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Guerreiro, Andreia Próspero"
+    ],
+    "pdf_bytes": 44740407,
+    "full_text": true
+  },
+  {
+    "handle": "10316/87416",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/87416",
+    "title": "Self Adaptation in Ant Colony Optimisation",
+    "date": "2019-01-28",
+    "rights": "openAccess",
+    "authors": [
+      "Melo, Leonor Isabel de Albuquerque"
+    ],
+    "pdf_bytes": 27158152,
+    "full_text": true
+  },
+  {
+    "handle": "10316/87604",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/87604",
+    "title": "Multiobjective Sequence Alignment Formulation, Algorithms and Application",
+    "date": "2019-03-18",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Abbasi, Maryam"
+    ],
+    "pdf_bytes": 19331795,
+    "full_text": true
+  },
+  {
+    "handle": "10316/87618",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/87618",
+    "title": "Emotion-based Analysis and Classification of Audio Music",
+    "date": "2019-05-08",
+    "rights": "openAccess",
+    "authors": [
+      "Panda, Renato Eduardo Silva"
+    ],
+    "pdf_bytes": 9201340,
+    "full_text": true
+  },
+  {
+    "handle": "10316/88841",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/88841",
+    "title": "Monitoring Industrial Wireless Sensor Networks: A model to enhance Security and Reliability",
+    "date": "2020-01-08",
+    "rights": "openAccess",
+    "authors": [
+      "Raposo, Duarte Miguel Garcia"
+    ],
+    "pdf_bytes": 6631809,
+    "full_text": true
+  },
+  {
+    "handle": "10316/90540",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/90540",
+    "title": "Information Extraction from Crowds in Dynamic Environments",
+    "date": "2018-06-15",
+    "rights": "openAccess",
+    "authors": [
+      "Costa, Joana Madeira Martins"
+    ],
+    "pdf_bytes": 3905247,
+    "full_text": true
+  },
+  {
+    "handle": "10316/90651",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/90651",
+    "title": "A Distributed Analysis Framework for Heterogeneous Data Processing in HEP Environments",
+    "date": "2018-02-07",
+    "rights": "openAccess",
+    "authors": [
+      "Boychenko, Serhiy"
+    ],
+    "pdf_bytes": 3958309,
+    "full_text": true
+  },
+  {
+    "handle": "10316/91092",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/91092",
+    "title": "Studying Believability in Videogame Creature Design",
+    "date": "2020-02-28",
+    "rights": "openAccess",
+    "authors": [
+      "Barreto, Nuno Vicente Borges Correia Malaquias"
+    ],
+    "pdf_bytes": 22135011,
+    "full_text": true
+  },
+  {
+    "handle": "10316/91095",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/91095",
+    "title": "New Models of Reliability in the New Generation of Internet of Things",
+    "date": "2020-01-27",
+    "rights": "openAccess",
+    "authors": [
+      "Maita, Soraya Lucia Sinche"
+    ],
+    "pdf_bytes": 19345488,
+    "full_text": true
+  },
+  {
+    "handle": "10316/91181",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/91181",
+    "title": "Client-Side Monitoring of Distributed Systems",
+    "date": "2020-07-08",
+    "rights": "openAccess",
+    "authors": [
+      "Filipe, Ricardo Ângelo Santos"
+    ],
+    "pdf_bytes": 3855392,
+    "full_text": true
+  },
+  {
+    "handle": "10316/94987",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/94987",
+    "title": "Sexual selection through mate choice in evolutionary computation",
+    "date": "2020-05-12",
+    "rights": "openAccess",
+    "authors": [
+      "Leitão, António Pedro de Albuquerque"
+    ],
+    "pdf_bytes": 65506614,
+    "full_text": true
+  },
+  {
+    "handle": "10316/94990",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/94990",
+    "title": "Concept Creation with Regulated Activation Networks",
+    "date": "2020-06-15",
+    "rights": "openAccess",
+    "authors": [
+      "Sharma, Rahul"
+    ],
+    "pdf_bytes": 8004668,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95269",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95269",
+    "title": "Thematic Cartography for Adaptive Visualization Systems",
+    "date": "2021-04-19",
+    "rights": "openAccess",
+    "authors": [
+      "Evgheni Polisciuc"
+    ],
+    "pdf_bytes": 100610649,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95271",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95271",
+    "title": "Neuro-Evolution: Representations, Efficiency and Development",
+    "date": "2021-04-01",
+    "rights": "openAccess",
+    "authors": [
+      "Assunção, Filipe Guerreiro"
+    ],
+    "pdf_bytes": 13377857,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95279",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95279",
+    "title": "Uma integração de métodos de aquisição forense em tempo real nos sistemas PPDR da próxima geração",
+    "date": "2021-05-11",
+    "rights": "openAccess",
+    "authors": [
+      "Barmpatsalou, Konstantia"
+    ],
+    "pdf_bytes": 1360202,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95281",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95281",
+    "title": "Resilience in the Internet of Things for Smart City Applications",
+    "date": "2021-04-29",
+    "rights": "openAccess",
+    "authors": [
+      "Abreu, David Alejandro Perez"
+    ],
+    "pdf_bytes": 5000575,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95282",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95282",
+    "title": "Mechanisms for Latency Reduction in Fog Environments",
+    "date": "2021-05-10",
+    "rights": "openAccess",
+    "authors": [
+      "Castro, Karima Daniela Velasquez"
+    ],
+    "pdf_bytes": 4295429,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95291",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95291",
+    "title": "Contributions to Personal Data Protection and Privacy Preservation in Cloud Environments",
+    "date": "2021-05-03",
+    "rights": "openAccess",
+    "authors": [
+      "Silva, Paulo Miguel Guimarães da"
+    ],
+    "pdf_bytes": 4368038,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95318",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95318",
+    "title": "The neurobehavioral correlates of social exploration in naturalist settings in normal and autistic subjects: a clinical informatics approach",
+    "date": "2020-01-24",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Simões, Marco António Machado"
+    ],
+    "pdf_bytes": 10006616,
+    "full_text": true
+  },
+  {
+    "handle": "10316/95440",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/95440",
+    "title": "LabDER - Laboratório Virtual de Ensino-Aprendizagem de Banco de Dados Relacionais: Uma abordagem de avaliação automática de Diagramas ER e SQL",
+    "date": "2021-06-09",
+    "rights": "openAccess",
+    "authors": [
+      "Lino, Adriano Del Pino"
+    ],
+    "pdf_bytes": 10558839,
+    "full_text": true
+  },
+  {
+    "handle": "10316/96430",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/96430",
+    "title": "Evaluating and improving cloud computing dependability",
+    "date": "2021-09-29",
+    "rights": "openAccess",
+    "authors": [
+      "Cerveira, Frederico Manuel Duarte"
+    ],
+    "pdf_bytes": 1974279,
+    "full_text": true
+  },
+  {
+    "handle": "10316/96431",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/96431",
+    "title": "Automated Evolution for Design",
+    "date": "2021-07-22",
+    "rights": "openAccess",
+    "authors": [
+      "Martins, Tiago Filipe dos Santos"
+    ],
+    "pdf_bytes": 55847604,
+    "full_text": true
+  },
+  {
+    "handle": "10316/96432",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/96432",
+    "title": "Time-Series Visualization: Highlighting Patterns and Deviations",
+    "date": "2021-07-27",
+    "rights": "openAccess",
+    "authors": [
+      "Maçãs, Catarina Sofia Henriques"
+    ],
+    "pdf_bytes": 96931106,
+    "full_text": true
+  },
+  {
+    "handle": "10316/98610",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/98610",
+    "title": "Análise da Complexidade Espectro-Computacional para Comunicações sem Fios",
+    "date": "2022-01-06",
+    "rights": "openAccess",
+    "authors": [
+      "Queiroz, Saulo Jorge Beltrão de"
+    ],
+    "pdf_bytes": 2299777,
+    "full_text": true
+  },
+  {
+    "handle": "10316/100062",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/100062",
+    "title": "An approach to the unified management of heterogeneous IoT environments",
+    "date": "2020-11-03",
+    "rights": "openAccess",
+    "authors": [
+      "Armando, Ngombo"
+    ],
+    "pdf_bytes": 6708145,
+    "full_text": true
+  },
+  {
+    "handle": "10316/100339",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/100339",
+    "title": "Contributos para a monitorização do desempenho de estudantes de programação",
+    "date": "2022-05-05",
+    "rights": "openAccess",
+    "authors": [
+      "Fonseca, Nuno Miguel Gil"
+    ],
+    "pdf_bytes": 27085104,
+    "full_text": true
+  },
+  {
+    "handle": "10316/100340",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/100340",
+    "title": "Blended Security Analysis for Web Applications: Techniques and Tools",
+    "date": "2022-05-05",
+    "rights": "openAccess",
+    "authors": [
+      "Nunes, Paulo Jorge Costa"
+    ],
+    "pdf_bytes": 3333864,
+    "full_text": true
+  },
+  {
+    "handle": "10316/100411",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/100411",
+    "title": "Skin Lesion Assessment based on Plenoptic Images for Melanoma Classification",
+    "date": "2022-03-02",
+    "rights": "embargoedAccess",
+    "authors": [
+      "Pereira, Pedro Miguel Marques"
+    ],
+    "pdf_bytes": 39446222,
+    "full_text": true
+  },
+  {
+    "handle": "10316/100419",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/100419",
+    "title": "Adaptive Supervisory Framework for Cyber-Physical Systems - Optimal Scheduling of Smart Home Appliances",
+    "date": "2022-01-31",
+    "rights": "openAccess",
+    "authors": [
+      "Leitão, Joaquim Pedro Bento Gonçalves Pratas"
+    ],
+    "pdf_bytes": 31715662,
+    "full_text": true
+  },
+  {
+    "handle": "10316/100421",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/100421",
+    "title": "Advanced Online Failure Prediction Through Machine Learning",
+    "date": "2022-01-27",
+    "rights": "openAccess",
+    "authors": [
+      "Campos, João Rodrigues de"
+    ],
+    "pdf_bytes": 7942412,
+    "full_text": true
+  },
+  {
+    "handle": "10316/101685",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/101685",
+    "title": "Intrusion and Anomaly Detection in Industrial Automation and Control Systems",
+    "date": "2022-06-21",
+    "rights": "openAccess",
+    "authors": [
+      "Rosa, Luís Miguel Batista"
+    ],
+    "pdf_bytes": 9467738,
+    "full_text": true
+  },
+  {
+    "handle": "10316/101709",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/101709",
+    "title": "Contributions Towards a Participation-Centered Game Design",
+    "date": "2022-06-08",
+    "rights": "openAccess",
+    "authors": [
+      "Pereira, Luís Manuel Santos Lucas Bento"
+    ],
+    "pdf_bytes": 15593253,
+    "full_text": true
+  },
+  {
+    "handle": "10316/106627",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/106627",
+    "title": "Automated Privacy Protection For Mobile Devices",
+    "date": "2023-01-20",
+    "rights": "openAccess",
+    "authors": [
+      "Mendes, Ricardo da Silva Carvalho"
+    ],
+    "pdf_bytes": 5232934,
+    "full_text": true
+  },
+  {
+    "handle": "10316/108717",
+    "source_url": "https://estudogeral.uc.pt/handle/10316/108717",
+    "title": "A MANAGEMENT FRAMEWORK FOR RESIDENTIAL BROADBAND ENVIRONMENTS",
+    "date": "2011",
+    "rights": "openAccess",
+    "authors": [
+      "Cruz, Tiago"
+    ],
+    "pdf_bytes": 11580501,
+    "full_text": true
+  },
+  {
     "handle": "10316/116663",
     "source_url": "https://estudogeral.uc.pt/handle/10316/116663",
     "title": "Deep Learning for Spatial Graph Optimization: Applications in Vascular Networks",

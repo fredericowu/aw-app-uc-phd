@@ -15,11 +15,13 @@ lives where that reasoning already applies instead of asking the gate to bend
 for a third time. ``uc_phd_app/store.py`` keeps the SQL and chunking/embedding
 logic that DOES run on every request (routes), which is what stays covered.
 
-Scope: indexes exactly the 18 theses committed under ``estudo_geral/*.md`` —
-the 2024+ DEI doctoral corpus S1 already extracted. This loader does not
-widen that set; it indexes whatever ``.md`` files exist in that directory,
-nothing more. A future corpus expansion (more years, more departments) is a
-later card's decision, not something this file does on its own.
+Scope: indexes whatever ``.md`` files exist under ``estudo_geral/*.md``,
+nothing more and nothing less — corpus size is a property of that directory,
+not a decision this file makes. It started at 18 (S1, DEI 2024+ only) and
+was widened to the full ~181-thesis DEI doctoral population by the
+corpus-widening card; a future expansion (more departments, non-thesis
+types) is again a later card's decision, not something this file does on
+its own.
 
 Resumable, keyed on content, not count: each thesis's ``.md`` is hashed
 (``md_sha256``) and compared against ``documents.md_sha256``; unchanged
@@ -125,8 +127,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         return 1
 
     docs = load_documents()
-    print(f"documents: {len(docs)} (estudo_geral/*.md — 2024+ DEI corpus, not widened)",
-          flush=True)
+    print(f"documents: {len(docs)} (estudo_geral/*.md)", flush=True)
 
     total_chunks = 0
     embedded_docs = 0
@@ -226,8 +227,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 1
 
 
-# Real questions about the 18 DEI doctoral theses, mixed PT/EN since the
-# corpus is bilingual — same set the P0 prototype benchmarked with.
+# Real questions about the DEI doctoral thesis corpus, mixed PT/EN since the
+# corpus is bilingual — same query set the P0 prototype benchmarked with.
 BENCH_QUERIES = [
     "computational creativity and evolutionary art",
     "reinforcement learning for drug discovery",

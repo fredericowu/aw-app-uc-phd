@@ -1,7 +1,7 @@
 """Entrypoint: `python -m estudo_geral_extractor.run [--keep-pdfs]`.
 
 One-shot script (mirrors scraper/run.py's shape). For every DEI doctoral
-thesis with `dc:date` >= 2024 in OAI set com_10316_255:
+thesis (no publication-year floor) in OAI set com_10316_255:
   1. GET the item landing page (issues the bot-gate cookies, and is where the
      real PDF download link lives — see download.py).
   2. GET the legacy REST API for clean, language-tagged metadata.
@@ -90,9 +90,13 @@ def process_one(session, handle, keep_pdfs=False):
         throttle()
         if ok:
             pdf_bytes = pdf_path.stat().st_size
-            body_text = extract_text(pdf_path)
-            full_text = bool(body_text.strip())
             entry["pdf_bytes"] = pdf_bytes
+            try:
+                body_text = extract_text(pdf_path)
+            except Exception as exc:  # noqa: BLE001 - a malformed PDF must not abort the run
+                entry["extract_error"] = f"{type(exc).__name__}: {exc}"
+                body_text = ""
+            full_text = bool(body_text.strip())
             # PDFs are a cache, not an archive — discard once the .md has
             # the text, keep only on a failed extraction (so a retry has
             # something to re-extract from without re-downloading).
@@ -122,12 +126,12 @@ def main():
 
     session = bootstrap_session()
 
-    print("enumerating OAI-PMH ListRecords for set", oai.SET_SPEC, "from", oai.FROM_DATE, "...")
+    print("enumerating OAI-PMH ListRecords for set", oai.SET_SPEC, "(full history, no deposit-date floor) ...")
     records = list(oai.fetch_all_records(session, sleep=throttle))
-    print(f"  {len(records)} records deposited since {oai.FROM_DATE} (deposit date, not publication year)")
+    print(f"  {len(records)} records in the set")
 
-    selected = oai.select_dei_doctoral_theses_2024_plus(records)
-    print(f"  {len(selected)} are doctoralThesis with dc:date year >= 2024 (the actual population)")
+    selected = oai.select_dei_doctoral_theses(records)
+    print(f"  {len(selected)} are doctoralThesis (the actual population)")
 
     manifest = []
     full_text_count = 0
@@ -139,7 +143,8 @@ def main():
         if entry.get("full_text"):
             full_text_count += 1
         else:
-            reason = entry.get("download_error") or entry.get("error") or "unknown"
+            reason = (entry.get("download_error") or entry.get("extract_error")
+                      or entry.get("error") or "unknown")
             print(f"  no full text: {reason}", file=sys.stderr)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

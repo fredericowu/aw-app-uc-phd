@@ -283,7 +283,7 @@ than from this table.
 # The Estudo Geral extractor
 
 A one-shot Python CLI (`python -m estudo_geral_extractor.run`) that pulls
-every UC DEI doctoral thesis published 2024-or-later from
+every UC DEI doctoral thesis, all-time, from
 [estudogeral.uc.pt](https://estudogeral.uc.pt/) — the University of
 Coimbra's institutional repository — into `estudo_geral/<handle>.md`, one
 file per thesis, full YAML front-matter plus extracted body text. Stage 1 of
@@ -291,18 +291,21 @@ the Estudo Geral roadmap (Kanban target `uc-dei-phd-estudo-geral-kb`); later
 stages (semantic index, `phd_knowledge_base` MCP, dashboard, search UI) are
 separate cards and out of scope here.
 
-## The population — 18, and why it isn't 28
+## The population — 181, widened from an original 18
 
-OAI-PMH's `set=com_10316_255` (the DEI community) `ListRecords` with
-`from=2024-01-01` returns **211** records — that filter is the *deposit*
-datestamp, not publication year. Of those, **18** are
-`dc:type=doctoralThesis` with a `dc:date` (publication year) of 2024 or
-later — that's the actual population, re-derived independently of the
-Product Owner's own count and matching it exactly. `oai.py`'s
-`select_dei_doctoral_theses_2024_plus` does this filter and is unit-tested
-against a fixture. CISUC's own community (`com_10316_27707`) has zero
-theses — Estudo Geral files them under the department, not the research
+OAI-PMH's `set=com_10316_255` (the DEI community) `ListRecords`, full history
+(no deposit-date floor), returns **891** records. Of those, **181** are
+`dc:type=doctoralThesis` — that's the actual population, no publication-year
+floor. `oai.py`'s `select_dei_doctoral_theses` does this filter and is
+unit-tested against a fixture. CISUC's own community (`com_10316_27707`) has
+zero theses — Estudo Geral files them under the department, not the research
 centre.
+
+The extractor originally floored the harvest at `from=2024-01-01` (deposit
+date) and additionally required `dc:date` year >= 2024, landing 18 theses —
+too few to rank anything (max 3 theses per supervisor across 32 distinct
+supervisors). The corpus-widening card dropped both floors; see that card
+for the measured facts that drove the decision.
 
 ## The bot gate
 

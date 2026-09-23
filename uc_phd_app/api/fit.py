@@ -44,17 +44,18 @@ DEFAULT_K = 8
 MAX_K = 18
 
 #: The denominator the screen states alongside the live count. NOT derived
-#: from this repo's data — the corpus here is the 18 theses S1 extracted, and
-#: 181 is the DEI doctoral total measured by the corpus-widening card. Stated
-#: so the screen can say what it did NOT search, which at 18/181 is most of
-#: it. When the widening lands, the live count moves and this stays.
+#: from this repo's data — it is the DEI doctoral total measured by the
+#: corpus-widening card. Stated so the screen can say what it did NOT search;
+#: after the widening the extracted corpus IS this population (modulo a
+#: handful of extraction failures), so matchable/DEI_DOCTORAL_TOTAL should
+#: read close to 1:1 rather than 18/181.
 DEI_DOCTORAL_TOTAL = 181
 
 CORPUS_NOTE = (
     "Matched against the {matchable} DEI doctoral theses extracted from Estudo "
-    f"Geral (2024+), out of roughly {DEI_DOCTORAL_TOTAL} DEI doctoral theses "
-    "overall. This is a matcher over what has been indexed, not a survey of "
-    "the department."
+    f"Geral, out of roughly {DEI_DOCTORAL_TOTAL} DEI doctoral theses overall. "
+    "This is a matcher over what has been indexed, not a survey of the "
+    "department."
 )
 
 #: Supervisors come from the ``thesis_people`` identity spine (role =

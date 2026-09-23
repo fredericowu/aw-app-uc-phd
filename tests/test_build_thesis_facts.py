@@ -161,17 +161,18 @@ def test_the_cli_prints_its_report(corpus, fixture_db, capsys):
 
 def test_the_committed_seed_holds_the_real_corpus():
     """The seed that actually ships. Asserts the measured shape of the real
-    data — 18 theses, 40 supervision edges, 50 distinct names — so a rebuild
-    that silently loses rows fails here rather than in the dashboard."""
+    data — 181 theses (widened from an original 18), 244 supervisor rows, 283
+    distinct names — so a rebuild that silently loses rows fails here rather
+    than in the dashboard."""
     conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
     try:
-        assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 18
+        assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 181
         assert conn.execute(
             "SELECT COUNT(*) FROM thesis_people WHERE role = 'supervisor'"
-        ).fetchone()[0] >= 40
+        ).fetchone()[0] >= 244
         assert conn.execute(
             "SELECT COUNT(DISTINCT name_raw) FROM thesis_people"
-        ).fetchone()[0] == 50
+        ).fetchone()[0] == 283
         # Every thesis carries its provenance, and nothing lost its rights flag.
         assert conn.execute("SELECT COUNT(*) FROM theses WHERE source_url IS NULL").fetchone()[0] == 0
     finally:

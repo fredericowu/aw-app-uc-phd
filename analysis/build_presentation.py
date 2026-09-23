@@ -22,6 +22,8 @@ import matplotlib  # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+from analysis.problem_summaries import PROBLEM_SUMMARIES  # noqa: E402
+
 DB_PATH = REPO_ROOT / "data" / "cisuc.sqlite3"
 SQL_DIR = REPO_ROOT / "sql"
 OUTPUT_PATH = REPO_ROOT / "analysis" / "presentation.html"
@@ -141,6 +143,40 @@ def bar_chart(labels, values, color, title, ylabel, value_fmt="{:.0f}"):
     return fig_to_data_uri(fig)
 
 
+def top_projects_by_group_html(per_group, top_projects):
+    # per_group gives section order (already sorted by project_count DESC,
+    # same order group_color was assigned in) — group_code -> [rows].
+    by_code = {}
+    for row in top_projects:
+        by_code.setdefault(row["code"], []).append(row)
+
+    sections = []
+    for g in per_group:
+        code, name = g["code"], g["name"]
+        rows = by_code.get(code, [])
+        if not rows:
+            continue
+        table_rows = "".join(
+            f"<tr><td>{r['rank_in_group']}</td>"
+            f"<td><a href=\"{r['detail_url']}\" target=\"_blank\" rel=\"noopener\">{r['title']}</a></td>"
+            f"<td>€{r['total_budget_amount']:,.0f}</td>"
+            f"<td>{PROBLEM_SUMMARIES.get(r['project_id'], '(no problem summary authored for this project id — see synopsis in sql/top_projects_per_group.sql)')}</td>"
+            f"</tr>"
+            for r in rows
+        )
+        sections.append(f"""
+      <div class="card">
+        <h3>{code} — {name} ({len(rows)} project{'s' if len(rows) != 1 else ''})</h3>
+        <div class="table-wrap">
+          <table>
+            <tr><th>#</th><th>Project</th><th>Total budget</th><th>Problem it solves</th></tr>
+            {table_rows}
+          </table>
+        </div>
+      </div>""")
+    return "".join(sections)
+
+
 def build():
     coverage = run_sql("coverage.sql")[0]
     fill_rates = run_sql("fill_rates.sql")
@@ -150,6 +186,7 @@ def build():
     budget_year = run_sql("budget_by_year.sql")
     timeline = run_sql("start_date_timeline.sql")
     coordinators = run_sql("top_coordinators.sql")
+    top_projects = run_sql("top_projects_per_group.sql")
 
     # Shared code->color mapping so a research group carries the same color
     # across every chart it appears in (dataviz: "color follows the entity").
@@ -213,6 +250,8 @@ def build():
         "Most frequent coordinators (top 15)",
         "project count",
     )
+
+    top_projects_html = top_projects_by_group_html(per_group, top_projects)
 
     fill_rate_rows = "".join(
         f"<tr><td>{r['label']}</td><td>{r['projects_with_field']}</td>"
@@ -300,6 +339,14 @@ def build():
         <div class="note">Query: sql/budget_by_group.sql — same many-to-many caveat applies to the budget sum.</div>
       </div>
     </div>
+  </div>
+
+  <div class="section">
+    <h2>Top 10 projects per research group</h2>
+    <div class="card">
+      <div class="note">Ranking metric not specified by the request — this uses <strong>total budget</strong> (descending) as the most objective available proxy for a project's size/relevance. Many-to-many: a project can appear in more than one group's top 10. Groups with fewer than 10 eligible projects (parsed budget + synopsis) list all of them. Query: sql/top_projects_per_group.sql.</div>
+    </div>
+    {top_projects_html}
   </div>
 
   <div class="section">

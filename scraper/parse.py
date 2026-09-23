@@ -71,3 +71,92 @@ def split_list(raw, sep=","):
         return []
     parts = [normalize_ws(p) for p in raw.split(sep)]
     return [p for p in parts if p]
+
+
+def split_partners(raw):
+    """'A, B (Coordinator, Country), C' -> ['A', 'B (Coordinator, Country)', 'C'].
+
+    partners_raw is free text, comma-separated, but a parenthesised note can
+    itself contain a comma — e.g. "EXODUS S. A. (Coordinator, Greece), CSEM
+    (Switzerland)" is 2 partners, not 3. A plain ``split_list`` would cut
+    that note in two, so this tracks paren depth and only splits on
+    top-level commas. An unbalanced '(' (seen once in the real data) just
+    means nothing after it splits — best effort, nothing invented, same as
+    every other free-text field this scraper parses.
+    """
+    if not raw:
+        return []
+    parts = []
+    depth = 0
+    current = []
+    for ch in raw:
+        if ch == "(":
+            depth += 1
+            current.append(ch)
+        elif ch == ")":
+            depth = max(0, depth - 1)
+            current.append(ch)
+        elif ch == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    parts.append("".join(current))
+    return [normalize_ws(p) for p in parts if normalize_ws(p)]
+
+
+# classify_partner()'s vocabulary — multi-language "university" plus the
+# generic institutional words that actually occur in the real partners_raw
+# data (measured against all 636 distinct partner names split out of the
+# 261/398 projects that have one; see docs comment on classify_partner).
+# A keyword list, not a model, by design: "a reasonable heuristic based on
+# the entity name/type... don't over-engineer this into an ML classification
+# task" (the card this was built for).
+_ACADEMIC_WORD_MARKERS = (
+    "university", "universidade", "universidad", "università", "universita",
+    "universität", "universitat", "universitet", "universiteit", "universiteti",
+    "universitatea", "univerza", "univerzita", "univerzitet", "egyetem",
+    "yliopisto", "ulikool", "sveuciliste",
+    "instituto", "institute", "institut", "institution",
+    "faculdade", "faculty", "faculté", "facultad",
+    "politecnico", "politécnico", "polytechnic", "politecnica", "politécnica",
+    "college", "colegio", "école", "escola",
+    "hospital", "hospitais", "clinic", "clínica", "clinique",
+    "academia", "academy",
+    "laboratório", "laboratory", "laboratoire", "laboratorio",
+    "fundação", "fundacion", "fundación",
+    "research institute", "research institution", "research center",
+    "research centre", "consiglio nazionale delle ricerche", "conselho",
+    "consejo superior",
+)
+
+# Short acronyms only safe to match as a whole token — a substring check on
+# "uc" would also hit "produce"/"structure"/... Sourced from acronyms that
+# resolve to a full academic name elsewhere in the same partners_raw data
+# (e.g. "CISUC/FCTUC (University of Coimbra)", "INESC TEC – INSTITUTO DE
+# ENGENHARIA DE SISTEMAS E COMPUTADORES").
+_ACADEMIC_TOKEN_MARKERS = frozenset({
+    "uc", "cisuc", "fctuc", "feup", "fcul", "ist", "isec", "ipn", "inesc",
+    "cnc", "isr", "cmuc", "icbr", "huc", "chuc", "ipo", "ibili", "iict",
+    "mit", "eth", "kth", "agh",
+})
+
+_WORD_RE = re.compile(r"[^\W\d_]+")
+
+
+def classify_partner(name):
+    """'University of Coimbra' -> 'academic'; 'Sanofi' -> 'industry'.
+
+    Not verified per partner. A company name with no legal-entity suffix
+    (Sanofi, Thales, GSK, ...) falls to 'industry' by default because that
+    is the common case in this data; an unmarked research institute (e.g.
+    "CSEM") is the known false-negative this heuristic trades off for it.
+    The caveat travels with the data — see sql/partners_breakdown.sql.
+    """
+    lowered = name.lower()
+    if any(marker in lowered for marker in _ACADEMIC_WORD_MARKERS):
+        return "academic"
+    tokens = {t.lower() for t in _WORD_RE.findall(name)}
+    if tokens & _ACADEMIC_TOKEN_MARKERS:
+        return "academic"
+    return "industry"

@@ -115,6 +115,16 @@ def replace_project_keywords(conn, project_id, keywords):
     )
 
 
+def replace_project_partners(conn, project_id, partners):
+    """partners: list of (name, partner_type) tuples, in document order."""
+    conn.execute("DELETE FROM project_partners WHERE project_id = ?", (project_id,))
+    conn.executemany(
+        "INSERT INTO project_partners (project_id, partner_name, partner_type, ordinal) "
+        "VALUES (?, ?, ?, ?)",
+        [(project_id, name, partner_type, i) for i, (name, partner_type) in enumerate(partners)],
+    )
+
+
 def start_scrape_run(conn, started_at):
     cur = conn.execute(
         "INSERT INTO scrape_runs (started_at) VALUES (?)", (started_at,)

@@ -73,8 +73,8 @@ def table_counts(db_path: Path | None = None) -> dict:
     """Row counts for the tables ``/healthz`` reports on."""
     names = (
         "projects", "project_fields_raw", "research_groups", "project_groups",
-        "people", "project_people", "project_keywords", "scrape_runs",
-        "scrape_targets",
+        "people", "project_people", "project_keywords", "project_partners",
+        "scrape_runs", "scrape_targets",
     )
     conn = connect(db_path)
     try:

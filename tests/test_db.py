@@ -34,6 +34,9 @@ def test_every_committed_query_the_api_serves_exists_and_runs(fixture_db):
         "budget_by_year",
         "start_date_timeline",
         "top_coordinators",
+        "partners_breakdown",
+        "partners_by_type",
+        "partners_coverage",
     ):
         assert db.query(name, db_path=fixture_db) is not None
 
@@ -79,11 +82,12 @@ def test_table_counts_covers_every_table_healthz_reports(fixture_db):
     counts = db.table_counts(fixture_db)
     assert counts["projects"] == 3
     assert counts["project_groups"] == 3
+    assert counts["project_partners"] == 2
     assert counts["scrape_targets"] == 3
     assert set(counts) == {
         "projects", "project_fields_raw", "research_groups", "project_groups",
-        "people", "project_people", "project_keywords", "scrape_runs",
-        "scrape_targets",
+        "people", "project_people", "project_keywords", "project_partners",
+        "scrape_runs", "scrape_targets",
     }
 
 

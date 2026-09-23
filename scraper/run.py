@@ -17,7 +17,7 @@ import requests
 from . import db
 from .detail import parse_detail_page, project_fields
 from .listing import LISTING_URL, USER_AGENT, ListingError, fetch_all_projects
-from .parse import parse_date, parse_money
+from .parse import classify_partner, parse_date, parse_money, split_partners
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = REPO_ROOT / "data" / "cisuc.sqlite3"
@@ -125,6 +125,11 @@ def upsert_success(conn, title, url, listing_row, raw_rows, parsed):
         people_rows.append((slug, "researcher", ordinal))
     db.replace_project_people(conn, project_id, people_rows)
     db.replace_project_keywords(conn, project_id, parsed["keywords"])
+
+    partner_names = split_partners(parsed["partners_raw"])
+    db.replace_project_partners(
+        conn, project_id, [(name, classify_partner(name)) for name in partner_names]
+    )
 
 
 def upsert_failure(conn, title, url, listing_row, http_status, error):

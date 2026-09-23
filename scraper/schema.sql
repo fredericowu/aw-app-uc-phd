@@ -78,6 +78,21 @@ CREATE TABLE IF NOT EXISTS project_keywords (
     PRIMARY KEY (project_id, keyword)
 );
 
+-- partners_raw, parsed and classified. scraper/parse.py:split_partners
+-- splits the free-text field; classify_partner() flags each as academic or
+-- industry by a keyword heuristic (not verified per partner — see its
+-- docstring). ordinal is the primary-key differentiator, not partner_name,
+-- because the same partner name can legitimately repeat within one raw
+-- string (e.g. mentioned in a role note and again plainly).
+CREATE TABLE IF NOT EXISTS project_partners (
+    project_id   INTEGER NOT NULL REFERENCES projects(id),
+    partner_name TEXT NOT NULL,
+    partner_type TEXT NOT NULL CHECK (partner_type IN ('academic', 'industry')),
+    ordinal      INTEGER NOT NULL,
+    PRIMARY KEY (project_id, ordinal)
+);
+CREATE INDEX IF NOT EXISTS idx_project_partners_project ON project_partners(project_id);
+
 CREATE TABLE IF NOT EXISTS scrape_runs (
     id              INTEGER PRIMARY KEY,
     started_at      TEXT NOT NULL,

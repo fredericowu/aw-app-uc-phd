@@ -31,8 +31,9 @@ SCHEMA = ROOT / "scraper" / "schema.sql"
 def build_fixture_db(path: Path) -> Path:
     """A handful of rows covering every shape the queries care about:
     two research groups, a project in both, a project with no detail page, a
-    project with no parsed budget, coordinators and researchers, keywords, and
-    a completed scrape run with its manifest."""
+    project with no parsed budget, coordinators and researchers, keywords,
+    one academic and one industry partner, and a completed scrape run with
+    its manifest."""
     conn = sqlite3.connect(path)
     conn.executescript(SCHEMA.read_text(encoding="utf-8"))
     conn.executescript(
@@ -78,6 +79,10 @@ def build_fixture_db(path: Path) -> Path:
 
         INSERT INTO project_keywords (project_id, keyword, ordinal) VALUES
             (1, 'networks', 0), (1, 'security', 1);
+
+        INSERT INTO project_partners (project_id, partner_name, partner_type, ordinal) VALUES
+            (1, 'University of Testcoimbra', 'academic', 0),
+            (1, 'Partner Industries Lda', 'industry', 1);
 
         INSERT INTO project_fields_raw (project_id, label, ordinal, value_text, href) VALUES
             (1, 'Scope',    0, 'International', NULL),

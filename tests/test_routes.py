@@ -130,6 +130,38 @@ def test_timeline_and_funding_and_coordinators(client):
     assert "UNGROUPED" in coord_body["caveat"]
 
 
+def test_partners_breakdown_by_type_and_coverage(client):
+    body = client.get("/api/partners").json()
+
+    by_name = {p["partner_name"]: p for p in body["partners"]}
+    assert by_name["University of Testcoimbra"] == {
+        "partner_name": "University of Testcoimbra",
+        "partner_type": "academic",
+        "project_count": 1,
+    }
+    assert by_name["Partner Industries Lda"] == {
+        "partner_name": "Partner Industries Lda",
+        "partner_type": "industry",
+        "project_count": 1,
+    }
+
+    assert {t["partner_type"]: (t["distinct_partners"], t["project_count"]) for t in body["by_type"]} == {
+        "academic": (1, 1),
+        "industry": (1, 1),
+    }
+
+    # Alpha has a partners_raw value AND 2 parsed project_partners rows;
+    # Beta has neither; Gamma has no detail page at all.
+    assert body["coverage"] == {
+        "detail_fetched_ok": 2,
+        "projects_with_partners_raw": 1,
+        "projects_with_parsed_partners": 1,
+        "partner_entries": 2,
+        "distinct_partners": 2,
+    }
+    assert "not verified per partner" in body["caveat"]
+
+
 # ── top projects ────────────────────────────────────────────────────────────
 
 
@@ -196,6 +228,10 @@ def test_project_detail_includes_the_raw_field_pairs(client):
         ("Alan Turing", "researcher"),
     ]
     assert p["keywords"] == ["networks", "security"]
+    assert p["partners"] == [
+        {"partner_name": "University of Testcoimbra", "partner_type": "academic"},
+        {"partner_name": "Partner Industries Lda", "partner_type": "industry"},
+    ]
     raw = {f["label"]: f for f in p["fields_raw"]}
     assert "Keywords" in raw, "the catch-all table is the whole point of this view"
     assert raw["coordinator"]["href"] == "https://example.test/people/ada"

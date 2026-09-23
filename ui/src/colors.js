@@ -60,3 +60,21 @@ export function slotVar(slot) {
 export function groupColorVar(code) {
   return slotVar(groupSlot(code));
 }
+
+/** Partner classification (project_partners.partner_type) — two fixed
+ *  slots, same "colour follows the entity, never its rank" rule as
+ *  research groups above, so academic stays one colour and industry
+ *  another everywhere a partner is drawn (the Partners view, a project's
+ *  detail page, ...). */
+const SLOT_BY_PARTNER_TYPE = {
+  academic: 'series-1',
+  industry: 'series-2',
+};
+
+export function partnerTypeSlot(type) {
+  return SLOT_BY_PARTNER_TYPE[type] || 'muted';
+}
+
+export function partnerTypeColorVar(type) {
+  return slotVar(partnerTypeSlot(type));
+}

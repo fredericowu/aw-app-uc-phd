@@ -10,7 +10,7 @@
 
 import { api } from '../api';
 import { AsyncBoundary, DataTable, ExternalLink, useAsync } from '../components';
-import { groupColorVar } from '../colors';
+import { groupColorVar, partnerTypeColorVar } from '../colors';
 import { date, money } from '../format';
 
 function Field({ label, children }) {
@@ -102,6 +102,27 @@ export default function ProjectDetail({ projectId, onBack }) {
                   {p.keywords.map((k) => (
                     <span className="chip" key={k}>
                       {k}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {p.partners.length ? (
+              <div className="card section">
+                <p className="chart-title">Partners</p>
+                <p className="chart-note">
+                  Parsed from the raw Partners field below; academic/industry is a keyword
+                  heuristic, not verified per partner.
+                </p>
+                <div className="chips">
+                  {p.partners.map((partner) => (
+                    <span className="legend-item" key={partner.partner_name}>
+                      <span
+                        className="swatch"
+                        style={{ background: partnerTypeColorVar(partner.partner_type) }}
+                      />
+                      {partner.partner_name}
                     </span>
                   ))}
                 </div>

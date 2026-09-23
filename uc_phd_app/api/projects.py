@@ -52,6 +52,21 @@ COORDINATOR_STACK_CAVEAT = (
     "under 'UNGROUPED'."
 )
 
+#: Carried with every /partners payload — a partner is not a funder (see the
+#: funding investigation this feature came out of), and the academic/industry
+#: flag is a keyword heuristic on the partner's name
+#: (scraper/parse.py:classify_partner), not a verified fact per partner.
+PARTNERS_CAVEAT = (
+    "Parsed from the site's free-text Partners field — covers 261 of 398 "
+    "detail-fetched projects (66%); the rest published no Partners field at "
+    "all. A partner is not a funder: this says who CISUC worked with, not "
+    "who paid. The academic/industry flag is a keyword heuristic on the "
+    "partner's name (university/instituto/hospital/... = academic, a small "
+    "set of known CISUC-ecosystem acronyms = academic, everything else = "
+    "industry) — it is not verified per partner, and a research institute "
+    "with no such marker in its name will read as industry."
+)
+
 
 @router.get("/coverage")
 async def coverage() -> dict:
@@ -155,6 +170,19 @@ async def coordinators() -> dict:
         "coordinators": [by_slug[slug] for slug in order],
         "group_names": group_names,
         "caveat": COORDINATOR_STACK_CAVEAT,
+    }
+
+
+@router.get("/partners")
+async def partners() -> dict:
+    """sql/partners_breakdown.sql + sql/partners_by_type.sql +
+    sql/partners_coverage.sql — project_partners, first-class."""
+    coverage_rows = db.query("partners_coverage")
+    return {
+        "partners": db.query("partners_breakdown"),
+        "by_type": db.query("partners_by_type"),
+        "coverage": coverage_rows[0] if coverage_rows else {},
+        "caveat": PARTNERS_CAVEAT,
     }
 
 
@@ -262,6 +290,14 @@ async def project_detail(project_id: int) -> dict:
             {"id": project_id},
         )
     ]
+    project["partners"] = db.rows(
+        """
+        SELECT partner_name, partner_type
+        FROM project_partners WHERE project_id = :id
+        ORDER BY ordinal
+        """,
+        {"id": project_id},
+    )
     project["fields_raw"] = db.rows(
         """
         SELECT label, ordinal, value_text, href

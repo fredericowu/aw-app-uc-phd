@@ -50,6 +50,7 @@ export const api = {
   budgetByYear: () => getJSON('/budget/by-year'),
   timeline: () => getJSON('/timeline'),
   coordinators: () => getJSON('/coordinators'),
+  partners: () => getJSON('/partners'),
   projects: ({ group, q, limit = 50, offset = 0 } = {}) => {
     const params = new URLSearchParams();
     if (group) params.set('group', group);

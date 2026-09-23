@@ -28,6 +28,17 @@ def _caveat_for(kind: str) -> str:
     return collab.CO_PROJECT_CAVEAT if kind == "co_project" else collab.CO_SUPERVISION_CAVEAT
 
 
+def _without_shared_ids(pair: dict) -> dict:
+    """``enriched_pairs`` is one internal shape with two deliberate exposure
+    decisions. ``shared_ids`` exists for the graph, whose edges need to name
+    what they stand for; the ranked table is a table of PEOPLE and a 50-row
+    page of it would otherwise carry ~1,400 project ids nothing renders.
+    ``/collab/people/{slug}`` needs no equivalent — ``collab.neighbours``
+    builds its rows key by key rather than returning pairs verbatim, so it
+    never had them."""
+    return {k: v for k, v in pair.items() if k != "shared_ids"}
+
+
 @router.get("/collab/summary")
 async def collab_summary() -> dict:
     """Weight-distribution headline: pair counts, how many sit below the
@@ -60,7 +71,7 @@ async def collab_pairs(
     else:
         pairs.sort(key=lambda p: (-p["weight"], p["person_a"], p["person_b"]))
     total = len(pairs)
-    page = pairs[offset : offset + limit]
+    page = [_without_shared_ids(p) for p in pairs[offset : offset + limit]]
     return {
         "kind": kind,
         "min_weight": floor,
@@ -89,7 +100,14 @@ async def collab_graph(
 
     ``edge_count`` equals ``/collab/pairs``'s ``total`` for the same
     kind+floor by construction — both filter ``weight >= floor`` over
-    ``enriched_pairs(kind)`` — pinned by a test rather than left to drift."""
+    ``enriched_pairs(kind)`` — pinned by a test rather than left to drift.
+
+    This is the ONE endpoint that exposes ``shared_ids`` (which projects or
+    theses an edge stands for), alongside a flat ``shared_labels``
+    id -> title dictionary and the ``shared_noun`` to describe them with.
+    Dictionary rather than titles inlined on every edge: the same id repeats
+    across many edges (1,869 edge x project references over 266 distinct
+    projects at the default floor), so inlining costs ~6x the bytes."""
     _validate_kind(kind)
     floor = min_weight if min_weight is not None else collab.GRAPH_MIN_WEIGHT[kind]
     result = collab.graph(kind, floor)

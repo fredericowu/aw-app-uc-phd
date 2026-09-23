@@ -442,24 +442,81 @@ table.data tbody tr:hover {
   border-radius: 8px;
   flex: 1;
   min-width: 0;
+  /* The canvas is a gesture surface now: without this, dragging it selects
+   * every label the pointer sweeps over instead of panning. */
+  user-select: none;
+  touch-action: none;
+}
+
+.graph-controls {
+  flex: 0 0 220px;
 }
 
 /* 4,242 hit-testable lines at floor 1 is its own slowdown, and only nodes
- * need to be interactive — see CollabGraph.jsx's layout() docstring. */
+ * need to be interactive — see CollabGraph.jsx's layout() docstring. Edge
+ * tooltips do NOT come from relaxing this: they come from a separate
+ * transparent hit layer (.viz-graph-edge-hit) that is not rendered at all
+ * above CollabGraph.jsx's EDGE_HIT_LIMIT, so floor 1 keeps this property. */
+/* --stroke-k is 1/k, set imperatively on the zoom layer — see
+ * CollabGraph.jsx's applyTransform(). Every stroke below is expressed in
+ * terms of it so lines stay HAIRLINES at every zoom level: a plain
+ * stroke-width is in user units and would be multiplied by the transform,
+ * turning 282 one-unit edges into 7-unit grey bands at k=7 that hide the
+ * nodes you zoomed in to look at. Radii still scale, which is the point of
+ * zooming; line weight carries no data, so it should not. */
 .viz-graph-edge {
   pointer-events: none;
   stroke: var(--axis);
-  stroke-width: 1;
+  stroke-width: calc(1px * var(--stroke-k, 1));
 }
 
 .viz-graph-edge-dim {
   stroke-opacity: 0.15;
 }
 
+.viz-graph-edge-on {
+  stroke: var(--text-primary);
+  stroke-width: calc(2px * var(--stroke-k, 1));
+}
+
+/* Invisible, but 8x thicker than the line it stands in for, so a hairline is
+ * actually hoverable. Scales with the rest so the target stays 8 SCREEN px. */
+.viz-graph-edge-hit {
+  cursor: help;
+  stroke: transparent;
+  stroke-width: calc(8px * var(--stroke-k, 1));
+}
+
 .viz-graph-node {
-  cursor: pointer;
+  cursor: grab;
   stroke: var(--surface-1);
-  stroke-width: 1;
+  stroke-width: calc(1px * var(--stroke-k, 1));
+}
+
+.viz-graph-node:active {
+  cursor: grabbing;
+}
+
+/* font-size and stroke-width are set on the group imperatively, counter-
+ * scaled by 1/k — see CollabGraph.jsx's applyTransform(). paint-order puts
+ * the page-coloured stroke UNDER the glyphs, which is what turns it into a
+ * halo that lifts a name off the lines behind it instead of outlining it. */
+.viz-graph-label {
+  fill: var(--text-primary);
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: var(--page);
+  stroke-linejoin: round;
+}
+
+.viz-graph-label-off {
+  display: none;
+}
+
+/* Hover names a node whatever the zoom band decided. Toggled imperatively,
+ * so it must win over -off — which at equal specificity means coming last. */
+.viz-graph-label-on {
+  display: block;
 }
 
 .viz-graph-node-dim {
@@ -468,34 +525,12 @@ table.data tbody tr:hover {
 
 .viz-graph-node-selected {
   stroke: var(--text-primary);
-  stroke-width: 2;
+  stroke-width: calc(2px * var(--stroke-k, 1));
 }
 
-.graph-panel {
-  flex: 0 0 260px;
-}
-
-.graph-panel-list {
-  font-size: 12px;
-  list-style: none;
-  margin: 0;
-  max-height: 520px;
-  overflow-y: auto;
-  padding: 0;
-}
-
-.graph-panel-list li {
-  border-top: 1px solid var(--border);
-  padding: 6px 0;
-}
-
-.graph-panel-list li:first-child {
-  border-top: none;
-}
-
-.graph-panel-hidden {
-  color: var(--text-muted);
-}
+/* .graph-panel* went with CollabGraph's own NeighbourPanel: the graph and
+ * the table share one `focus` now, so PersonNeighbourhood is the detail
+ * panel for both and there is no second, nearly-identical list to style. */
 
 /* ── controls ───────────────────────────────────────────────────────────── */
 
@@ -681,6 +716,18 @@ table.data tbody tr:hover {
   background: color-mix(in srgb, var(--series-4) 16%, transparent);
   border-radius: 999px;
   color: var(--text-primary);
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+/* "One signal only" variant — quieter than .chip-warn on purpose. An
+ * uncorroborated attribution is weaker evidence, not a warning; only a
+ * contested one (two signals actively disagreeing) earns the amber. */
+.chip-muted {
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  border-radius: 999px;
+  color: var(--text-secondary);
   flex-shrink: 0;
   font-size: 12px;
   padding: 2px 10px;

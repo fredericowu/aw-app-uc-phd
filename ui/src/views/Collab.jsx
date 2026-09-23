@@ -64,6 +64,10 @@ function FloorPicker({ kind, value, onChange }) {
   );
 }
 
+/** Person search stays server-backed, deliberately: it reaches all 470
+ *  people, and at the default floor only 91 of them are drawn. Picking
+ *  someone the graph does not contain is a legitimate outcome — CollabGraph
+ *  says so in words rather than dimming itself to nothing. */
 function AnchorPicker({ onSelect }) {
   const [input, setInput] = useState('');
   const [q, setQ] = useState('');
@@ -80,8 +84,8 @@ function AnchorPicker({ onSelect }) {
       <input
         type="search"
         value={input}
-        placeholder="Anchor on a person — search a name…"
-        aria-label="Search a person to anchor the graph on"
+        placeholder="Focus on a person — search a name…"
+        aria-label="Search a person to focus the graph on"
         onChange={(e) => setInput(e.target.value)}
       />
       <AsyncBoundary state={state}>
@@ -157,6 +161,11 @@ function PairsTable({ kind, minWeight }) {
   );
 }
 
+/** The graph's detail panel as well as the table's — it is driven by the one
+ *  `focus` below, so clicking a circle and picking a name from search now
+ *  land in the same place. It lives OUTSIDE CollabGraph on purpose: its
+ *  fetch resolving re-renders only itself, and a re-render inside the graph
+ *  mid-drag would snap the node being dragged back to its last position. */
 function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
   const state = useAsync(() => api.collabPerson(anchor.slug, { kind, minWeight }), [anchor.slug, kind, minWeight]);
 
@@ -175,7 +184,7 @@ function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
             {kind === 'co_project' ? 'shared project(s)' : 'shared thesis/theses'}
             {' · '}
             <button type="button" className="link-button" onClick={onClear}>
-              Clear anchor
+              Clear focus
             </button>
           </p>
           <DataTable
@@ -207,7 +216,12 @@ export default function Collab() {
   // fetch, one source of truth: no correcting effect, so no double fetch of
   // pairs/graph on mount.
   const [minWeight, setMinWeight] = useState(null);
-  const [anchor, setAnchor] = useState(null);
+  // ONE selection for the whole section. Until now the table had an `anchor`
+  // the graph could not see and the graph had a `selectedSlug` the table
+  // could not see — two selection concepts for one question ("show me this
+  // person"). Clicking a circle and searching a name are the same act, so
+  // they write the same state, and PersonNeighbourhood answers both.
+  const [focus, setFocus] = useState(null);
 
   const changeKind = (next) => {
     setKind(next);
@@ -255,12 +269,12 @@ export default function Collab() {
 
               <FloorPicker kind={kind} value={floor} onChange={setMinWeight} />
 
-              <CollabGraph kind={kind} minWeight={floor} />
+              <AnchorPicker onSelect={setFocus} />
 
-              <AnchorPicker onSelect={setAnchor} />
+              <CollabGraph kind={kind} minWeight={floor} focus={focus} onFocus={setFocus} />
 
-              {anchor ? (
-                <PersonNeighbourhood anchor={anchor} kind={kind} minWeight={floor} onClear={() => setAnchor(null)} />
+              {focus ? (
+                <PersonNeighbourhood anchor={focus} kind={kind} minWeight={floor} onClear={() => setFocus(null)} />
               ) : (
                 <PairsTable kind={kind} minWeight={floor} />
               )}

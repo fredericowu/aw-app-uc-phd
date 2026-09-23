@@ -16,6 +16,12 @@ Two edge kinds, kept distinct, never summed:
 * ``co_supervision`` — weight = number of theses two people co-supervised
   together, from ``thesis_people`` (``role='supervisor'``).
 
+Both are computed from a LONG-FORM query (one row per pair x shared item)
+aggregated here in Python, so every pair keeps ``shared_ids`` — the ids of
+the actual projects/theses behind its weight. That is what lets the graph
+answer "what do these two work on together?" instead of only "how much".
+Only ``/collab/graph`` exposes it; see ``api/collab.py``.
+
 **Why a floor matters.** Of the 4,242 co_project pairs, most exist because
 two people happened to share exactly one project — a real but close to
 meaningless signal on its own. Callers apply ``DEFAULT_MIN_WEIGHT`` unless
@@ -63,6 +69,18 @@ DEFAULT_MIN_WEIGHT = {"co_project": 2, "co_supervision": 1}
 GRAPH_MIN_WEIGHT = {"co_project": 4, "co_supervision": 1}
 
 KINDS = ("co_project", "co_supervision")
+
+#: What one entry of an edge's ``shared_ids`` IS, per kind — the word the UI
+#: puts in front of the tooltip ("3 shared projects" / "2 shared theses").
+#: Kept here rather than hardcoded in the frontend because the noun is a
+#: property of the edge kind, which this module defines.
+#:
+#: The plural is carried explicitly rather than left to the caller to build,
+#: because "thesis" + "s" is "thesiss" — which is exactly what shipped to the
+#: live app for about ten minutes. English morphology is not something a JSX
+#: template should be guessing at.
+SHARED_NOUN = {"co_project": "project", "co_supervision": "thesis"}
+SHARED_NOUN_PLURAL = {"co_project": "projects", "co_supervision": "theses"}
 
 CO_PROJECT_CAVEAT = (
     "weight is the raw count of projects two people were both listed on "
@@ -125,9 +143,11 @@ def _co_project_pairs() -> list[dict]:
                 "person_b_slug": row["person_b"],
                 "weight": 0,
                 "weight_normalized": 0.0,
+                "shared_ids": [],
             }
             agg[key] = entry
         entry["weight"] += 1
+        entry["shared_ids"].append(row["project_id"])
         team_size = row["team_size"]
         if team_size > 1:
             entry["weight_normalized"] += 1.0 / (team_size - 1)
@@ -137,18 +157,26 @@ def _co_project_pairs() -> list[dict]:
 
 
 def _co_supervision_pairs() -> list[dict]:
-    """``sql/collab_co_supervision.sql`` is already aggregated per pair —
-    thesis teams are small (2-3 supervisors), so the quadratic-inflation
-    concern that motivates co_project's normalisation does not apply."""
-    return [
-        {
-            "person_a_slug": row["person_a"],
-            "person_b_slug": row["person_b"],
-            "weight": row["weight"],
-            "weight_normalized": None,
-        }
-        for row in db.query("collab_co_supervision")
-    ]
+    """Aggregates ``sql/collab_co_supervision.sql``'s long form the same way
+    ``_co_project_pairs`` does. ``weight_normalized`` stays None: thesis
+    teams are small (2-3 supervisors), so the quadratic-inflation concern
+    that motivates co_project's normalisation does not apply."""
+    agg: dict[tuple[str, str], dict] = {}
+    for row in db.query("collab_co_supervision"):
+        key = (row["person_a"], row["person_b"])
+        entry = agg.get(key)
+        if entry is None:
+            entry = {
+                "person_a_slug": row["person_a"],
+                "person_b_slug": row["person_b"],
+                "weight": 0,
+                "weight_normalized": None,
+                "shared_ids": [],
+            }
+            agg[key] = entry
+        entry["weight"] += 1
+        entry["shared_ids"].append(row["handle"])
+    return list(agg.values())
 
 
 def _pairs_for(kind: str) -> list[dict]:
@@ -178,6 +206,17 @@ def _cross_group(groups_a: set[str] | None, groups_b: set[str] | None) -> bool |
 
 def _person_names() -> dict[str, str]:
     return {row["slug"]: row["name"] for row in db.rows("SELECT slug, name FROM people")}
+
+
+def _shared_titles(kind: str) -> dict:
+    """id -> title for whatever an edge of ``kind`` is made of: project ids
+    for co_project, thesis handles for co_supervision. A flat id->title
+    lookup, the same shape (and the same inline-SELECT precedent) as
+    ``_person_names`` — not a committed ``sql/`` query, because there is no
+    figure here, only a label."""
+    if kind == "co_project":
+        return {row["id"]: row["title"] for row in db.rows("SELECT id, title FROM projects")}
+    return {row["handle"]: row["title"] for row in db.rows("SELECT handle, title FROM theses")}
 
 
 def enriched_pairs(kind: str) -> list[dict]:
@@ -212,7 +251,14 @@ def build_graph(pairs: list[dict], min_weight: int) -> dict:
     (hover-only, costs nothing extra since ``pairs`` already has them all).
     A node appears in ``nodes`` only if its ``degree >= 1`` — nodes derive
     from surviving edges, so degree 0 is impossible by construction and an
-    isolated person is simply absent, not a zero-degree node."""
+    isolated person is simply absent, not a zero-degree node.
+
+    Each surviving edge carries ``shared_ids`` — WHICH projects/theses the
+    edge stands for, not just how many. Ids, never titles: at floor 4 there
+    are 1,869 edge x project rows but only 266 distinct projects, so
+    inlining titles costs 124 KB against 22 KB for the ids plus one flat
+    ``shared_labels`` dictionary (``graph()`` builds it, this pure function
+    cannot — it has no database)."""
     people: dict[str, dict] = {}
 
     def touch(slug: str, name: str, groups: list[str]) -> dict:
@@ -245,6 +291,7 @@ def build_graph(pairs: list[dict], min_weight: int) -> dict:
                 "weight": pair["weight"],
                 "weight_normalized": pair["weight_normalized"],
                 "cross_group": pair["cross_group"],
+                "shared_ids": pair["shared_ids"],
             }
         )
 
@@ -270,6 +317,14 @@ def graph(kind: str, min_weight: int) -> dict:
     if kind not in KINDS:
         raise ValueError(f"unknown collaboration kind: {kind!r}")
     result = build_graph(enriched_pairs(kind), min_weight)
+    # One flat id -> title dictionary for every id any SURVIVING edge names,
+    # not the whole table: the floor is what decides how much of it is worth
+    # sending, and an id no edge references is a label nothing can show.
+    needed = {i for edge in result["edges"] for i in edge["shared_ids"]}
+    titles = _shared_titles(kind)
+    result["shared_labels"] = {i: titles[i] for i in needed if i in titles}
+    result["shared_noun"] = SHARED_NOUN[kind]
+    result["shared_noun_plural"] = SHARED_NOUN_PLURAL[kind]
     result["kind"] = kind
     result["min_weight"] = min_weight
     return result

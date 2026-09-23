@@ -104,6 +104,28 @@ def test_neighbours_respects_the_floor(live_db):
     assert collab.neighbours("ada", "co_project", min_weight=2) == []
 
 
+def test_co_project_pairs_keep_the_ids_of_the_projects_behind_the_weight(live_db):
+    """The long-form query already emitted project_id per (pair x project)
+    and the aggregation used to throw it away. One id per unit of weight is
+    the invariant every consumer relies on."""
+    pairs = {(p["person_a_slug"], p["person_b_slug"]): p for p in collab.enriched_pairs("co_project")}
+    pair = pairs[("ada", "alan")]
+    assert pair["shared_ids"] == [1]  # Alpha Project, their only shared one
+    assert len(pair["shared_ids"]) == pair["weight"]
+
+
+def test_co_supervision_long_form_preserves_the_weight_it_used_to_aggregate(live_db):
+    """``sql/collab_co_supervision.sql`` went from COUNT(DISTINCT handle) to
+    one row per (pair x handle). The row count must reproduce exactly the
+    weight the aggregate produced — that equivalence is the whole reason the
+    rewrite is safe."""
+    pairs = collab.enriched_pairs("co_supervision")
+    pair = next(p for p in pairs if {p["person_a_slug"], p["person_b_slug"]} == {"ada", "grace"})
+    assert pair["weight"] == 1
+    assert pair["shared_ids"] == ["10316/000001"]
+    assert pair["weight_normalized"] is None
+
+
 def test_pairs_for_and_enriched_pairs_reject_an_unknown_kind():
     with pytest.raises(ValueError):
         collab._pairs_for("bogus")
@@ -208,7 +230,8 @@ def test_person_neighbours_route_empty_is_not_an_error(client):
 # enriched_pairs()'s shape.
 
 
-def _pair(a, b, weight, a_groups=None, b_groups=None, weight_normalized=None, cross_group=None):
+def _pair(a, b, weight, a_groups=None, b_groups=None, weight_normalized=None, cross_group=None,
+          shared_ids=None):
     return {
         "person_a_slug": a,
         "person_b_slug": b,
@@ -219,6 +242,10 @@ def _pair(a, b, weight, a_groups=None, b_groups=None, weight_normalized=None, cr
         "weight": weight,
         "weight_normalized": weight_normalized,
         "cross_group": cross_group,
+        # enriched_pairs always carries one id per unit of weight; the default
+        # keeps that invariant for the hand-written pairs below without every
+        # test having to spell ids it does not care about.
+        "shared_ids": shared_ids if shared_ids is not None else list(range(weight)),
     }
 
 
@@ -269,6 +296,12 @@ def test_build_graph_empty_input_is_not_an_error():
     assert result == {"nodes": [], "edges": [], "node_count": 0, "edge_count": 0, "max_degree": 0}
 
 
+def test_build_graph_edge_carries_the_shared_ids_it_stands_for():
+    pairs = [_pair("x", "y", 2, shared_ids=[7, 9])]
+    result = collab.build_graph(pairs, min_weight=1)
+    assert result["edges"][0]["shared_ids"] == [7, 9]
+
+
 def test_build_graph_carries_groups_through_from_the_pair():
     pairs = [_pair("x", "y", 1, a_groups=["AC"], b_groups=["NCS", "AC"])]
     result = collab.build_graph(pairs, min_weight=1)
@@ -291,6 +324,30 @@ def test_build_graph_edge_carries_weight_normalized_and_cross_group():
 def test_graph_rejects_an_unknown_kind(live_db):
     with pytest.raises(ValueError):
         collab.graph("bogus", min_weight=1)
+
+
+def test_graph_resolves_shared_ids_into_a_flat_label_dictionary(live_db):
+    result = collab.graph("co_project", min_weight=1)
+    assert result["edges"][0]["shared_ids"] == [1]
+    assert result["shared_labels"] == {1: "Alpha Project"}
+    assert result["shared_noun"] == "project"
+    assert result["shared_noun_plural"] == "projects"
+
+
+def test_graph_labels_theses_by_handle_for_co_supervision(live_db):
+    result = collab.graph("co_supervision", min_weight=1)
+    assert result["shared_labels"] == {"10316/000001": "Thesis A"}
+    assert result["shared_noun"] == "thesis"
+    # Not "thesiss" — the noun's plural is carried, not derived by the caller.
+    assert result["shared_noun_plural"] == "theses"
+
+
+def test_graph_labels_only_the_ids_a_surviving_edge_names(live_db):
+    """Projects 2 and 3 exist in the fixture but no surviving edge references
+    them — sending their titles would be bytes nothing can render. At floor 2
+    no edge survives at all, so the dictionary is empty rather than the whole
+    projects table."""
+    assert collab.graph("co_project", min_weight=2)["shared_labels"] == {}
 
 
 # ── uc_phd_app/api/collab.py — GET /collab/graph (DB-backed wiring) ────────
@@ -325,6 +382,31 @@ def test_graph_route_edge_count_matches_pairs_route_total_for_same_floor(client)
         graph_body = client.get(f"/api/collab/graph?kind={kind}&min_weight={floor}").json()
         pairs_body = client.get(f"/api/collab/pairs?kind={kind}&min_weight={floor}").json()
         assert graph_body["edge_count"] == pairs_body["total"]
+
+
+def test_graph_route_carries_shared_ids_labels_and_noun(client):
+    """JSON object keys are always strings, so the int project id 1 arrives
+    as "1" in shared_labels while the edge's shared_ids stays [1]. That is
+    fine for the one consumer — JS object indexing coerces the number to a
+    string — but it is a real asymmetry, so it is pinned here rather than
+    discovered."""
+    body = client.get("/api/collab/graph?kind=co_project&min_weight=1").json()
+    assert body["edges"][0]["shared_ids"] == [1]
+    assert body["shared_labels"] == {"1": "Alpha Project"}
+    assert body["shared_noun"] == "project"
+
+
+def test_pairs_route_does_not_leak_shared_ids(client):
+    """One internal pair shape, two deliberate exposure decisions: the graph
+    needs per-edge identity, the ranked people table does not and would pay
+    ~1,400 unrendered project ids per 50-row page for it."""
+    body = client.get("/api/collab/pairs?kind=co_project&min_weight=1").json()
+    assert body["pairs"] and all("shared_ids" not in p for p in body["pairs"])
+
+
+def test_person_neighbours_route_does_not_leak_shared_ids(client):
+    body = client.get("/api/collab/people/ada?kind=co_project&min_weight=1").json()
+    assert body["collaborators"] and all("shared_ids" not in c for c in body["collaborators"])
 
 
 def test_summary_route_carries_graph_min_weight(client):

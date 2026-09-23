@@ -16,15 +16,15 @@ store state answers a typed 503 with a machine-readable reason instead.
 
 What this route deliberately does NOT return
 ----------------------------------------------
-**A percentage match score.** ``Search.jsx`` renders ``1 - distance`` as
-"Match 67%", which is right for keyword-ish passage search and wrong here: all
-18 of these are computing PhDs, so every one of them scores in a narrow band
-against any computing profile (measured: top-1 to top-5 spans 0.007 for the
-seeded profile). A 67%-vs-66% gap on screen would read as precision that does
-not exist. The screen shows **rank out of the matchable corpus**, **which
-interest matched**, and **the evidence passage** — three things that are true
-at this corpus size. ``distance`` is still in the payload for debugging; it is
-not for display as a score.
+**A percentage match score.** ``Search.jsx`` used to render ``1 - distance``
+as "Match 67%" (before this decision existed — fixed to match it); wrong for
+the same reason here: all 18 of these are computing PhDs, so every one of
+them scores in a narrow band against any computing profile (measured: top-1
+to top-5 spans 0.007 for the seeded profile). A 67%-vs-66% gap on screen
+would read as precision that does not exist. The screen shows **rank out of
+the matchable corpus**, **which interest matched**, and **the evidence
+passage** — three things that are true at this corpus size. ``distance`` is
+still in the payload for debugging; it is not for display as a score.
 """
 from __future__ import annotations
 

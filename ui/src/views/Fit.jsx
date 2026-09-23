@@ -8,12 +8,12 @@
 //   1. Each interest is matched SEPARATELY (max-over-facets), so every result
 //      can say WHICH interest pulled it in. That attribution is the evidence
 //      the screen is built on — a single fused score could not produce it.
-//   2. NO PERCENTAGE SCORE. Search.jsx renders `1 - distance` as "Match 67%",
-//      which is right there and wrong here: all 18 of these are computing
-//      PhDs, so they all land in a narrow band against any computing profile
-//      (top-1 to top-5 spans 0.007 for the seeded profile) and a 67-vs-66 gap
-//      would read as precision that does not exist. Rank out of the matchable
-//      corpus, the matched interest, and the passage — nothing else.
+//   2. NO PERCENTAGE SCORE — same decision Search.jsx now follows too: all 18
+//      of these are computing PhDs, so they all land in a narrow band against
+//      any computing profile (top-1 to top-5 spans 0.007 for the seeded
+//      profile) and a 67-vs-66 gap would read as precision that does not
+//      exist. Rank out of the matchable corpus, the matched interest, and the
+//      passage — nothing else.
 //   3. A degraded store answers a typed 503, never an empty list. That matters
 //      more here than in Search: a profile CAN legitimately match nothing.
 //   4. An unresolved supervisor name is still a name. It renders, flagged —
@@ -84,7 +84,7 @@ function Result({ result, total }) {
     <div className="card search-result">
       <div className="search-result-head">
         <p className="chart-title">
-          <span className="fit-rank">#{result.rank}</span>{' '}
+          <span className="result-rank">#{result.rank}</span>{' '}
           <ExternalLink href={result.source_url}>{result.title}</ExternalLink>
         </p>
         {result.full_text ? null : (

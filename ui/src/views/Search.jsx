@@ -8,8 +8,14 @@
 //      full-text hit.
 //   2. A degraded store answers a typed 503, never `results: []` — rendered
 //      as a diagnostic, kept apart from a genuine zero-match search.
-//   3. `distance` is cosine distance (lower = closer). Shown as a derived
-//      "match" score instead, so a bigger bar is never secretly a worse hit.
+//   3. `distance` is cosine distance (lower = closer) — never shown as a
+//      percentage. Same decision as Fit (see api/fit.py / Fit.jsx): this
+//      corpus scores in too narrow a band for a "Match 68%" to mean
+//      anything, so a thesis found unrelated to the query ("quem descobriu
+//      o brasil" surfacing an acknowledgments passage at "68%") reads as
+//      confidently relevant instead of the weak, coincidental hit it is.
+//      `distance` still drives ranking and the MIN_MATCH floor below; it is
+//      just never rendered as a score — only each result's rank is.
 
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, api } from '../api';
@@ -37,9 +43,11 @@ const EXAMPLES = [
   'segurança e privacidade de dados',
 ];
 
-/** Cosine distance -> a 0-1 "match" score where bigger really is better,
- *  clamped because an unrelated query can push distance past 1. */
-function matchScore(distance) {
+/** Cosine distance -> a 0-1 relevance score, bigger is closer. Used only to
+ *  filter out weak hits (MIN_MATCH) and to order results — never displayed,
+ *  per the no-percentage decision above. Clamped because an unrelated query
+ *  can push distance past 1. */
+function relevance(distance) {
   return Math.max(0, Math.min(1, 1 - distance));
 }
 
@@ -65,7 +73,7 @@ function groupByThesis(results) {
   return order.map((h) => byHandle.get(h));
 }
 
-function ResultGroup({ group }) {
+function ResultGroup({ group, rank, total }) {
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? group.passages : group.passages.slice(0, PASSAGES_PREVIEW);
   const hiddenCount = group.passages.length - shown.length;
@@ -74,6 +82,7 @@ function ResultGroup({ group }) {
     <div className="card search-result">
       <div className="search-result-head">
         <p className="chart-title">
+          <span className="result-rank">#{rank}</span>{' '}
           <ExternalLink href={group.source_url}>{group.title}</ExternalLink>
         </p>
         {group.full_text ? null : (
@@ -85,24 +94,15 @@ function ResultGroup({ group }) {
           </span>
         )}
       </div>
+      <p className="chart-note">
+        Rank {rank} of {total} closest matches
+      </p>
       <ul className="search-passages">
-        {shown.map((p) => {
-          const pct = Math.round(matchScore(p.distance) * 100);
-          return (
-            <li key={`${p.handle}-${p.ordinal}`}>
-              <p className="search-snippet">…{p.snippet}…</p>
-              <div
-                className="search-relevance"
-                title={`Cosine distance ${p.distance.toFixed(3)} — lower is closer`}
-              >
-                <span className="search-relevance-bar">
-                  <span style={{ width: `${pct}%` }} />
-                </span>
-                <span className="search-relevance-label">Match {pct}%</span>
-              </div>
-            </li>
-          );
-        })}
+        {shown.map((p) => (
+          <li key={`${p.handle}-${p.ordinal}`}>
+            <p className="search-snippet">…{p.snippet}…</p>
+          </li>
+        ))}
       </ul>
       {hiddenCount > 0 ? (
         <button type="button" className="table-toggle" onClick={() => setExpanded(true)}>
@@ -149,7 +149,7 @@ export default function Search() {
 
   const groups = useMemo(() => {
     if (!searchState.data) return [];
-    const relevant = searchState.data.results.filter((r) => matchScore(r.distance) >= MIN_MATCH);
+    const relevant = searchState.data.results.filter((r) => relevance(r.distance) >= MIN_MATCH);
     return groupByThesis(relevant);
   }, [searchState.data]);
 
@@ -219,8 +219,8 @@ export default function Search() {
               : ''}
           </p>
           <div className="search-results">
-            {groups.map((g) => (
-              <ResultGroup key={g.handle} group={g} />
+            {groups.map((g, i) => (
+              <ResultGroup key={g.handle} group={g} rank={i + 1} total={groups.length} />
             ))}
           </div>
         </>

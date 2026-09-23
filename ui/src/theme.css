@@ -668,34 +668,13 @@ table.data tbody tr:hover {
   margin: 0 0 6px;
 }
 
-/* A derived "match" score, not the raw cosine distance — bigger bar always
- * means a closer match. The raw distance stays available in the title
- * tooltip for anyone who wants it, explicitly labelled "lower is closer". */
-.search-relevance {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.search-relevance-bar {
-  background: var(--grid);
-  border-radius: 999px;
-  display: block;
-  height: 6px;
-  overflow: hidden;
-  width: 120px;
-}
-
-.search-relevance-bar span {
-  background: var(--sequential-400);
-  display: block;
-  height: 100%;
-}
-
-.search-relevance-label {
-  color: var(--text-muted);
-  font-size: 11px;
-  white-space: nowrap;
+/* Rank, not a percentage — shared by Search and Fit. Cosine distance over
+ * either corpus scores in too narrow a band for a "67%" to mean anything
+ * (see api/fit.py's docstring, the decision this pins); position in the
+ * list is the honest signal instead. */
+.result-rank {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .search-error-title {
@@ -721,13 +700,4 @@ table.data tbody tr:hover {
   padding: 8px 10px;
   resize: vertical;
   width: 100%;
-}
-
-/* Rank, not a percentage. Every one of these theses is a computing PhD and
- * they all score within a few hundredths of each other against any computing
- * profile, so a "67%" would read as precision that does not exist — the
- * position in the list is the honest signal. See views/Fit.jsx. */
-.fit-rank {
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
 }

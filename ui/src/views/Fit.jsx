@@ -19,10 +19,11 @@
 //   4. An unresolved supervisor name is still a name. It renders, flagged —
 //      never dropped, never guessed.
 //
-// Deliberately absent: any research-group filter or grouping (S7 measures
-// group attribution at 3.72 of 6 groups per thesis — it would look
-// authoritative and mean nothing), any supervisor ranking or leaderboard (the
-// ceiling is 3 theses), and any generated prose.
+// Deliberately absent: any research-group filter or grouping (attribution is
+// discriminating since S7, but this screen already ranks by a research
+// profile — filtering that by group would narrow a short list to nothing),
+// any supervisor ranking or leaderboard (the ceiling is 3 theses), and any
+// generated prose.
 
 import { useEffect, useState } from 'react';
 import { ApiError, api } from '../api';

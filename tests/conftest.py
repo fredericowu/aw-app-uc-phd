@@ -119,13 +119,23 @@ def build_fixture_db(path: Path) -> Path:
             (2, 1, 'Beta Project',  'https://example.test/beta',  'ok'),
             (3, 1, 'Gamma Stub',    NULL,                          'no_detail_url');
 
-        -- The thesis facts the offline builder writes (analysis/
-        -- build_thesis_facts.py). Three theses covering every shape the
-        -- runtime join has to stay honest about: a supervisor who resolves
-        -- and carries groups, one who resolves and carries none, an author
-        -- who does not resolve at all, a person who is only ever a
-        -- *researcher* (the coordinator-then-researcher fallback), and a
-        -- thesis where nothing resolves.
+        -- The thesis facts the offline builders write (analysis/
+        -- build_thesis_facts.py, analysis/build_group_affinity.py). Five
+        -- theses, because group attribution (S7) combines two signals and
+        -- has five outcomes — one thesis per tier, so no branch is asserted
+        -- in the abstract:
+        --
+        --   A  people say NCS, content says NCS   -> corroborated
+        --   B  people say AC,  content says NCS   -> contested
+        --   C  no name resolves, content says AC  -> content-only
+        --   D  people say NCS, no content at all  -> people-only
+        --   E  neither signal exists              -> unattributed
+        --
+        -- They also still cover every shape the *identity* join has to stay
+        -- honest about: a supervisor who resolves and carries groups, one who
+        -- resolves and carries none, an author who does not resolve at all, a
+        -- person who is only ever a *researcher*, and a thesis where nothing
+        -- resolves.
         INSERT INTO theses
             (handle, slug, title, date, year, source_url, rights, full_text,
              abstract_pt, abstract_en)
@@ -138,6 +148,12 @@ def build_fixture_db(path: Path) -> Path:
              NULL, NULL),
             ('10316/000003', '10316-000003', 'Thesis C', '2023-11-20', '2023',
              'https://estudogeral.uc.pt/handle/10316/000003', 'openAccess', 1,
+             NULL, NULL),
+            ('10316/000004', '10316-000004', 'Thesis D', '2024-02-01', '2024',
+             'https://estudogeral.uc.pt/handle/10316/000004', 'openAccess', 0,
+             NULL, NULL),
+            ('10316/000005', '10316-000005', 'Thesis E', '2022-09-01', '2022',
+             'https://estudogeral.uc.pt/handle/10316/000005', 'openAccess', 0,
              NULL, NULL);
 
         INSERT INTO thesis_people
@@ -155,7 +171,11 @@ def build_fixture_db(path: Path) -> Path:
             ('10316/000003', 'Nobody, At All', 'author', NULL,
              'unmatched', 0.0, 'no row in people carries that surname', 0),
             ('10316/000003', 'Ambiguous, Two People', 'supervisor', NULL,
-             'ambiguous', 0.4, 'two rows fit and nothing separates them', 0);
+             'ambiguous', 0.4, 'two rows fit and nothing separates them', 0),
+            ('10316/000004', 'Lovelace, Ada', 'supervisor', 'ada',
+             'exact', 1.0, 'every token matches', 0),
+            ('10316/000005', 'Nobody, Here Either', 'author', NULL,
+             'unmatched', 0.0, 'no row in people carries that surname', 0);
 
         INSERT INTO thesis_keywords (handle, keyword, ordinal) VALUES
             ('10316/000001', 'graphs', 0),
@@ -192,6 +212,18 @@ def build_fixture_db(path: Path) -> Path:
             ('10316/000003', 1, 'J. Carreira et al., "Xception", IEEE TSE, 1998.', 0),
             ('10316/000003', 2, '[12] E. Gamma et al. Design Patterns. 1995.', 1),
             ('10316/000003', 5, 'Hopper, G. (1952). Compilers.', 2);
+        -- The content signal (analysis/build_group_affinity.py). Scores are
+        -- hand-picked, not computed: what these tests check is how the tier
+        -- logic combines the two signals, and a real cosine would make every
+        -- expectation a magic number nobody could verify. D and E have no rows
+        -- on purpose — that absence IS the "no content signal" state.
+        INSERT INTO thesis_group_affinity (handle, group_code, score, rank) VALUES
+            ('10316/000001', 'NCS', 0.30, 1),
+            ('10316/000001', 'AC',  0.10, 2),
+            ('10316/000002', 'NCS', 0.40, 1),
+            ('10316/000002', 'AC',  0.05, 2),
+            ('10316/000003', 'AC',  0.25, 1),
+            ('10316/000003', 'NCS', 0.05, 2);
         """
     )
     conn.commit()

@@ -1,14 +1,19 @@
-// The 18 Estudo Geral doctoral theses (S1), joined to the six CISUC research
-// groups (S5's own hand-verified people join — see
-// docs/thesis-attribution.md). Estudo Geral itself has no group field, so a
-// thesis's group(s) come from its author's/supervisors' own project history,
-// and a name that does not exactly resolve stays visibly "Unattributed"
-// rather than being guessed — same treatment "UNGROUPED" gets for projects
-// in Coordinators.jsx.
+// The Estudo Geral doctoral theses (S1), joined to the six CISUC research
+// groups. Estudo Geral itself has no group field, so a thesis's group is
+// derived from two independent signals (S7): where its author/supervisors
+// work, and what its own text looks like against each group's projects.
+//
+// The tier is rendered, not just carried. A thesis whose two signals disagree
+// shows both groups with a "contested" badge, and one resting on a single
+// signal says so — because the failure this view was rebuilt to fix was not
+// wrong groups, it was six equally-confident-looking ones. A name that does
+// not resolve still stays visibly "(unattributed)" rather than being guessed,
+// the same treatment "UNGROUPED" gets for projects in Coordinators.jsx.
 
 import { api } from '../api';
 import {
   AsyncBoundary,
+  AttributionTier,
   Caveat,
   CategoryBars,
   ChartWithTable,
@@ -46,18 +51,35 @@ function PersonList({ people }) {
   );
 }
 
-function GroupChips({ groups }) {
-  if (!groups.length) {
+// `attribution.ranked` is rendered in preference to the sorted `groups` list:
+// on a contested thesis the order is the point (people-signal candidate
+// first), and a sorted list would throw it away. `groups` stays the fallback
+// so an older payload still renders.
+function GroupChips({ groups, attribution }) {
+  const ranked = attribution?.ranked?.length
+    ? attribution.ranked
+    : groups.map((code) => ({ code }));
+  if (!ranked.length) {
     return <span style={{ color: 'var(--text-muted)' }}>{UNATTRIBUTED_LABEL}</span>;
   }
   return (
-    <span className="chips">
-      {groups.map((g) => (
-        <span key={g} className="legend-item">
-          <span className="swatch" style={{ background: groupColorVar(g) }} />
-          {g}
+    <span className="chips" style={{ alignItems: 'center' }}>
+      {ranked.map((entry) => (
+        <span
+          key={entry.code}
+          className="legend-item"
+          title={
+            entry.people_share === undefined
+              ? undefined
+              : `people signal ${(entry.people_share * 100).toFixed(0)}% of this thesis’s `
+                + `people’s project history · text similarity ${entry.content_score.toFixed(3)}`
+          }
+        >
+          <span className="swatch" style={{ background: groupColorVar(entry.code) }} />
+          {entry.code}
         </span>
       ))}
+      <AttributionTier tier={attribution?.tier} />
     </span>
   );
 }
@@ -76,6 +98,12 @@ export default function Theses({ onOpenThesis }) {
           const total = data.theses.length;
           const fullText = data.theses.filter((t) => t.full_text).length;
           const attributed = data.theses.filter((t) => t.attributed).length;
+          const tiers = data.attribution_tiers || {};
+          // The honest headline number: how many theses BOTH signals picked
+          // the same group for. Leading with "resolved to a group" alone is
+          // what let 35 theses tagged with all six look like a success.
+          const corroborated = tiers.corroborated || 0;
+          const singleSignal = (tiers['people-only'] || 0) + (tiers['content-only'] || 0);
           return (
             <>
               <div className="tiles">
@@ -90,6 +118,18 @@ export default function Theses({ onOpenThesis }) {
                   label="Resolved to a research group"
                   note={total - attributed ? `${count(total - attributed)} unattributed` : undefined}
                 />
+                <Tile
+                  value={count(corroborated)}
+                  label="Corroborated by both signals"
+                  note={
+                    [
+                      tiers.contested ? `${count(tiers.contested)} contested` : null,
+                      singleSignal ? `${count(singleSignal)} on one signal only` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || undefined
+                  }
+                />
               </div>
 
               <AsyncBoundary state={groupsState}>
@@ -102,10 +142,10 @@ export default function Theses({ onOpenThesis }) {
                   ];
                   return (
                     <>
-                      <Caveat label="Many-to-many, and hand-verified">{g.caveat}</Caveat>
+                      <Caveat label="At most two groups per thesis">{g.caveat}</Caveat>
                       <ChartWithTable
                         title="Theses per research group"
-                        note="Source: /api/theses/groups — a thesis's group is the union of its author's and supervisors' own groups."
+                        note="Source: /api/theses/groups — a thesis counts towards one group where its people signal and its text agree, and towards both where they do not."
                         columns={[
                           { key: 'code', label: 'Group' },
                           { key: 'name', label: 'Name' },
@@ -177,7 +217,7 @@ export default function Theses({ onOpenThesis }) {
                           </td>
                           <td>{t.year || '—'}</td>
                           <td>
-                            <GroupChips groups={t.groups} />
+                            <GroupChips groups={t.groups} attribution={t.group_attribution} />
                           </td>
                           <td>
                             {t.full_text ? (

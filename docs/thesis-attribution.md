@@ -164,32 +164,95 @@ A matched name does not carry a group by itself — `people` has no group
 column. The app derives it live (never cached in this file) from the same
 authoritative tables the rest of the dashboard already uses:
 
-1. Groups of every project where that person is listed as **`coordinator`**
-   (their own led work — the strongest identity signal, and the same
-   restriction `sql/top_coordinators.sql` already applies for the same
-   reason: a person's *team-member* history across decades of unrelated
-   projects would flood them into all six groups and say nothing).
-2. If they never coordinated a scraped project, fall back to the groups of
-   projects where they are listed as **`researcher`**.
+Every project where that person appears contributes weight to that project's
+group(s), a **`coordinator`** role counting 1.0 and a **`researcher`** role
+0.4, and the result is normalised to sum 1 across their groups
+(`sql/person_group_shares.sql`). So the output is "Marco Vieira is 70% SSE"
+rather than "Marco Vieira is in all six groups".
 
-**This is a real, reportable finding, not a clean signal.** Several matched
+This replaced a coordinator-first / researcher-fallback rule that returned a
+flat *set*. The set was not wrong, it was unusable: several matched
 supervisors are prolific, long-serving coordinators (e.g. Marília Curado,
-Marco Vieira) whose own **coordinator**-role projects already span 5–6 of the
-6 groups — so even the tighter coordinator-first signal still lands some
-theses in most or all groups. That is the data speaking, not a matching bug:
-CISUC's senior researchers coordinate across group boundaries over a career.
-The per-group thesis breakdown is many-to-many for exactly this reason, same
-as every other per-group figure in this app (`GROUP_MANY_TO_MANY_CAVEAT` in
-`uc_phd_app/api/projects.py`), and the dashboard surfaces that caveat rather
-than picking one group arbitrarily.
+Marco Vieira) whose own **coordinator**-role projects genuinely span 5–6 of
+the 6 groups. That is the data speaking, not a matching bug — CISUC's senior
+researchers coordinate across group boundaries over a career — but a set
+cannot say that one of those groups holds fifteen of their projects and the
+others one apiece. The weighted share can, and that is what makes an argmax
+meaningful.
 
-A thesis's own resolved group(s) = the union of every matched author's and
-every matched supervisor's groups on that thesis. A thesis with no matched
-name at all (none of author/supervisors resolve) shows as **Unattributed**.
-In practice, because most theses have 2–3 supervisors and DEI's small size
-means most supervisors do resolve, **every one of the 18 theses has at least
-one matched name** — 0 theses are fully unattributed at the thesis level,
-even though 14 of the 50 individual names are. Both facts are shown in the
-dashboard: per-name status is visible in the underlying data, and the
-per-group breakdown chart's total will not sum to 18 net of overlap because
-of the many-to-many shape above.
+## From a person to a thesis — two signals, combined by agreement
+
+Weighting fixed the person, not the thesis. Unioning even a weighted person's
+groups onto their students still answered "where has this supervisor worked"
+when the question is "what is this thesis about": measured across the 181
+theses, the union gave a **mean of 2.70 of 6 groups per thesis, with 35
+theses carrying all six**. A thesis tagged with all six groups carries no
+information.
+
+So a thesis's group is decided by **two independent signals**:
+
+1. **People** — the weighted shares above, summed over the thesis's resolved
+   names, a supervisor counting 1.0, an author 0.5, each scaled by the
+   matcher's own `match_confidence`. Derived **live** on every request.
+2. **Content** — TF-IDF cosine between the thesis's own text (title ×2,
+   `thesis_keywords` ×3, both abstracts) and each group's project text
+   (titles, synopses, `project_keywords` ×3), with IDF measured over the 181
+   theses plus the 400 project documents. Built **offline** by
+   `python -m analysis.build_group_affinity` into `thesis_group_affinity`.
+
+Neither is trusted alone — the content ranking's median top-1-over-top-2
+margin is under 10%, a real ranking but far too soft to be believed on its
+own. What is trustworthy is **agreement**: the two pick the same group for
+~66% of the theses that have both signals, far above the ~20% a coin flip
+would give. So the combination is not a blend, it is a tier:
+
+| tier | what it means | groups shown |
+|---|---|---|
+| `corroborated` | both signals picked the same group | 1 |
+| `contested` | they picked different groups | 2, ranked, flagged |
+| `people-only` | the thesis has no keywords and no abstract | 1 |
+| `content-only` | none of its names resolved to a person | 1 |
+| `unattributed` | neither signal exists | 0 |
+
+Measured on the committed seed: `{corroborated: 108, contested: 56,
+people-only: 6, content-only: 8, unattributed: 3}` — **mean 1.29 groups per
+thesis, maximum 2, 3 unattributed.**
+
+A blended single score was rejected: 56 of 181 theses show genuine
+disagreement, and averaging two weak signals there produces a confident-
+looking single group that neither signal actually supports.
+
+The per-group thesis breakdown is still many-to-many (a contested thesis
+counts towards both of its groups), same as every other per-group figure in
+this app (`GROUP_MANY_TO_MANY_CAVEAT` in `uc_phd_app/api/projects.py`) — but
+a thesis now contributes at most 2, not up to 6.
+
+### Two clocks
+
+The people half stays live; the content half is frozen in the seed. A
+re-scrape of cisuc.uc.pt moves the first immediately and the second not at
+all until `python -m analysis.build_group_affinity` re-runs. **That is a
+seed-rebuild obligation, not an implementation detail** — the two halves can
+silently drift, and it is the price of not recomputing TF-IDF over 400
+synopses on every request.
+
+### Why not the embeddings
+
+`documents.abstract_embedding` already exists in Postgres and was rejected for
+the content signal, for two reasons. First, `uc_phd_app/api/fit.py` already
+measured that this all-computing corpus compresses embedding distance — top-1
+to top-5 spans 0.007 — and six computing-group profiles would sit closer
+together than two theses do; IDF does the opposite, actively up-weighting the
+vocabulary that separates the groups. Second, it would couple the dashboard's
+group column to Postgres availability, where today only `api/search.py` and
+`api/fit.py` degrade to 503.
+
+This is the falsifiable part of the decision: measure the embedding
+top-1/top-2 margin against the lexical one `build_group_affinity` reports,
+and if it wins, flip it.
+
+### Known weakness
+
+131 PT and 129 EN abstracts go into one token bag against a mostly-English
+project corpus, so a PT-only thesis is scored on weaker evidence. That is part
+of why the tier is shown at all rather than a bare group label.

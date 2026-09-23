@@ -75,7 +75,7 @@ def test_theses_route_is_not_swallowed_by_the_detail_route(client):
     int converter so "theses" could not match it today — pinned anyway,
     because the next route added here might not be an int."""
     body = client.get("/api/bibliography/theses").json()
-    assert len(body["theses"]) == 3
+    assert len(body["theses"]) == 5
     assert body["caveat"] == bibliography.COVERAGE_CAVEAT
 
 

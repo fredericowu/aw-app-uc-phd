@@ -36,6 +36,7 @@ things a static page could never do:
 | The 18 Estudo Geral doctoral theses | `sql/theses.sql` |
 | Each thesis's authors/supervisors, resolved to a CISUC person or not | `sql/thesis_people.sql` |
 | How far the name matcher reaches (per tier, over distinct names) | `sql/thesis_match_tiers.sql` |
+| Each thesis's research group(s) and how confident that is | `sql/person_group_shares.sql` (live) + `sql/thesis_group_affinity.sql` (seeded), combined in `uc_phd_app/theses.py` — see `docs/thesis-attribution.md` |
 | **Searchable, group-filterable project list** | live query, `uc_phd_app/api/projects.py` |
 | **Per-project detail**, including every raw `project_fields_raw` pair | live query |
 | **Fit** — theses matched against an editable interest profile, with their real supervisors | `profile/research_interests.md` + `sql/thesis_people.sql`, ranked in pgvector |
@@ -135,6 +136,7 @@ one-shot CLI runs, never triggered by a route:
 .venv/bin/python -m estudo_geral_extractor.run      # DEI PhD theses -> estudo_geral/*.md
 .venv/bin/python -m analysis.build_thesis_facts     # estudo_geral/*.md -> the thesis tables
 .venv/bin/python -m analysis.build_bibliography     # estudo_geral/*.md -> the bibliography tables
+.venv/bin/python -m analysis.build_group_affinity   # thesis text x group project text -> thesis_group_affinity
 ```
 
 Point the scraper at the data-dir database to refresh what the app serves.
@@ -150,12 +152,29 @@ it wrote, including how many names it could **not** resolve — today 14 of 50,
 all thesis authors or external co-supervisors. Those names are preserved as
 rows with a NULL `person_slug`, never dropped.
 
+The fourth builds the **content signal** for research-group attribution:
+TF-IDF cosine between each thesis's own text and each research group's
+project text, written into `thesis_group_affinity`. Re-run it after either
+data pull as well.
+
 Two halves that deliberately do not move together: **identity is frozen**
-into the seed by that script, while a matched person's **research group stays
-derived live** on every request from their project history
+into the seed by `build_thesis_facts`, while a matched person's **research
+group stays derived live** on every request from their project history
 (`uc_phd_app/theses.py`). A group is a live fact about a career; rebuilding
 the seed must never be what it takes for a new project to move someone's
 group.
+
+The same split, one level up, is what decides a *thesis's* group: the people
+signal is live, the content signal is seeded, and the two are combined by
+whether they **agree** — one group where they corroborate each other, two
+ranked and flagged where they do not, and nothing at all where neither signal
+exists. Measured on the committed seed: mean 1.29 groups per thesis, maximum
+2, 3 unattributed, against the 2.70/6-with-35-theses-carrying-all-six that
+unioning the people signal alone produced. The cost is **two clocks** — a
+re-scrape moves the people half immediately and the content half only when
+`analysis.build_group_affinity` re-runs. Full reasoning, including why the
+pgvector embeddings were rejected for this and what would overturn that, is
+in `docs/thesis-attribution.md`.
 
 `docs/thesis-attribution.json` — 50 name decisions a human made by hand, with
 written reasoning — is no longer read at runtime. It is the **golden fixture**
@@ -628,7 +647,9 @@ What the screen deliberately does **not** show: a percentage match score (all
 18 are computing PhDs and score in a narrow band — top-1 to top-5 spans 0.007
 for the seeded profile, so "67%" would be precision that does not exist; it
 shows rank, the matched interest and the passage), any research-group filter
-(S7 measures group attribution at 3.72 of 6 groups per thesis), any supervisor
+(a thesis's group is now discriminating — see docs/thesis-attribution.md — but
+this screen ranks theses by a research profile, and a group filter on top of
+that would narrow an already-narrow result to nothing), any supervisor
 ranking (the ceiling is 3 theses), and any generated prose.
 
 ### Editing the profile

@@ -16,7 +16,14 @@
 //      document might well exist, we just could not load it this time.
 
 import { api } from '../api';
-import { AsyncBoundary, Caveat, ExternalLink, ResolvedPersonName, useAsync } from '../components';
+import {
+  AsyncBoundary,
+  AttributionTier,
+  Caveat,
+  ExternalLink,
+  ResolvedPersonName,
+  useAsync,
+} from '../components';
 import { groupColorVar } from '../colors';
 
 function PersonList({ people }) {
@@ -41,18 +48,25 @@ function PersonList({ people }) {
   );
 }
 
-function GroupChips({ groups }) {
-  if (!groups.length) {
+// Ranked order, not sorted — on a contested thesis the first group is the one
+// the people signal picked. Same treatment as Theses.jsx, so a thesis does not
+// change how confident it looks when you open it.
+function GroupChips({ groups, attribution }) {
+  const ranked = attribution?.ranked?.length
+    ? attribution.ranked
+    : groups.map((code) => ({ code }));
+  if (!ranked.length) {
     return <span style={{ color: 'var(--text-muted)' }}>Unattributed</span>;
   }
   return (
-    <span className="chips">
-      {groups.map((g) => (
-        <span key={g} className="legend-item">
-          <span className="swatch" style={{ background: groupColorVar(g) }} />
-          {g}
+    <span className="chips" style={{ alignItems: 'center' }}>
+      {ranked.map((entry) => (
+        <span key={entry.code} className="legend-item">
+          <span className="swatch" style={{ background: groupColorVar(entry.code) }} />
+          {entry.code}
         </span>
       ))}
+      <AttributionTier tier={attribution?.tier} />
     </span>
   );
 }
@@ -85,7 +99,7 @@ export default function ThesisDetail({ handle, onBack }) {
                   Supervisor(s): <PersonList people={t.supervisors} />
                 </span>
                 <span>{t.year || '—'}</span>
-                <GroupChips groups={t.groups} />
+                <GroupChips groups={t.groups} attribution={t.group_attribution} />
                 {t.source_url ? (
                   <ExternalLink href={t.source_url}>Open on Estudo Geral</ExternalLink>
                 ) : null}

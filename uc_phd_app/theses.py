@@ -16,7 +16,20 @@ on every request from ``project_people`` / ``project_groups``, exactly as
 before. That is deliberate and worth keeping verbatim: a group is a live fact
 about a person's project history, not something to freeze into a thesis row.
 Rebuilding the seed must never be what it takes for a new project to move
-someone's group.
+someone's group. What changed in S7 is only the *shape* of that derivation —
+a weighted share instead of a flat set (``sql/person_group_shares.sql``).
+
+**A thesis's group is two signals, combined by agreement.** The people signal
+above answers "where do this thesis's people work"; the content signal
+(``thesis_group_affinity``, built offline by
+``analysis/build_group_affinity.py``) answers "what is this thesis about".
+Unioning the people signal alone gave 2.70 of 6 groups per thesis with 35 of
+181 carrying all six — correct, and useless. Neither signal is strong enough
+to be believed alone, so ``_attribution`` shows one group where they
+corroborate each other and two, ranked and flagged, where they do not. Note
+the consequence: the two halves run on **two clocks** — the people half moves
+the moment a project is scraped, the content half only when the builder
+re-runs.
 
 A name the matcher could not resolve is still a row here, carrying
 ``name_raw`` and its tier — never dropped, never guessed. 14 of today's 50
@@ -30,26 +43,34 @@ from pathlib import Path
 
 from . import db, paths
 
-#: Carried with the theses payload — the per-thesis group list is
-#: many-to-many for the same reason projects are (see
-#: ``api/projects.py:GROUP_MANY_TO_MANY_CAVEAT``), compounded by supervisors
-#: whose own coordinator-role projects already span several groups. See
-#: ``docs/thesis-attribution.md`` for the full explanation.
+#: Carried with the theses payload. A thesis shows one group when the two
+#: signals agree and two when they do not — never the six a union used to
+#: produce.
 GROUP_CAVEAT = (
-    "A thesis's research group(s) is the union of its matched author's and "
-    "supervisors' own groups, so a thesis can show more than one group — "
-    "these counts sum to more than 18. A name with no exact match is never "
-    "guessed; see docs/thesis-attribution.md for the full record."
+    "A thesis's research group is decided by two independent signals: what "
+    "its author/supervisors' own project history weighs towards, and what "
+    "its own text looks like against each group's projects. They agree on "
+    "one group (shown as one), or they disagree (both shown, ranked and "
+    "flagged as contested). Only one signal available shows that one group; "
+    "neither available leaves the thesis unattributed rather than guessed. "
+    "A thesis therefore counts towards at most two groups, so these counts "
+    "sum to slightly more than the corpus size."
 )
 
 ATTRIBUTION_NOTE = (
-    "Group attribution joins each thesis's author/supervisor names against "
-    "the existing people/project_groups tables — Estudo Geral itself has no "
-    "research-group field. The name -> person step is resolved once, offline, "
-    "by a deterministic matcher (analysis/name_match.py) whose every decision "
-    "carries a tier: exact, confident, ambiguous or unmatched. Ambiguous and "
-    "unmatched names are shown as unattributed rather than resolved by "
-    "guessing. Full record: docs/thesis-attribution.md."
+    "Estudo Geral publishes no research-group field, so attribution is "
+    "derived. Signal 1 (people): each author/supervisor name is resolved to a "
+    "person once, offline, by a deterministic matcher (analysis/name_match.py) "
+    "that tiers every decision exact/confident/ambiguous/unmatched and never "
+    "guesses; each resolved person's groups are then weighted by how much of "
+    "their project history sits in each (coordinator roles counting more than "
+    "researcher ones) rather than flattened into a set — which is what used to "
+    "tag a prolific supervisor's students with their supervisor's entire "
+    "career. Signal 2 (content): TF-IDF cosine between the thesis's own title, "
+    "keywords and abstracts and each group's project text, built offline by "
+    "analysis/build_group_affinity.py. Neither is trusted alone — both are "
+    "weak rankings, and the tier reports whether they corroborate each other. "
+    "Full record: docs/thesis-attribution.md."
 )
 
 #: Tiers that mean "this is a person". ``ambiguous`` is deliberately not one
@@ -57,28 +78,51 @@ ATTRIBUTION_NOTE = (
 #: this whole module exists to avoid.
 RESOLVED_TIERS = ("exact", "confident")
 
-_COORDINATOR_GROUPS_SQL = """
-    SELECT DISTINCT pg.group_code
-    FROM project_people pp JOIN project_groups pg ON pg.project_id = pp.project_id
-    WHERE pp.person_slug = :slug AND pp.role = 'coordinator'
-"""
-_RESEARCHER_GROUPS_SQL = """
-    SELECT DISTINCT pg.group_code
-    FROM project_people pp JOIN project_groups pg ON pg.project_id = pp.project_id
-    WHERE pp.person_slug = :slug AND pp.role = 'researcher'
-"""
+#: How much a thesis-person's own group shares count towards the thesis.
+#: A supervisor's research identity is the thesis's subject far more reliably
+#: than a doctoral student's is — the student is usually new, and their only
+#: CISUC projects (if any) are the supervisor's. Scaled further by the
+#: matcher's own ``match_confidence``, so a ``confident`` name pulls less than
+#: an ``exact`` one without needing a separate rule.
+ROLE_WEIGHTS = {"supervisor": 1.0, "author": 0.5}
+
+#: The four honest outcomes of combining the two signals, plus the one that
+#: means neither exists. ``contested`` is not a failure state: 63 of 181
+#: theses genuinely land here, and showing both candidates ranked is the
+#: whole point — the alternative is averaging two weak signals into one
+#: confident-looking group that neither of them supports.
+CORROBORATED = "corroborated"
+CONTESTED = "contested"
+PEOPLE_ONLY = "people-only"
+CONTENT_ONLY = "content-only"
+UNATTRIBUTED = "unattributed"
 
 
-def _person_groups(slug: str, db_path: Path | None = None) -> set[str]:
-    """A person's research group(s): their own coordinator-role projects if
-    they have any (the strongest signal — see docs/thesis-attribution.md),
-    else the groups of projects where they are listed as a researcher."""
-    coordinator_groups = {
-        r["group_code"] for r in db.rows(_COORDINATOR_GROUPS_SQL, {"slug": slug}, db_path)
+def _person_group_shares(slug: str, db_path: Path | None = None) -> dict[str, float]:
+    """One person's raw (un-normalised) group weights — see
+    ``sql/person_group_shares.sql`` for why the normalisation is not in the
+    query."""
+    return {
+        row["group_code"]: row["weight"]
+        for row in db.rows(db.load_query("person_group_shares"), {"slug": slug}, db_path)
     }
-    if coordinator_groups:
-        return coordinator_groups
-    return {r["group_code"] for r in db.rows(_RESEARCHER_GROUPS_SQL, {"slug": slug}, db_path)}
+
+
+def _normalise(weights: dict[str, float]) -> dict[str, float]:
+    """Scale to sum 1. ``{}`` stays ``{}`` — an empty signal must not become a
+    uniform one, which is what dividing by a zero total guarded with a
+    fallback would quietly do."""
+    total = sum(weights.values())
+    if not total:
+        return {}
+    return {code: weight / total for code, weight in weights.items()}
+
+
+def _top(scores: dict[str, float]) -> str | None:
+    """The argmax, ties broken by group code so a rebuild is stable."""
+    if not scores:
+        return None
+    return min(scores, key=lambda code: (-scores[code], code))
 
 
 def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
@@ -95,9 +139,19 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
     must not display a group anyway (``supervisors_for``, for the Fit screen —
     see its docstring). ``groups`` stays present and empty so the returned
     shape does not fork.
+
+    ``group_shares`` is the weighted form of ``groups`` — the same codes, with
+    how much of the person's project history sits in each, summing to 1.
+    **It is normalised per name, not per slug, and that is load-bearing**:
+    ``thesis_people``'s key is ``(handle, name_raw, role, person_slug)`` and
+    one human can hold two rows in ``people`` (``joao-bicker`` /
+    ``joao-bicker-1``), so a name resolving to both would otherwise contribute
+    twice as much weight to the thesis as a name resolving to one — the exact
+    double-count this function already avoids for identity.
     """
     by_name: dict[str, dict] = {}
-    slug_cache: dict[str, set[str]] = {}
+    slug_cache: dict[str, dict[str, float]] = {}
+    raw_weights: dict[str, dict[str, float]] = {}
     for row in rows:
         entry = by_name.get(row["name_raw"])
         if entry is None:
@@ -110,7 +164,9 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
                 "note": row["match_note"],
                 "matched": [],
                 "groups": [],
+                "group_shares": {},
             }
+            raw_weights[row["name_raw"]] = {}
         if entry["status"] != "matched" or row["person_slug"] is None:
             continue
         entry["matched"].append({"slug": row["person_slug"], "name": row["person_name"]})
@@ -118,27 +174,107 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
             continue
         slug = row["person_slug"]
         if slug not in slug_cache:
-            slug_cache[slug] = _person_groups(slug, db_path)
-        entry["groups"] = sorted(set(entry["groups"]) | slug_cache[slug])
+            slug_cache[slug] = _person_group_shares(slug, db_path)
+        for code, weight in slug_cache[slug].items():
+            raw_weights[row["name_raw"]][code] = raw_weights[row["name_raw"]].get(code, 0.0) + weight
+    for name_raw, entry in by_name.items():
+        entry["group_shares"] = _normalise(raw_weights[name_raw])
+        entry["groups"] = sorted(entry["group_shares"])
     return list(by_name.values())
+
+
+def _people_signal(people: list[tuple[str, list[dict]]]) -> dict[str, float]:
+    """The first signal: where this thesis's *people* work, as shares summing
+    to 1 across the groups any of them touch.
+
+    Summed rather than union'd, which is the whole change. A supervisor who
+    coordinates 15 SSE projects and one apiece in five other groups used to
+    contribute all six equally; now SSE carries most of their weight and the
+    argmax says so. The shares are what make that legible in the payload
+    rather than only inside the ranking.
+    """
+    scores: dict[str, float] = {}
+    for role, resolved in people:
+        weight = ROLE_WEIGHTS[role]
+        for person in resolved:
+            factor = weight * person["confidence"]
+            for code, share in person["group_shares"].items():
+                scores[code] = scores.get(code, 0.0) + share * factor
+    return _normalise(scores)
+
+
+def _attribution(people_shares: dict[str, float], content_scores: dict[str, float]) -> dict:
+    """Combine the two signals by whether they **agree**, never by averaging.
+
+    Both are weak on their own — the content ranking's median top-1-over-top-2
+    margin is under 10% — so a blended score would produce a single confident
+    group that neither signal actually supports. Agreement is the strongest
+    evidence this data holds: measured over the real corpus the two pick the
+    same group far more often than chance, and where they diverge that
+    divergence *is* the finding, so it is shown as a ranked pair rather than
+    resolved by picking a favourite.
+
+    The people signal leads a contested pair. Not because it is better — it is
+    the one built on a person's actual, recorded project membership, whereas
+    the content side is a lexical similarity, so it is the more defensible
+    thing to read first when a reader only reads one.
+    """
+    people_top = _top(people_shares)
+    content_top = _top(content_scores)
+
+    if people_top and content_top:
+        codes = [people_top] if people_top == content_top else [people_top, content_top]
+        tier = CORROBORATED if people_top == content_top else CONTESTED
+    elif people_top:
+        codes, tier = [people_top], PEOPLE_ONLY
+    elif content_top:
+        codes, tier = [content_top], CONTENT_ONLY
+    else:
+        codes, tier = [], UNATTRIBUTED
+
+    return {
+        "tier": tier,
+        "ranked": [
+            {
+                "code": code,
+                "people_share": round(people_shares.get(code, 0.0), 4),
+                "content_score": round(content_scores.get(code, 0.0), 4),
+            }
+            for code in codes
+        ],
+    }
 
 
 def list_theses(db_path: Path | None = None) -> list[dict]:
     """Every thesis, with its author/supervisors resolved to a CISUC person
-    (or flagged unattributed) and its research group(s) joined in live."""
+    (or flagged unattributed) and its research group(s) decided by the two
+    signals ``_attribution`` combines.
+
+    ``groups`` stays a plain sorted list of codes — the frontend's chips
+    (``ui/src/views/Theses.jsx``) and the MCP group filter
+    (``uc_phd_app/mcp/tools.py``) read it unchanged. It is now at most two
+    codes long. ``group_attribution`` rides alongside with the tier and the
+    two per-group scores behind it, for anything that wants to show *why*.
+    """
     people_rows = db.rows(db.load_query("thesis_people"), (), db_path)
     by_handle: dict[str, dict[str, list[dict]]] = {}
     for row in people_rows:
         by_handle.setdefault(row["handle"], {}).setdefault(row["role"], []).append(row)
+
+    content: dict[str, dict[str, float]] = {}
+    for row in db.rows(db.load_query("thesis_group_affinity"), (), db_path):
+        content.setdefault(row["handle"], {})[row["group_code"]] = row["score"]
 
     theses = []
     for thesis in db.rows(db.load_query("theses"), (), db_path):
         roles = by_handle.get(thesis["handle"], {})
         authors = _resolve_person_rows(roles.get("author", []), db_path)
         supervisors = _resolve_person_rows(roles.get("supervisor", []), db_path)
-        groups: set[str] = set()
-        for resolved in (*authors, *supervisors):
-            groups.update(resolved["groups"])
+        attribution = _attribution(
+            _people_signal([("author", authors), ("supervisor", supervisors)]),
+            content.get(thesis["handle"], {}),
+        )
+        groups = sorted(entry["code"] for entry in attribution["ranked"])
         theses.append(
             {
                 "handle": thesis["handle"],
@@ -149,8 +285,9 @@ def list_theses(db_path: Path | None = None) -> list[dict]:
                 "full_text": bool(thesis["full_text"]),
                 "authors": authors,
                 "supervisors": supervisors,
-                "groups": sorted(groups),
+                "groups": groups,
                 "attributed": bool(groups),
+                "group_attribution": attribution,
             }
         )
     return theses
@@ -174,10 +311,12 @@ def supervisors_for(handles: list[str], db_path: Path | None = None) -> dict[str
       a query. Authors are irrelevant here — the screen answers "who could
       supervise this", not "who wrote it".
     * **No research groups.** ``_resolve_person_rows`` resolves them and this
-      drops them: group attribution currently yields 3.72 of 6 groups per
-      thesis with 5/18 tagged all six (S7), so showing a group on this screen
-      would look authoritative and mean nothing. Cut from v1 by the PO; the
-      cheapest way to honour that is not to carry the field at all.
+      drops them. Originally because attribution yielded 3.72 of 6 groups per
+      thesis and meant nothing (S7); that is fixed, but the reason to keep the
+      field off this screen survives it — a *person's* group list is still the
+      un-weighted set, and it is the thesis-level combination, not this, that
+      S7 made trustworthy. Cut from v1 by the PO; the cheapest way to honour
+      that is not to carry the field at all.
 
     An unresolved name keeps its row, its ``name_raw`` and its
     ``match_status`` — never dropped, never guessed. That is what the LEFT
@@ -215,7 +354,12 @@ def match_tiers(db_path: Path | None = None) -> dict:
 
 def group_breakdown(theses: list[dict]) -> dict:
     """Per-group thesis counts (many-to-many, see ``GROUP_CAVEAT``) plus how
-    many theses resolved to no group at all."""
+    many theses resolved to no group at all.
+
+    Still many-to-many, but a contested thesis now contributes to exactly two
+    groups instead of a supervisor's whole career contributing to six, so
+    these counts sum to at most twice the corpus rather than 2.7x it.
+    """
     counts: dict[str, int] = {}
     unattributed = 0
     for thesis in theses:
@@ -225,6 +369,23 @@ def group_breakdown(theses: list[dict]) -> dict:
         for code in thesis["groups"]:
             counts[code] = counts.get(code, 0) + 1
     return {"counts": counts, "unattributed": unattributed}
+
+
+def tier_breakdown(theses: list[dict]) -> dict[str, int]:
+    """How many theses landed in each confidence tier.
+
+    Reported next to the data for the same reason ``match_tiers`` is: the
+    corroborated share is the honest measure of how much this attribution can
+    be trusted, and burying it would let a single-group chip look equally
+    certain everywhere. Every tier is present even at zero, so a reader can
+    see that ``unattributed`` is 3 rather than wonder whether it was omitted.
+    """
+    counts = {
+        tier: 0 for tier in (CORROBORATED, CONTESTED, PEOPLE_ONLY, CONTENT_ONLY, UNATTRIBUTED)
+    }
+    for thesis in theses:
+        counts[thesis["group_attribution"]["tier"]] += 1
+    return counts
 
 
 def get_thesis(handle: str, db_path: Path | None = None, *, with_body: bool = True) -> dict | None:

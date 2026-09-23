@@ -119,7 +119,7 @@ def test_authored_and_supervised_are_separate_lists(client):
 
     ada = client.get("/api/people/ada").json()["theses"]
     assert ada["authored"] == []
-    assert [t["handle"] for t in ada["supervised"]] == ["10316/000001"]
+    assert [t["handle"] for t in ada["supervised"]] == ["10316/000001", "10316/000004"]
     assert ada["supervised"][0]["title"] == "Thesis A"
     assert ada["supervised"][0]["year"] == "2024"
 
@@ -141,7 +141,7 @@ def test_an_ambiguous_thesis_row_is_not_a_person(client, live_db):
     conn.close()
 
     ada = client.get("/api/people/ada").json()["theses"]
-    assert [t["handle"] for t in ada["supervised"]] == ["10316/000001"], (
+    assert [t["handle"] for t in ada["supervised"]] == ["10316/000001", "10316/000004"], (
         "an ambiguous row carrying a slug must not reach a profile"
     )
     assert "ambiguous" in ada["caveat"]

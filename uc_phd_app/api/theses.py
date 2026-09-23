@@ -18,13 +18,17 @@ async def list_theses() -> dict:
     group(s) (or none), whether full text was indexed, and the source URL.
 
     ``match_tiers`` reports how many distinct names the offline matcher
-    resolved and how many it could not — surfaced next to the data rather
-    than left for someone to discover by counting "(unattributed)" labels."""
+    resolved and how many it could not; ``attribution_tiers`` reports how
+    many theses each of the two attribution signals agreed on — both
+    surfaced next to the data rather than left for someone to discover by
+    counting "(unattributed)" labels."""
+    items = theses.list_theses()
     return {
-        "theses": theses.list_theses(),
+        "theses": items,
         "caveat": theses.GROUP_CAVEAT,
         "attribution_note": theses.ATTRIBUTION_NOTE,
         "match_tiers": theses.match_tiers(),
+        "attribution_tiers": theses.tier_breakdown(items),
     }
 
 

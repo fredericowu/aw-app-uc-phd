@@ -74,7 +74,7 @@ def table_counts(db_path: Path | None = None) -> dict:
     names = (
         "projects", "project_fields_raw", "research_groups", "project_groups",
         "people", "project_people", "project_keywords", "project_partners",
-        "theses", "thesis_people", "thesis_keywords",
+        "theses", "thesis_people", "thesis_keywords", "thesis_group_affinity",
         "bib_references", "thesis_references",
         "scrape_runs", "scrape_targets",
     )

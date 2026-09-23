@@ -67,7 +67,15 @@ def get_phd_thesis(handle: str) -> dict:
 
 def list_phd_theses(year: str | None = None, group: str | None = None, limit: int = 50) -> dict:
     """The manifest, no embedding — cheap enumeration of the whole corpus,
-    optionally narrowed by year or research group."""
+    optionally narrowed by year or research group.
+
+    ``group`` is a deliberately narrow filter: a thesis carries at most two
+    groups (one where its people signal and its content signal agree, two
+    where they disagree), not the up-to-six a union of its supervisors' whole
+    careers used to produce. Filtering by a group therefore returns far fewer
+    theses than it once did, and each result's ``group_attribution.tier``
+    says how much to trust that membership — ``corroborated`` means both
+    signals picked it, ``contested`` means it is one of two candidates."""
     items = theses_mod.list_theses()
     if year:
         items = [t for t in items if t["year"] == year]

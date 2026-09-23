@@ -160,6 +160,30 @@ CREATE TABLE IF NOT EXISTS thesis_keywords (
 );
 CREATE INDEX IF NOT EXISTS idx_thesis_keywords_keyword ON thesis_keywords(keyword);
 
+-- How much each thesis's own text looks like each research group's project
+-- text — TF-IDF cosine, built offline by `python -m
+-- analysis.build_group_affinity`.
+--
+-- This is the *content* half of group attribution, and the only half that is
+-- frozen. The people half (a person's group from their project history) stays
+-- derived live on every request in uc_phd_app/theses.py, deliberately. The two
+-- halves therefore run on two clocks, and a re-scrape moves one and not the
+-- other until this builder re-runs.
+--
+-- A pair scoring 0.0 is absent, not stored as a zero row: "no rows for this
+-- handle" is how the reader tells a thesis with no usable text from one that
+-- was simply scored low, and a stored six-way tie at zero would let an argmax
+-- invent a group out of nothing.
+CREATE TABLE IF NOT EXISTS thesis_group_affinity (
+    handle     TEXT NOT NULL REFERENCES theses(handle),
+    group_code TEXT NOT NULL REFERENCES research_groups(code),
+    score      REAL NOT NULL,      -- cosine in [0, 1]
+    rank       INTEGER NOT NULL,   -- 1 = best, dense within the handle
+    PRIMARY KEY (handle, group_code)
+);
+CREATE INDEX IF NOT EXISTS idx_thesis_group_affinity_rank
+    ON thesis_group_affinity(handle, rank);
+
 CREATE TABLE IF NOT EXISTS scrape_runs (
     id              INTEGER PRIMARY KEY,
     started_at      TEXT NOT NULL,

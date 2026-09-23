@@ -217,32 +217,35 @@ def test_get_phd_thesis_happy_path_carries_abstracts_body_and_source_url(live_db
 def test_list_phd_theses_enumerates_everything(live_db):
     resp = _call(_client(), "list_phd_theses", {})
     payload = json.loads(_text(resp))
-    assert payload["total"] == 3
+    assert payload["total"] == 5
     assert {t["handle"] for t in payload["theses"]} == {
         "10316/000001", "10316/000002", "10316/000003",
+        "10316/000004", "10316/000005",
     }
 
 
 def test_list_phd_theses_filters_by_year(live_db):
     resp = _call(_client(), "list_phd_theses", {"year": "2024"})
     payload = json.loads(_text(resp))
-    assert payload["total"] == 1
-    assert payload["theses"][0]["handle"] == "10316/000001"
+    assert payload["total"] == 2
+    assert {t["handle"] for t in payload["theses"]} == {"10316/000001", "10316/000004"}
 
 
 def test_list_phd_theses_filters_by_group(live_db):
-    """A and B both resolve to [AC, NCS] in the fixture (see test_theses.py);
-    C resolves to no group at all — so "AC" discriminates {A, B} from {C}."""
+    """The filter got NARROWER with S7 and that is the point: A and D now
+    resolve to NCS alone rather than to [AC, NCS], so "AC" no longer returns
+    them. It returns the contested thesis (B, which carries both) and the
+    content-only one (C). E resolves to nothing and never matches."""
     resp = _call(_client(), "list_phd_theses", {"group": "AC"})
     payload = json.loads(_text(resp))
     assert payload["total"] == 2
-    assert {t["handle"] for t in payload["theses"]} == {"10316/000001", "10316/000002"}
+    assert {t["handle"] for t in payload["theses"]} == {"10316/000002", "10316/000003"}
 
 
 def test_list_phd_theses_respects_limit(live_db):
     resp = _call(_client(), "list_phd_theses", {"limit": 1})
     payload = json.loads(_text(resp))
-    assert payload["total"] == 3
+    assert payload["total"] == 5
     assert len(payload["theses"]) == 1
 
 

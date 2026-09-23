@@ -29,7 +29,7 @@ def test_summary_reports_totals_and_the_distribution_behind_the_floor():
     assert summary["citations_total"] == 7
     # Two of the three theses cite something; the third has no references.
     assert summary["theses_with_references"] == 2
-    assert summary["theses_total"] == 3
+    assert summary["theses_total"] == 5
     assert summary["shared_references"] == 2
     assert summary["max_cited_by"] == 2
     assert summary["matcher_version"] == 1
@@ -129,7 +129,7 @@ def test_per_thesis_keeps_the_theses_that_contributed_nothing():
     hide — LEFT JOIN, and the zero is reported."""
     result = bibliography.per_thesis()
     rows = {r["handle"]: r for r in result["theses"]}
-    assert len(rows) == 3
+    assert len(rows) == 5
     assert rows["10316/000002"]["reference_count"] == 0
     assert rows["10316/000001"]["reference_count"] == 4
     assert result["caveat"] == bibliography.COVERAGE_CAVEAT

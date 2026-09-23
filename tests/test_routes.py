@@ -246,7 +246,7 @@ def test_project_detail_404s_for_an_unknown_id(client):
 
 def test_theses_list_resolves_identity_from_the_seed(client):
     body = client.get("/api/theses").json()
-    assert len(body["theses"]) == 3
+    assert len(body["theses"]) == 5
     thesis = body["theses"][0]
     assert thesis["handle"] == "10316/000001"
     assert thesis["title"] == "Thesis A"
@@ -254,26 +254,36 @@ def test_theses_list_resolves_identity_from_the_seed(client):
     assert thesis["source_url"] == "https://estudogeral.uc.pt/handle/10316/000001"
     assert thesis["authors"][0]["status"] == "unattributed"
     assert thesis["supervisors"][0]["status"] == "matched"
-    # Ada coordinates Alpha (AC, NCS) and Beta (NCS) in the fixture DB.
-    assert thesis["groups"] == ["AC", "NCS"]
+    # Ada's weight sits mostly in NCS (two projects there, one in AC), and the
+    # content signal agrees — so one group, corroborated. See test_theses.py.
+    assert thesis["groups"] == ["NCS"]
     assert thesis["attributed"] is True
-    assert "more than 18" in body["caveat"]
+    assert thesis["group_attribution"]["tier"] == "corroborated"
+    assert "at most two groups" in body["caveat"]
     assert "docs/thesis-attribution.md" in body["attribution_note"]
-    # How far the identity spine reaches, reported next to the data rather
+    # How far the identity spine reaches, and how far the two attribution
+    # signals corroborate each other — both reported next to the data rather
     # than left for a reader to count.
-    assert body["match_tiers"] == {"exact": 3, "unmatched": 2, "ambiguous": 1}
+    assert body["match_tiers"] == {"exact": 3, "unmatched": 3, "ambiguous": 1}
+    assert body["attribution_tiers"] == {
+        "corroborated": 1,
+        "contested": 1,
+        "people-only": 1,
+        "content-only": 1,
+        "unattributed": 1,
+    }
 
 
 def test_theses_groups_breakdown_names_every_group_and_the_unattributed_count(client):
     body = client.get("/api/theses/groups").json()
-    assert body["total_theses"] == 3
+    assert body["total_theses"] == 5
     assert body["unattributed"] == 1
     # The fixture DB only seeds NCS and AC (see conftest.build_fixture_db).
     counts = {g["code"]: g["thesis_count"] for g in body["groups"]}
-    assert counts == {"AC": 2, "NCS": 2}
+    assert counts == {"AC": 2, "NCS": 3}
     names = {g["code"]: g["name"] for g in body["groups"]}
     assert names["NCS"] == "Networks, Communications and Security"
-    assert "more than 18" in body["caveat"]
+    assert "at most two groups" in body["caveat"]
 
 
 # ── thesis detail + body (S5) ────────────────────────────────────────────────
@@ -297,7 +307,8 @@ def test_thesis_detail_returns_metadata_and_both_abstracts_but_no_body(client):
     assert body["title"] == "Thesis A"
     assert body["abstract_pt"] == "Resumo A."
     assert body["abstract_en"] == "Abstract A."
-    assert body["groups"] == ["AC", "NCS"]
+    assert body["groups"] == ["NCS"]
+    assert body["group_attribution"]["tier"] == "corroborated"
     assert body["body"] is None
 
 
@@ -363,7 +374,8 @@ def test_thesis_routes_match_a_real_slash_in_the_handle(client, tmp_path, monkey
 
 def test_partner_thesis_links_carries_the_path_and_never_a_bare_pair(client):
     body = client.get("/api/partners/theses").json()
-    assert len(body["links"]) == 4  # 2 partners x (ada -> Thesis A, alan -> Thesis B)
+    # 2 partners x (ada -> Thesis A, alan -> Thesis B, ada -> Thesis D).
+    assert len(body["links"]) == 6
     for link in body["links"]:
         # Every row must carry both intermediate hops — a bare partner/thesis
         # pair would be exactly the "this company funded this thesis" framing
@@ -374,8 +386,8 @@ def test_partner_thesis_links_carries_the_path_and_never_a_bare_pair(client):
     assert body["coverage"] == {
         "distinct_partners": 2,
         "partners_with_a_thesis_link": 2,
-        "total_theses": 3,
-        "theses_with_a_partner_link": 2,
+        "total_theses": 5,
+        "theses_with_a_partner_link": 3,
     }
     assert "NOT" in body["caveat"] and "funded" in body["caveat"]
 

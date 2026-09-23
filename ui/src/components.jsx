@@ -125,6 +125,55 @@ export function Caveat({ label = 'How to read this', children }) {
   );
 }
 
+// How confident a thesis's research-group attribution is (S7). A thesis's
+// group comes from two independent signals — where its people work, and what
+// its own text looks like — and the tier says whether they agreed. Shared by
+// Theses.jsx and ThesisDetail.jsx so the wording cannot drift between the
+// list and the page it opens.
+//
+// `corroborated` deliberately renders nothing: it is the ordinary, trustworthy
+// case, and badging it too would make the badge mean "has attribution" rather
+// than "read this one more carefully".
+const TIER_BADGES = {
+  contested: {
+    label: 'contested',
+    className: 'chip-warn',
+    title:
+      'The two signals disagree: the people signal and the thesis’s own text pick '
+      + 'different groups. Both are shown, people-signal candidate first. Neither was '
+      + 'picked as the winner — averaging two weak signals would invent a confidence '
+      + 'that is not in the data.',
+  },
+  'people-only': {
+    label: 'people only',
+    title:
+      'Only one signal exists: this thesis has no keywords and no abstract, so there is '
+      + 'nothing to match against the groups’ project text. The group comes from its '
+      + 'author’s and supervisors’ project history alone, uncorroborated.',
+  },
+  'content-only': {
+    label: 'text only',
+    title:
+      'Only one signal exists: none of this thesis’s author/supervisor names resolved '
+      + 'to a CISUC person. The group comes from the thesis’s own text alone, '
+      + 'uncorroborated.',
+  },
+};
+
+export function AttributionTier({ tier }) {
+  const badge = TIER_BADGES[tier];
+  if (!badge) return null;
+  return (
+    <span
+      className={badge.className || 'chip-muted'}
+      title={badge.title}
+      style={{ marginLeft: 6, fontSize: 11, whiteSpace: 'nowrap' }}
+    >
+      {badge.label}
+    </span>
+  );
+}
+
 export function Tile({ value, label, note }) {
   return (
     <div className="tile">

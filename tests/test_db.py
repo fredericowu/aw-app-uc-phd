@@ -6,10 +6,13 @@ failure modes are worth asserting directly rather than only through a route.
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
 import pytest
 
 from uc_phd_app import db, paths
+
+SCHEMA = Path(__file__).resolve().parent.parent / "scraper" / "schema.sql"
 
 
 @pytest.fixture(autouse=True)
@@ -82,3 +85,37 @@ def test_table_counts_covers_every_table_healthz_reports(fixture_db):
         "people", "project_people", "project_keywords", "scrape_runs",
         "scrape_targets",
     }
+
+
+def test_funding_breakdown_collapses_fct_spelling_variants_but_not_joint_funders(tmp_path):
+    """The live bug sql/funding_breakdown.sql was fixed for: FCT split across
+    6+ spellings undercounted it in the Funding chart. Values naming FCT
+    alongside a genuinely distinct co-funder must stay separate — merging
+    those would misrepresent a joint arrangement as FCT-only."""
+    db_path = tmp_path / "funding.sqlite3"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(SCHEMA.read_text(encoding="utf-8"))
+    fct_spellings = [
+        "FCT",
+        "FCT - Fundação para a Ciência e Tecnologia",
+        "Fundação para a Ciência e a Tecnologia",
+        "Portuguese Science Foundation",
+        "FCT: PTDC/EIA-EIA/102185/2008",
+    ]
+    distinct_funders = ["FCT/CAPES", "FCT and DAAD", "PT Inovação"]
+    conn.executemany(
+        "INSERT INTO projects (id, title, title_norm, funding_raw, detail_fetched, first_seen_at) "
+        "VALUES (?, ?, ?, ?, 1, '2026-01-01T00:00:00+00:00')",
+        [
+            (i, f"Project {i}", f"project {i}", funding)
+            for i, funding in enumerate(fct_spellings + distinct_funders, start=1)
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    breakdown = {r["funder"]: r["project_count"] for r in db.query("funding_breakdown", db_path=db_path)}
+    assert breakdown["FCT"] == len(fct_spellings)
+    assert breakdown["FCT/CAPES"] == 1
+    assert breakdown["FCT and DAAD"] == 1
+    assert breakdown["PT Inovação"] == 1

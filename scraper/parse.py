@@ -73,6 +73,24 @@ def split_list(raw, sep=","):
     return [p for p in parts if p]
 
 
+# Bare legal-entity suffix tokens that show up as their own top-level
+# comma-separated segment in partners_raw — "ALTICE LABS, S.A." is one
+# partner, not two. Matched suffix-only (periods/spaces/case stripped)
+# after dropping one trailing parenthetical note (e.g. "S.A. (LÍDER)"), so
+# it never fires on a real institution name that merely ends in one of
+# these letters. Sourced from every short top-level segment across the
+# real partners_raw data, not just S.A./Lda.: also "S.L." (Spanish
+# "Sociedad Limitada", e.g. "DREAMGENICS, S.L.") and "EPE" (Portuguese
+# public-entity suffix, e.g. "...Francisco Gentil, EPE").
+_LEGAL_SUFFIX_TOKENS = frozenset({"SA", "LDA", "SL", "EPE"})
+
+
+def _is_bare_legal_suffix(segment):
+    text = re.sub(r"\s*\([^)]*\)\s*$", "", segment.strip()).strip()
+    normalized = text.replace(".", "").replace(" ", "").upper()
+    return normalized in _LEGAL_SUFFIX_TOKENS
+
+
 def split_partners(raw):
     """'A, B (Coordinator, Country), C' -> ['A', 'B (Coordinator, Country)', 'C'].
 
@@ -83,10 +101,14 @@ def split_partners(raw):
     top-level commas. An unbalanced '(' (seen once in the real data) just
     means nothing after it splits — best effort, nothing invented, same as
     every other free-text field this scraper parses.
+
+    A top-level comma can also precede a bare legal-entity suffix ("Company
+    Name, S.A." / "Company Name, Lda.") rather than a new partner — that
+    comma is re-joined to the preceding segment instead of splitting there.
     """
     if not raw:
         return []
-    parts = []
+    raw_segments = []
     depth = 0
     current = []
     for ch in raw:
@@ -97,12 +119,19 @@ def split_partners(raw):
             depth = max(0, depth - 1)
             current.append(ch)
         elif ch == "," and depth == 0:
-            parts.append("".join(current))
+            raw_segments.append("".join(current))
             current = []
         else:
             current.append(ch)
-    parts.append("".join(current))
-    return [normalize_ws(p) for p in parts if normalize_ws(p)]
+    raw_segments.append("".join(current))
+
+    merged = []
+    for segment in raw_segments:
+        if merged and _is_bare_legal_suffix(segment):
+            merged[-1] = merged[-1].rstrip() + "," + segment
+        else:
+            merged.append(segment)
+    return [normalize_ws(p) for p in merged if normalize_ws(p)]
 
 
 # classify_partner()'s vocabulary — multi-language "university" plus the

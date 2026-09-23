@@ -77,6 +77,52 @@ def test_split_partners_survives_an_unbalanced_parenthesis():
     assert split_partners("A (note, B (nested, C), D") == ["A (note, B (nested, C), D"]
 
 
+def test_split_partners_rejoins_a_bare_legal_suffix_to_the_preceding_name():
+    """"Company Name, S.A." is one partner — the comma before a bare
+    legal-entity suffix is not a partner separator. Real repro from a QA
+    rejection: 34/881 project_partners rows were bare-suffix fragments
+    ("S.A.", "LDA.", "SA", "Lda"/"lda"/"LDA") masquerading as partners."""
+    assert split_partners("ALTICE LABS, S.A.") == ["ALTICE LABS, S.A."]
+    assert split_partners("CRON, LDA, XAVIER & FALCÃO , S.A.") == [
+        "CRON, LDA",
+        "XAVIER & FALCÃO, S.A.",
+    ]
+    assert split_partners("Cork Supply Portugal, SA, Instituto Pedro Nunes") == [
+        "Cork Supply Portugal, SA",
+        "Instituto Pedro Nunes",
+    ]
+    assert split_partners("Medrobots, lda, UC-DEEC") == ["Medrobots, lda", "UC-DEEC"]
+
+
+def test_split_partners_rejoins_a_bare_suffix_followed_by_a_parenthetical_note():
+    """"S.A. (LÍDER)" is still a bare suffix once its trailing note is
+    stripped for the check — the note itself stays attached to the name."""
+    raw = (
+        "APS – ADMINISTRAÇÃO DOS PORTOS DE SINES E DO ALGARVE, S.A. (LÍDER), "
+        "AMORIM CORK FLOORING, S.A."
+    )
+    assert split_partners(raw) == [
+        "APS – ADMINISTRAÇÃO DOS PORTOS DE SINES E DO ALGARVE, S.A. (LÍDER)",
+        "AMORIM CORK FLOORING, S.A.",
+    ]
+
+
+def test_split_partners_recognizes_less_common_legal_suffixes():
+    """Not just S.A./Lda — S.L. (Spanish) and EPE (Portuguese public-entity
+    suffix) are the same shape of bug, found by scanning real partners_raw
+    segments rather than assuming the card's examples were exhaustive."""
+    assert split_partners("DREAMGENICS, S.L.") == ["DREAMGENICS, S.L."]
+    assert split_partners(
+        "Instituto Português de Oncologia do Porto Francisco Gentil, EPE"
+    ) == ["Instituto Português de Oncologia do Porto Francisco Gentil, EPE"]
+
+
+def test_split_partners_does_not_merge_a_real_partner_that_just_starts_with_a_suffix_word():
+    """A distinct partner whose own name isn't a bare suffix token must
+    still split normally, even directly after another partner's suffix."""
+    assert split_partners("Wavecom S.A., Sanofi") == ["Wavecom S.A.", "Sanofi"]
+
+
 def test_classify_partner_recognizes_academic_markers():
     for name in (
         "University of Coimbra",

@@ -235,6 +235,89 @@ export function CategoryBars({
   );
 }
 
+function StackedTooltipBox({ active, payload, label, segmentKeys, slotOf, seriesLabelOf, valueFormat }) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0].payload;
+  const present = segmentKeys.filter((key) => row[key]);
+  return (
+    <div className="tooltip">
+      <div className="tooltip-label">{label}</div>
+      {present.map((key) => (
+        <div className="tooltip-row" key={key}>
+          <span className="swatch" style={{ background: slotVar(slotOf(key)) }} />
+          <span>
+            {seriesLabelOf(key)}: {valueFormat ? valueFormat(row[key]) : row[key]}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Stacked categorical bars — CategoryBars' layout, but each bar splits into
+ * segments that carry an entity's own identity (e.g. research group) rather
+ * than encoding a second magnitude. One `<Bar>` per segment key, sharing a
+ * `stackId` so they lay end to end; every segment gets its colour from a
+ * `<Cell>` (not the `<Bar>` itself) for the same attribute-vs-property
+ * reason documented in colors.js — a class resolves the CSS var, a fill
+ * attribute does not.
+ */
+export function StackedCategoryBars({
+  data,
+  categoryKey,
+  segmentKeys,
+  slotOf,
+  valueFormat,
+  seriesLabelOf,
+  height,
+  categoryWidth = 150,
+}) {
+  const lastKey = segmentKeys[segmentKeys.length - 1];
+  return (
+    <ResponsiveContainer width="100%" height={height || Math.max(160, data.length * 26 + 40)}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ top: 4, right: 16, bottom: 4, left: 4 }}
+      >
+        <CartesianGrid horizontal={false} />
+        <XAxis type="number" tick={AXIS_TICK} tickFormatter={valueFormat} />
+        <YAxis type="category" dataKey={categoryKey} tick={AXIS_TICK} width={categoryWidth} />
+        <Tooltip
+          cursor={{ className: 'viz-cursor' }}
+          content={
+            <StackedTooltipBox
+              segmentKeys={segmentKeys}
+              slotOf={slotOf}
+              seriesLabelOf={seriesLabelOf}
+              valueFormat={valueFormat}
+            />
+          }
+        />
+        {segmentKeys.map((key) => (
+          <Bar
+            key={key}
+            dataKey={key}
+            stackId="stack"
+            // Only the outer edge of the whole stack is rounded, square
+            // where segments meet.
+            radius={key === lastKey ? [0, 4, 4, 0] : 0}
+            isAnimationActive={false}
+          >
+            {data.map((row, i) => (
+              <Cell
+                key={`${row[categoryKey]}-${key}-${i}`}
+                className={`viz-bar-cell ${fillClass(slotOf(key))}`}
+              />
+            ))}
+          </Bar>
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 /**
  * Change over time — one line, 2px, markers only when the series is short
  * enough that they do not collide. Crosshair + tooltip by default.

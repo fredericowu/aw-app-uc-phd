@@ -43,7 +43,6 @@ async function getJSON(sub) {
 export const api = {
   healthz: () => getJSON('').then(() => null),
   coverage: () => getJSON('/coverage'),
-  fillRates: () => getJSON('/fill-rates'),
   groups: () => getJSON('/groups'),
   topProjects: () => getJSON('/top-projects'),
   funding: () => getJSON('/funding'),

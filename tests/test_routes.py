@@ -83,17 +83,6 @@ def test_coverage_counts_come_from_the_committed_query(client):
     assert c["scrape_targets_terminal"] == 3
 
 
-def test_fill_rates_are_driven_by_the_raw_field_table(client):
-    fields = client.get("/api/fill-rates").json()["fields"]
-    labels = {f["label"] for f in fields}
-    # "Keywords" has no typed column on `projects`; it only exists because the
-    # fill-rate query reads the site's own label universe.
-    assert "Keywords" in labels
-    scope = next(f for f in fields if f["label"] == "Scope")
-    assert scope["projects_with_field"] == 2
-    assert scope["fill_rate_pct"] == 100.0
-
-
 def test_groups_carries_the_many_to_many_caveat(client):
     body = client.get("/api/groups").json()
     counts = {g["code"]: g["project_count"] for g in body["groups"]}
@@ -121,8 +110,24 @@ def test_timeline_and_funding_and_coordinators(client):
     funders = client.get("/api/funding").json()["funders"]
     assert {f["funder"]: f["project_count"] for f in funders} == {"FCT": 2}
 
-    coords = client.get("/api/coordinators").json()["coordinators"]
-    assert coords == [{"coordinator": "Ada Lovelace", "project_count": 2}]
+    coord_body = client.get("/api/coordinators").json()
+    # Ada coordinates both projects: Alpha (NCS + AC) and Beta (NCS), so her
+    # bar genuinely stacks two segments rather than picking one group.
+    assert coord_body["coordinators"] == [
+        {
+            "coordinator_slug": "ada",
+            "coordinator": "Ada Lovelace",
+            "project_count": 2,
+            "NCS": 2,
+            "AC": 1,
+        }
+    ]
+    assert coord_body["group_names"] == {
+        "NCS": "Networks, Communications and Security",
+        "AC": "Adaptive Computation",
+    }
+    assert "slug" in coord_body["caveat"]
+    assert "UNGROUPED" in coord_body["caveat"]
 
 
 # ── top projects ────────────────────────────────────────────────────────────

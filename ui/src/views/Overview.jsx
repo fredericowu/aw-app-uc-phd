@@ -1,18 +1,9 @@
-// Coverage and field completeness — the two "can you trust this data?"
-// sections, kept first because every other number depends on the answer.
+// Coverage — the "can you trust this data?" section, kept first because
+// every other number depends on the answer.
 
 import { api } from '../api';
-import {
-  AsyncBoundary,
-  Caveat,
-  CategoryBars,
-  ChartWithTable,
-  Section,
-  Tile,
-  useAsync,
-} from '../components';
-import { SEQUENTIAL } from '../colors';
-import { count, percent } from '../format';
+import { AsyncBoundary, Caveat, Section, Tile, useAsync } from '../components';
+import { count } from '../format';
 
 function Coverage() {
   const state = useAsync(() => api.coverage(), []);
@@ -56,62 +47,13 @@ function Coverage() {
   );
 }
 
-function FillRates() {
-  const state = useAsync(() => api.fillRates(), []);
-  return (
-    <AsyncBoundary state={state}>
-      {({ fields }) => (
-        <ChartWithTable
-          title="Field completeness"
-          note="Share of fetched detail pages carrying each field"
-          columns={[
-            { key: 'label', label: 'Field' },
-            {
-              key: 'projects_with_field',
-              label: 'Projects',
-              numeric: true,
-              render: (r) => count(r.projects_with_field),
-            },
-            {
-              key: 'fill_rate_pct',
-              label: 'Fill rate',
-              numeric: true,
-              render: (r) => percent(r.fill_rate_pct),
-            },
-          ]}
-          rows={fields}
-          getKey={(r) => r.label}
-        >
-          <CategoryBars
-            data={fields}
-            categoryKey="label"
-            valueKey="fill_rate_pct"
-            slotOf={() => SEQUENTIAL}
-            valueFormat={percent}
-            seriesLabel="Fill rate"
-            categoryWidth={130}
-          />
-        </ChartWithTable>
-      )}
-    </AsyncBoundary>
-  );
-}
-
 export default function Overview() {
   return (
-    <>
-      <Section
-        title="Coverage"
-        note="What the scraper actually got, measured against the site's own count rather than asserted."
-      >
-        <Coverage />
-      </Section>
-      <Section
-        title="Field completeness"
-        note="Driven by the site's own label universe, not a hardcoded field list — a field nobody thought to name still appears here. Source: sql/fill_rates.sql."
-      >
-        <FillRates />
-      </Section>
-    </>
+    <Section
+      title="Coverage"
+      note="What the scraper actually got, measured against the site's own count rather than asserted."
+    >
+      <Coverage />
+    </Section>
   );
 }

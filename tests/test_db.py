@@ -24,7 +24,6 @@ def test_every_committed_query_the_api_serves_exists_and_runs(fixture_db):
     500 from one endpoint nobody happened to open."""
     for name in (
         "coverage",
-        "fill_rates",
         "projects_per_group",
         "top_projects_per_group",
         "funding_breakdown",

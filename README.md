@@ -23,7 +23,6 @@ things a static page could never do:
 | View | Source |
 |---|---|
 | Coverage — 400 projects, 398 detail pages, the scrape manifest | `sql/coverage.sql` |
-| Field completeness, per field | `sql/fill_rates.sql` |
 | Projects per research group (all 6) | `sql/projects_per_group.sql` |
 | Top 10 projects per group (all 6), each linking to its CISUC page | `sql/top_projects_per_group.sql` |
 | Funding sources | `sql/funding_breakdown.sql` |

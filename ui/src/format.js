@@ -22,10 +22,6 @@ export function money(n) {
   return `€${PLAIN.format(Math.round(n))}`;
 }
 
-export function percent(n) {
-  return n == null ? '—' : `${PLAIN.format(n)}%`;
-}
-
 export function date(iso) {
   return iso || '—';
 }

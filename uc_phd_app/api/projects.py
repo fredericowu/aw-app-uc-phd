@@ -38,18 +38,26 @@ GROUP_MANY_TO_MANY_CAVEAT = (
     "counted under every group it belongs to."
 )
 
+#: Carried with the stacked coordinators payload — see sql/top_coordinators.sql
+#: for the full counting rationale.
+COORDINATOR_STACK_CAVEAT = (
+    "Each segment is COUNT(DISTINCT project_id) of that coordinator's own "
+    "coordinated projects in that group — a project belonging to more than "
+    "one group is counted under every one of them, so a bar's segments can "
+    "sum to more than its own project_count (same many-to-many rule as every "
+    "other per-group figure in this app). Ranking and project_count are "
+    "computed before that fan-out, and every coordinator is keyed by slug, "
+    "not display name — the site has people who share a name under "
+    "different profiles. A project with no listed research group is counted "
+    "under 'UNGROUPED'."
+)
+
 
 @router.get("/coverage")
 async def coverage() -> dict:
     """sql/coverage.sql — did we actually get everything?"""
     rows = db.query("coverage")
     return {"coverage": rows[0] if rows else {}}
-
-
-@router.get("/fill-rates")
-async def fill_rates() -> dict:
-    """sql/fill_rates.sql — per-field completeness across fetched pages."""
-    return {"fields": db.query("fill_rates")}
 
 
 @router.get("/groups")
@@ -120,8 +128,34 @@ async def timeline() -> dict:
 
 @router.get("/coordinators")
 async def coordinators() -> dict:
-    """sql/top_coordinators.sql."""
-    return {"coordinators": db.query("top_coordinators")}
+    """sql/top_coordinators.sql, pivoted from long to wide.
+
+    The query returns one row per (coordinator, group); the UI wants one
+    row per coordinator with a value per group to feed a stacked bar, so the
+    pivot happens here rather than in SQLite (no PIVOT) or in JS.
+    """
+    by_slug: dict[str, dict] = {}
+    order: list[str] = []
+    group_names: dict[str, str] = {}
+    for row in db.query("top_coordinators"):
+        slug = row["coordinator_slug"]
+        entry = by_slug.get(slug)
+        if entry is None:
+            entry = {
+                "coordinator_slug": slug,
+                "coordinator": row["coordinator"],
+                "project_count": row["project_count"],
+            }
+            by_slug[slug] = entry
+            order.append(slug)
+        entry[row["group_code"]] = row["group_project_count"]
+        if row["group_name"]:
+            group_names[row["group_code"]] = row["group_name"]
+    return {
+        "coordinators": [by_slug[slug] for slug in order],
+        "group_names": group_names,
+        "caveat": COORDINATOR_STACK_CAVEAT,
+    }
 
 
 _LIST_SQL = """

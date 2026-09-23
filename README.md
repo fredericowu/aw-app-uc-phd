@@ -373,3 +373,132 @@ suite — see the coverage-gate comment in `pyproject.toml`.
   multi-column pages extract as a single text stream. Fine for the
   correlation/keyword-search goals; a later semantic-search stage may want a
   layout-aware extractor if chunk quality suffers.
+
+# The pgvector prototype (P0)
+
+`estudo_geral_extractor/index.py` — chunk, embed and semantically search the
+`estudo_geral/*.md` extracts in the **workspace's own Postgres**, using the
+`vector` extension that is already installed there.
+
+**This is the P0 prototype and its table is disposable.** It is deliberately
+NOT wired into `uc_phd_app/`: no route, no MCP tool, no plugin change, no
+`migrations/` entry. Its job was to prove ingestion works end to end and to
+produce a real latency baseline — the numbers below. The production path is
+`uc_phd_app/store.py` + `estudo_geral_extractor/pgvector_index.py`, which own
+`__documents` / `__chunks`; this one owns `__chunks_proto` and nothing else.
+
+```bash
+python -m estudo_geral_extractor.index ingest --report /tmp/ingest.json
+python -m estudo_geral_extractor.index query "computational creativity" -k 5
+python -m estudo_geral_extractor.index bench --reps 10
+python -m estudo_geral_extractor.index stats
+python -m estudo_geral_extractor.index drop      # the only thing that removes it
+```
+
+## Measured, 2026-09-23 — the P0 baseline
+
+18 documents (17 with full text, 1 embargoed and therefore title-only),
+**6 513 chunks**, table + HNSW index **64 MB**.
+
+| | |
+|---|---|
+| Embedding | 3 540 s (59 min) — **1.8 chunks/s**, `threads=4`, host at load ~20 |
+| Inserts | 13.4 s total for 6 513 rows, in 100-row batches |
+| Model load | 1.9 s warm; 14.7 s on the first run (520 MB download) |
+
+Query latency, 200 samples (20 queries × 10 repetitions), warm, host load ~11:
+
+| stage | p50 | **p95** | p99 | max |
+|---|---|---|---|---|
+| vector search (Postgres only) | 2.2 ms | **5.7 ms** | 9.8 ms | 17.6 ms |
+| query embedding (ONNX, CPU) | 28.3 ms | **50.4 ms** | 55.3 ms | 63.3 ms |
+| end-to-end | 30.5 ms | **53.9 ms** | 59.0 ms | 75.5 ms |
+
+Two things worth carrying forward:
+
+- **The vector search is not the cost — the query embedding is**, by about
+  9x. The 150 ms migration trigger was written as though pgvector were the
+  risk; at this corpus size Postgres answers in single-digit milliseconds and
+  the ONNX forward pass over the query string is the whole user-visible
+  latency. Any future "is it still fast enough" check belongs on that stage.
+- **HNSW is used at 6 513 rows, and it wins.** `EXPLAIN ANALYZE` picks
+  `Index Scan using chunks_proto_embedding_hnsw` at **0.88 ms**; forcing the
+  exact scan with `enable_indexscan = off` gives `Seq Scan` + top-N heapsort
+  at **24.3 ms**. At the handful-of-rows scale the extension was first probed
+  at, the planner correctly ignores the index — that is a property of the row
+  count, not a broken index, and it stops being true well before this corpus
+  size.
+
+## It has to run inside the workspace container
+
+An agent runner container shares `/opt/aw-workspace` but is a different
+network namespace, and `aw-remote-host-postgres:5432` is not reachable from
+it — the failure is `Connection refused`, which reads like a dead database
+rather than a wrong netns. Run it as:
+
+```bash
+podman exec aw-remote-host-workspace sh -c \
+  'cd /opt/aw-workspace/repos/aw-app-uc-phd && \
+   FASTEMBED_CACHE_PATH=/opt/aw-workspace/.aw-workspace/data/aw-app-uc-phd/fastembed_cache \
+   PYTHONPATH=/opt/aw-workspace <venv>/bin/python -m estudo_geral_extractor.index ...'
+```
+
+`PYTHONPATH=/opt/aw-workspace` is what makes `src.apps.db_tables` importable;
+the connection URL and schema come from `AW_WORKSPACE_DB_URL` /
+`AW_WORKSPACE_SCHEMA`, which the workspace container already exports.
+
+The repo's own `.venv` does **not** work there — it was built by a different
+container and its `bin/python` symlinks `/usr/bin/python3.12`, which does not
+exist in the workspace container (its interpreter is
+`/usr/local/bin/python3.12`). Build the venv where it will run.
+
+## Five things that will bite
+
+1. **Never spell the table name.** The prefix is `app__aw-app-uc-phd__`, with
+   hyphens, so an unquoted identifier is a syntax error — and
+   `schema_translate_map` only rewrites SQLAlchemy `Table` constructs, never
+   text SQL, so a raw string also lands in the wrong schema. Everything here
+   goes through `src.apps.db_tables.DbTables` and its `{table}` placeholder.
+2. **`vector` lives in schema `public`, the table lives in `workspace_aw`.**
+   Every reference is written `public.vector(768)` /
+   `public.vector_cosine_ops` rather than trusting `search_path` to stay
+   `"$user", public`.
+3. **`DbTables.execute` commits before a non-`SELECT` result can be read**, so
+   `EXPLAIN` through it raises on iteration. `cmd_stats` uses the facade's
+   `session()` instead (and `qualified_table()` for the name, so the quoting
+   still isn't hand-written).
+4. **A `pip_requires` failure is silent** (`src/apps/runtime.py:1905-1916`
+   logs and returns). "The script started" therefore proves nothing about
+   `fastembed`. `get_model()` raising is the only acceptance signal, and the
+   first thing `ingest` prints is how long the model took to load.
+5. **NUL bytes.** Three of the 18 theses carry NULs in their `pypdf`-extracted
+   text (36 in total). Postgres `text` cannot store one, so they are stripped
+   at the chunk boundary — see `_CONTROL_CHARS`. Left alone, ingestion dies
+   with `DataError` partway through a document, after the embedding cost for
+   that document has already been paid.
+
+## Embeddings
+
+`nomic-ai/nomic-embed-text-v1.5` via `fastembed` (ONNX, no PyTorch), 768-dim,
+task-prefix aware (`search_document:` when indexing, `search_query:` when
+querying) — the same model the `kb` app uses (`apps/kb/kb_app/kb_pg.py`), on
+purpose, so the two indexes stay comparable.
+
+The model is ~520 MB on first load. `FASTEMBED_CACHE_PATH` defaults to `/tmp`,
+which means re-downloading it on every container restart; point it at
+`.aw-workspace/data/aw-app-uc-phd/fastembed_cache`, which survives.
+
+`threads=4` is measured, not guessed: on this host (12 cores, load ~20 from
+the rest of the workspace) 1 thread gives 0.83 chunks/s, 2 gives 1.50, 4 gives
+2.14 and **8 gives 1.25** — more ONNX intra-op threads than the box has
+*spare* cores is slower, not faster.
+
+Chunking is 1500 characters with a 200-character overlap, both boundaries
+snapped to whitespace so no chunk opens or closes on a word fragment. 1500 is
+the `kb` app's own per-input embedding cap — there it *truncates* a document,
+here it *sizes a chunk*, which is why a 500 KB thesis keeps all of its text
+instead of losing everything after the first page.
+
+`ingest` is resumable: a document whose chunk count already matches what is in
+the table is skipped without being re-embedded. `ON CONFLICT DO NOTHING`
+protects the insert; this protects the hour of CPU.

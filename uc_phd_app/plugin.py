@@ -1,29 +1,44 @@
 """Entrypoint referenced by aw-app.json's runtime.entrypoint
 ("uc_phd_app.plugin:UcPhdAppPlugin").
 
-Two things happen on activate, in this order:
+On activate, in this order:
 
 1. **Seed the database into the app's data dir** (``seed.ensure_seeded()``).
    This must happen before any route can be called, and it must be safe to run
    concurrently — at ``AW_WORKSPACE_WORKERS>1`` every worker activates the app
    independently. ``seed.py`` explains how.
-2. **Register the backend sub-app** through the gated ``ctx.routes`` facade
+2. **Probe the pgvector store's state** (``store.VectorStore.probe_state()``)
+   — ``ready`` / ``missing_extension`` / ``unavailable`` — and fire one
+   ``ctx.notify`` if it isn't ``ready``, so a degraded search doesn't fail
+   silently on a BYOD workspace that lacks the ``vector`` extension. Never
+   ``CREATE EXTENSION`` here: that is a cluster-wide privileged side effect an
+   app must not take just to enable its own feature (rejected in the S2
+   design). Note the migration that creates this app's tables runs *after*
+   ``activate()`` returns (see ``src/apps/runtime.py``'s ``_apply_migrations``
+   docstring), so a brand-new install can observe ``unavailable`` for one
+   instant here before self-correcting — every route re-probes per request,
+   so nothing downstream is stuck on this snapshot.
+3. **Register the backend sub-app** through the gated ``ctx.routes`` facade
    (capability ``routes:register``), mounted by the runtime at
    ``/api/apps/aw-app-uc-phd`` and on the app's own subdomain.
 
-This app requests exactly two permissions — ``routes:register`` and
-``fs:workspace-data`` — and both are low risk. That is deliberate and load-
-bearing: the app is distributed through a **private** catalog, and an app that
-is not in the official public marketplace is not ``signed``, so
-``filter_grants`` silently refuses every high-risk capability it asks for. A
-refused capability does not raise; the app activates anyway and the missing
-piece shows up as an empty window body or a dead route. Nothing here asks for
-one, so nothing can be refused. Do not add ``ui:code`` (or a ``component``
-frontend bundle, or ``containers:manage``) while this app stays private —
-``docs/app-migration-plan.md`` §2 has the code references.
+This app requests four permissions: ``routes:register``, ``fs:workspace-data``,
+``net:outbound`` and ``db:own-tables`` — all **low risk**
+(``src/apps/capabilities.py``). That is deliberate and load-bearing: the app
+is distributed through the public catalog and IS signed (``aw-workspace-cli
+apps --json`` reports ``"signed": true``), but the capability set stays free
+of any high-risk entry regardless — ``filter_grants`` only refuses high-risk
+caps for an *unsigned* app, so this app never needs to rely on that leniency.
+Do not add ``ui:code``, ``containers:manage`` or ``mcp:register-gateway``
+without a real reason to reconsider Tier-1 — see the S2 architecture card.
 
-The scraper is not run from here and there is no ``net:outbound``: refreshing
-the data is ``python -m scraper.run`` against the data-dir database.
+The scraper (``scraper/run.py``) and the Estudo Geral extractor
+(``estudo_geral_extractor/run.py``) are not run from here — refreshing either
+dataset is a manual CLI run. The vector index is refreshed by
+``aw-workspace-cli uc-phd-index ingest`` (``commands/uc_phd_index.py``), also
+never run from here: embedding ~5-6k chunks is minutes of work, which
+``activate()`` — invoked on every worker, at boot — must never be on the hook
+for.
 """
 from __future__ import annotations
 
@@ -31,6 +46,7 @@ import logging
 
 from . import routes as routes_mod
 from . import seed
+from . import store
 
 log = logging.getLogger("aw_apps.uc_phd")
 
@@ -38,7 +54,19 @@ log = logging.getLogger("aw_apps.uc_phd")
 class UcPhdAppPlugin:
     async def activate(self, ctx) -> None:
         result = seed.ensure_seeded()
-        ctx.routes.register(routes_mod.build_routes())
+
+        vector_store = store.VectorStore(ctx.db)
+        state = vector_store.probe_state()
+        log.info("aw-app-uc-phd: vector store state=%s reason=%s",
+                  state["state"], state["reason"])
+        if state["state"] != "ready":
+            ctx.notify(
+                f"UC PhD semantic search is degraded ({state['state']}): "
+                f"{state['reason']}",
+                level="warning", title="UC PhD Projects",
+            )
+
+        ctx.routes.register(routes_mod.build_routes(store=vector_store))
         log.info(
             "aw-app-uc-phd activated: database %s (%s), routes mounted",
             result.get("db"), result.get("action"),

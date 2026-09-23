@@ -32,7 +32,7 @@ import os
 import uvicorn
 from fastapi import FastAPI
 
-from . import paths, seed
+from . import paths, seed, store
 from .routes import build_routes
 
 SLUG = "aw-app-uc-phd"  # must match aw-app.json's "id"
@@ -45,12 +45,27 @@ UI_DIST = paths.ui_dist()
 def build_standalone_app() -> FastAPI:
     seed.ensure_seeded()
     app = FastAPI(title="UC PhD Projects (standalone)")
+    # No ctx outside the runtime, but the loader's cli_store() talks to
+    # Postgres directly (same adapter the indexing CLI uses) — so search
+    # still works standalone as long as this process also happens to sit
+    # inside the aw-workspace checkout (`src.apps.db_tables` importable) AND
+    # can reach Postgres. Neither is true for the common case — a plain
+    # checkout of this repo, run for UI development, with none of
+    # aw-workspace's own code anywhere nearby — so that failure is expected,
+    # not a bug: search just reports "unavailable" like it would for any
+    # other degraded store. Indexing (writes) stays a CLI-only job that must
+    # run inside the workspace container regardless.
+    try:
+        from estudo_geral_extractor.pgvector_index import cli_store
+        vector_store = cli_store()
+    except ImportError:
+        vector_store = store.VectorStore(None)
     # A fresh sub-app per mount: build_routes() is a factory, and the same
     # FastAPI instance must not be mounted twice.
-    app.mount(f"/api/apps/{SLUG}", build_routes())
+    app.mount(f"/api/apps/{SLUG}", build_routes(store=vector_store))
     # Root LAST — this one carries the SPA's StaticFiles("/"), which matches
     # everything and would otherwise swallow the prefixed mount above.
-    app.mount("/", build_routes())
+    app.mount("/", build_routes(store=vector_store))
     return app
 
 

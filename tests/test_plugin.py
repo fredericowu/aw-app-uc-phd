@@ -1,8 +1,9 @@
 """Unit tests for uc_phd_app/plugin.py — this app's whole aw-workspace
 integration surface.
 
-``ctx`` is a lightweight double, not the real runtime: activate() touches one
-gated facade (``ctx.routes``) and nothing else.
+``ctx`` is a lightweight double, not the real runtime: activate() touches
+``ctx.routes`` (register the sub-app), ``ctx.db`` (probe the pgvector
+store), and ``ctx.notify`` (only when that probe comes back degraded).
 """
 from __future__ import annotations
 
@@ -57,6 +58,25 @@ def test_activate_installs_no_system_cli(packaged_seed):
     ctx.commands.install_system_cli.assert_not_called()
 
 
+class _DegradedDb:
+    """Duck-types ctx.db with an always-missing extension — see
+    uc_phd_app/store.py's VectorStore.probe_state()."""
+
+    def execute(self, name, sql, params=None):
+        return []
+
+
+def test_activate_notifies_when_the_vector_store_is_degraded(packaged_seed):
+    ctx = MagicMock()
+    ctx.db = _DegradedDb()
+
+    asyncio.run(UcPhdAppPlugin().activate(ctx))
+
+    ctx.notify.assert_called_once()
+    message = ctx.notify.call_args[0][0]
+    assert "missing_extension" in message
+
+
 def test_deactivate_completes_without_touching_ctx():
     assert asyncio.run(UcPhdAppPlugin().deactivate()) is None
 
@@ -65,14 +85,15 @@ def test_deactivate_completes_without_touching_ctx():
 
 
 def test_manifest_requests_only_low_risk_permissions():
-    """This app is distributed through a PRIVATE catalog, so it is not
-    `signed`, so `filter_grants` silently drops every high-risk capability it
-    asks for. Nothing would raise — the app would just activate with a missing
-    piece. Requesting only low-risk permissions is what makes that impossible.
-    `net:outbound` (added for the one-shot `estudo_geral_extractor` CLI) is
-    `risk: low` too — no signing gate, same invariant holds.
+    """This app is distributed through the public catalog and IS signed, but
+    the capability set stays free of any high-risk entry regardless — that
+    is what keeps `filter_grants`'s unsigned-app leniency irrelevant here.
+    `db:own-tables` (added for S3's pgvector store) is `risk: low` too — no
+    signing gate, same invariant holds.
     """
-    assert sorted(MANIFEST["permissions"]) == ["fs:workspace-data", "net:outbound", "routes:register"]
+    assert sorted(MANIFEST["permissions"]) == [
+        "db:own-tables", "fs:workspace-data", "net:outbound", "routes:register",
+    ]
 
 
 def test_manifest_has_no_component_frontend():

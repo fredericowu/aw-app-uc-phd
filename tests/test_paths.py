@@ -71,3 +71,20 @@ def test_thesis_attribution_path_follows_the_explicit_override(tmp_path, monkeyp
     target = tmp_path / "attribution.json"
     monkeypatch.setenv("AW_APP_UC_PHD_ATTRIBUTION_PATH", str(target))
     assert paths.thesis_attribution_path() == target
+
+
+def test_fastembed_cache_dir_is_under_the_data_dir_not_tmp(isolated_data_dir):
+    """fastembed defaults FASTEMBED_CACHE_PATH to /tmp — a ~520 MB
+    re-download on every container restart if left there."""
+    cache = paths.fastembed_cache_dir()
+    assert cache == isolated_data_dir / "fastembed_cache"
+    assert cache.is_dir()
+
+
+def test_estudo_geral_pdf_cache_dir_is_under_the_data_dir_not_the_package(isolated_data_dir):
+    """PDFs are a cache (PO decision, S3) — they must not live under
+    PACKAGE_ROOT, which is wiped wholesale on every app update."""
+    cache = paths.estudo_geral_pdf_cache_dir()
+    assert cache == isolated_data_dir / "estudo_geral" / "pdfs"
+    assert paths.PACKAGE_ROOT not in cache.parents
+    assert cache.is_dir()

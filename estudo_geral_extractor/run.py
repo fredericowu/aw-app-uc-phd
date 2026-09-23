@@ -1,4 +1,4 @@
-"""Entrypoint: `python -m estudo_geral_extractor.run`.
+"""Entrypoint: `python -m estudo_geral_extractor.run [--keep-pdfs]`.
 
 One-shot script (mirrors scraper/run.py's shape). For every DEI doctoral
 thesis with `dc:date` >= 2024 in OAI set com_10316_255:
@@ -12,11 +12,24 @@ thesis with `dc:date` >= 2024 in OAI set com_10316_255:
 
 Writes `estudo_geral/manifest.json` summarizing every record's outcome, so
 the delivered count is a query over that file, not a claim in a report.
+
+PDFs are a cache, not an archive (PO decision, S3): the `.md` is the durable
+artifact and `source_url` is the provenance — we reference the full document
+at UC, we don't warehouse it. A PDF is discarded once its `.md` extraction
+succeeds; it is kept only when extraction failed (so a re-run doesn't have to
+re-download it to retry), or when `--keep-pdfs` opts back into keeping every
+one. Either way the cache lives in the data dir
+(`uc_phd_app.paths.estudo_geral_pdf_cache_dir()`), not this package's
+`estudo_geral/` — that directory is wiped wholesale on every app update, and
+the `.md` + manifest that DO belong there are meant to survive it.
 """
+import argparse
 import json
 import sys
 import time
 from pathlib import Path
+
+from uc_phd_app import paths as app_paths
 
 from . import oai, restapi
 from .download import bootstrap_session, download_pdf, fetch_item_page, find_download_link
@@ -25,7 +38,6 @@ from .pdftext import extract_text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = REPO_ROOT / "estudo_geral"
-PDF_CACHE_DIR = OUTPUT_DIR / "pdfs"
 MANIFEST_PATH = OUTPUT_DIR / "manifest.json"
 
 REQUEST_SPACING_SECONDS = 0.8
@@ -39,7 +51,7 @@ def item_page_url(handle):
     return f"https://estudogeral.uc.pt/handle/{handle}"
 
 
-def process_one(session, handle):
+def process_one(session, handle, keep_pdfs=False):
     """Returns a manifest entry dict. Never raises — every failure is recorded."""
     entry = {"handle": handle, "source_url": item_page_url(handle)}
     try:
@@ -73,13 +85,21 @@ def process_one(session, handle):
         entry["download_error"] = "no download link found on item page"
     else:
         slug = handle_to_slug(handle)
-        pdf_path = PDF_CACHE_DIR / f"{slug}.pdf"
+        pdf_path = app_paths.estudo_geral_pdf_cache_dir() / f"{slug}.pdf"
         ok, status, error = download_pdf(session, link, pdf_path)
         throttle()
         if ok:
+            pdf_bytes = pdf_path.stat().st_size
             body_text = extract_text(pdf_path)
             full_text = bool(body_text.strip())
-            entry["pdf_bytes"] = pdf_path.stat().st_size
+            entry["pdf_bytes"] = pdf_bytes
+            # PDFs are a cache, not an archive — discard once the .md has
+            # the text, keep only on a failed extraction (so a retry has
+            # something to re-extract from without re-downloading).
+            if full_text and not keep_pdfs:
+                pdf_path.unlink()
+            else:
+                entry["pdf_kept"] = True
         else:
             entry["download_error"] = f"HTTP {status}: {error}" if status else str(error)
 
@@ -94,6 +114,12 @@ def process_one(session, handle):
 
 
 def main():
+    ap = argparse.ArgumentParser(prog="estudo_geral_extractor.run")
+    ap.add_argument("--keep-pdfs", action="store_true",
+                     help="keep every downloaded PDF instead of discarding it "
+                          "once its .md extraction succeeds")
+    args = ap.parse_args()
+
     session = bootstrap_session()
 
     print("enumerating OAI-PMH ListRecords for set", oai.SET_SPEC, "from", oai.FROM_DATE, "...")
@@ -108,7 +134,7 @@ def main():
     for i, record in enumerate(selected, start=1):
         handle = record["handle"]
         print(f"[{i}/{len(selected)}] {handle} ...")
-        entry = process_one(session, handle)
+        entry = process_one(session, handle, keep_pdfs=args.keep_pdfs)
         manifest.append(entry)
         if entry.get("full_text"):
             full_text_count += 1

@@ -58,8 +58,11 @@ tmp/
 temp/
 *.log
 
-# Estudo Geral thesis PDFs (~228 MB) — the .md extracts + manifest.json under
-# estudo_geral/ ARE committed (provenance), the source PDFs are not.
+# Estudo Geral thesis PDFs — the .md extracts + manifest.json under
+# estudo_geral/ ARE committed (provenance), the source PDFs are not. Dead
+# since S3: the PDF cache moved to paths.estudo_geral_pdf_cache_dir() (the
+# app's data dir), so estudo_geral/pdfs/ is never written anymore. Left here
+# rather than removed, in case an older checkout still has the directory.
 estudo_geral/pdfs/
 
 # ui/dist IS committed: the release workflow runs tests only, never

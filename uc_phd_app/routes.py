@@ -33,24 +33,37 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from . import db, paths, seed
+from . import store as store_mod
 from .api import projects as projects_api
+from .api import search as search_api
 from .api import theses as theses_api
 
 
-def build_routes() -> FastAPI:
-    """Mode-agnostic factory — called once per mode."""
+def build_routes(store: store_mod.VectorStore | None = None) -> FastAPI:
+    """Mode-agnostic factory — called once per mode.
+
+    ``store`` is the pgvector store (``uc_phd_app/store.py``), built by
+    ``plugin.py`` in integrated mode from ``ctx.db``. Standalone mode has no
+    ``ctx`` and passes nothing, which falls back to a store with no DB
+    access — every search/status route reports ``unavailable`` rather than
+    reaching for Postgres.
+    """
     app = FastAPI(title="UC PhD Projects")
+    app.state.vector_store = store or store_mod.VectorStore(None)
 
     @app.get("/healthz")
     async def healthz() -> dict:
         """What QA and ``doctor`` actually poke: is the database there, does
-        it have rows, and which snapshot did it come from?"""
+        it have rows, and which snapshot did it come from — plus the
+        semantic-search state, so a degraded pgvector store shows up here
+        too instead of only surfacing at query time."""
         live = paths.live_db_path()
         payload = {
             "status": "ok",
             "db_path": str(live),
             "db_exists": live.is_file(),
             "seed": seed.seed_info(),
+            "search": app.state.vector_store.probe_state(),
         }
         try:
             payload["row_counts"] = db.table_counts()
@@ -61,6 +74,7 @@ def build_routes() -> FastAPI:
 
     app.include_router(projects_api.router, prefix="/api", tags=["projects"])
     app.include_router(theses_api.router, prefix="/api", tags=["theses"])
+    app.include_router(search_api.router, prefix="/api", tags=["search"])
 
     # LAST. See the module docstring.
     dist = paths.ui_dist()

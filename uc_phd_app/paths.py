@@ -89,6 +89,27 @@ def thesis_attribution_path() -> Path:
     return Path(override) if override else PACKAGE_ROOT / "docs" / "thesis-attribution.json"
 
 
+def fastembed_cache_dir() -> Path:
+    """Where the ~520 MB ONNX embedding model downloads to. fastembed
+    defaults ``FASTEMBED_CACHE_PATH`` to ``/tmp`` — durable here instead, so
+    it survives a container restart instead of re-downloading every time."""
+    d = data_dir() / "fastembed_cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def estudo_geral_pdf_cache_dir() -> Path:
+    """PDFs are a cache, not an archive (S2/PO decision): discarded after a
+    successful ``.md`` extraction, kept only when extraction failed. Lives in
+    the data dir, not the package dir — unlike ``estudo_geral_dir()`` (the
+    committed ``.md`` + manifest, real provenance), the package dir is wiped
+    wholesale on every app update and is the wrong place for a 500 MB+ cache.
+    """
+    d = data_dir() / "estudo_geral" / "pdfs"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def ui_dist() -> Path:
     """``ui/dist/`` — the built SPA. Committed, because the release pipeline
     ships the repo as-is and never runs ``npm run build``."""

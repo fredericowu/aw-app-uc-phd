@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -147,6 +148,44 @@ THESIS_FIXTURE_ATTRIBUTION = {
     "Ada Author": {"status": "unattributed", "note": "no exact match"},
     "Curie Coord": {"status": "matched", "matches": [{"slug": "ada", "name": "Ada Lovelace"}]},
 }
+
+
+class _FakeTextEmbedding:
+    """Stands in for ``fastembed.TextEmbedding`` — no ONNX runtime, no
+    ~520 MB download (fastembed is not installed in this environment; that
+    absence is itself one of S3's real findings, see
+    ``uc_phd_app/store.py``'s ``model_loaded``). Returns a fixed-length
+    vector per input, so the REAL prefixing/batching/float-conversion logic
+    in ``store.embed_docs``/``embed_query`` still runs — only the ONNX
+    inference itself is faked."""
+
+    def __init__(self, model_name, **kwargs):
+        self.model_name = model_name
+
+    def embed(self, texts, batch_size=1):
+        for _ in texts:
+            yield [0.01] * 768
+
+
+@pytest.fixture()
+def fake_fastembed(monkeypatch):
+    """Installs a fake ``fastembed`` module in ``sys.modules`` so
+    ``uc_phd_app.store``'s ``from fastembed import TextEmbedding`` succeeds.
+    Also resets store's lazy model singleton before/after so tests don't leak
+    state into each other via the module-level cache."""
+    from uc_phd_app import store as store_mod
+
+    fake_module = types.ModuleType("fastembed")
+    fake_module.TextEmbedding = _FakeTextEmbedding
+    monkeypatch.setitem(sys.modules, "fastembed", fake_module)
+    monkeypatch.setattr(store_mod, "_model", None)
+    # load_model() sets this via os.environ.setdefault (a real env mutation,
+    # not monkeypatch) — pre-clearing it through monkeypatch means its
+    # teardown un-sets it again afterwards, regardless of what the code under
+    # test wrote, so it can never leak into an unrelated later test.
+    monkeypatch.delenv("FASTEMBED_CACHE_PATH", raising=False)
+    yield
+    monkeypatch.setattr(store_mod, "_model", None)
 
 
 @pytest.fixture()

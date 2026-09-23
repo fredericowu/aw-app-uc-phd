@@ -12,7 +12,6 @@ import {
   Caveat,
   CategoryBars,
   ChartWithTable,
-  ExternalLink,
   GroupLegend,
   Section,
   Tile,
@@ -61,7 +60,7 @@ function GroupChips({ groups }) {
   );
 }
 
-export default function Theses() {
+export default function Theses({ onOpenThesis }) {
   const listState = useAsync(() => api.theses(), []);
   const groupsState = useAsync(() => api.thesesGroups(), []);
 
@@ -141,7 +140,7 @@ export default function Theses() {
               <Caveat label="How names are resolved">{data.attribution_note}</Caveat>
 
               <div className="card">
-                <p className="chart-title">All 18 theses</p>
+                <p className="chart-title">All {count(total)} theses</p>
                 <div className="table-wrap">
                   <table className="data">
                     <thead>
@@ -158,7 +157,13 @@ export default function Theses() {
                       {data.theses.map((t) => (
                         <tr key={t.handle}>
                           <td>
-                            <ExternalLink href={t.source_url}>{t.title}</ExternalLink>
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => onOpenThesis(t.handle)}
+                            >
+                              {t.title}
+                            </button>
                           </td>
                           <td>
                             <PersonList people={t.authors} />

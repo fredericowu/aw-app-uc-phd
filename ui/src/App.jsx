@@ -17,6 +17,7 @@ import Partners from './views/Partners';
 import Projects from './views/Projects';
 import ProjectDetail from './views/ProjectDetail';
 import Theses from './views/Theses';
+import ThesisDetail from './views/ThesisDetail';
 import Search from './views/Search';
 import Fit from './views/Fit';
 
@@ -37,9 +38,17 @@ const TABS = [
 function parseHash() {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const detail = /^projects\/(\d+)$/.exec(raw);
-  if (detail) return { tab: 'projects', projectId: Number(detail[1]) };
+  if (detail) return { tab: 'projects', projectId: Number(detail[1]), thesisHandle: null };
+  const thesisDetail = /^theses\/(.+)$/.exec(raw);
+  // location.hash never auto-decodes (unlike pathname), so the segments
+  // openThesis() percent-encoded are still literal here — decode each one
+  // back before rejoining, mirroring the encode on the way in.
+  if (thesisDetail) {
+    const handle = thesisDetail[1].split('/').map(decodeURIComponent).join('/');
+    return { tab: 'theses', projectId: null, thesisHandle: handle };
+  }
   const tab = TABS.find((t) => t.id === raw);
-  return { tab: tab ? tab.id : 'overview', projectId: null };
+  return { tab: tab ? tab.id : 'overview', projectId: null, thesisHandle: null };
 }
 
 function useTheme() {
@@ -68,12 +77,19 @@ export default function App() {
   };
 
   const openProject = (id) => go(`#/projects/${id}`);
+  // Handles contain a slash ("10316/000001"): encode each segment on its
+  // own and rejoin with a literal "/", never encodeURIComponent(handle)
+  // whole — that would escape the slash itself and stop matching the
+  // backend's {handle:path} route.
+  const openThesis = (handle) => go(`#/theses/${handle.split('/').map(encodeURIComponent).join('/')}`);
 
   let body;
   if (route.projectId != null) {
     body = <ProjectDetail projectId={route.projectId} onBack={() => go('#/projects')} />;
+  } else if (route.thesisHandle != null) {
+    body = <ThesisDetail handle={route.thesisHandle} onBack={() => go('#/theses')} />;
   } else if (route.tab === 'search') {
-    body = <Search />;
+    body = <Search onOpenThesis={openThesis} />;
   } else if (route.tab === 'fit') {
     body = <Fit />;
   } else if (route.tab === 'groups') {
@@ -91,7 +107,7 @@ export default function App() {
   } else if (route.tab === 'projects') {
     body = <Projects onOpenProject={openProject} />;
   } else if (route.tab === 'theses') {
-    body = <Theses />;
+    body = <Theses onOpenThesis={openThesis} />;
   } else {
     body = <Overview />;
   }

@@ -185,3 +185,31 @@ def test_thesis_body_returns_the_raw_file_when_the_closing_delimiter_is_missing(
     monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
 
     assert theses.thesis_body("10316/000003") == raw
+
+
+# ── get_thesis(with_body=False) (S5's detail route) ─────────────────────────
+
+
+def test_get_thesis_with_body_false_skips_the_file_read_entirely(live_db, tmp_path, monkeypatch):
+    """The detail route passes with_body=False specifically so it never reads
+    the .md file — assert that by pointing AW_APP_UC_PHD_ESTUDO_GERAL_DIR at
+    a directory that does not exist. If this read the file, it would raise;
+    passing proves the read never happened, not just that body is None."""
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(tmp_path / "does-not-exist"))
+    t = theses.get_thesis("10316/000001", db_path=live_db, with_body=False)
+    assert t is not None
+    assert t["body"] is None
+    assert t["title"] == "Thesis A"
+    assert t["abstract_pt"] == "Resumo A."
+
+
+def test_get_thesis_with_body_true_is_still_the_default(live_db, tmp_path, monkeypatch):
+    """The MCP tool (mcp/tools.py:62) calls get_thesis(handle) with no
+    with_body kwarg — its contract must not change."""
+    estudo_geral = tmp_path / "estudo_geral"
+    estudo_geral.mkdir()
+    (estudo_geral / "10316-000001.md").write_text("no front matter here", encoding="utf-8")
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
+
+    t = theses.get_thesis("10316/000001", db_path=live_db)
+    assert t["body"] == "no front matter here"

@@ -19,7 +19,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, api } from '../api';
-import { AsyncBoundary, Caveat, ExternalLink, Section, useAsync } from '../components';
+import { AsyncBoundary, Caveat, Section, useAsync } from '../components';
 import { count } from '../format';
 
 const K = 20;
@@ -73,7 +73,7 @@ function groupByThesis(results) {
   return order.map((h) => byHandle.get(h));
 }
 
-function ResultGroup({ group, rank, total }) {
+function ResultGroup({ group, rank, total, onOpenThesis }) {
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? group.passages : group.passages.slice(0, PASSAGES_PREVIEW);
   const hiddenCount = group.passages.length - shown.length;
@@ -83,7 +83,9 @@ function ResultGroup({ group, rank, total }) {
       <div className="search-result-head">
         <p className="chart-title">
           <span className="result-rank">#{rank}</span>{' '}
-          <ExternalLink href={group.source_url}>{group.title}</ExternalLink>
+          <button type="button" className="link-button" onClick={() => onOpenThesis(group.handle)}>
+            {group.title}
+          </button>
         </p>
         {group.full_text ? null : (
           <span
@@ -135,7 +137,7 @@ function SearchDiagnostic({ error }) {
   );
 }
 
-export default function Search() {
+export default function Search({ onOpenThesis }) {
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
 
@@ -220,7 +222,13 @@ export default function Search() {
           </p>
           <div className="search-results">
             {groups.map((g, i) => (
-              <ResultGroup key={g.handle} group={g} rank={i + 1} total={groups.length} />
+              <ResultGroup
+                key={g.handle}
+                group={g}
+                rank={i + 1}
+                total={groups.length}
+                onOpenThesis={onOpenThesis}
+              />
             ))}
           </div>
         </>

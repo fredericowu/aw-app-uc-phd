@@ -227,11 +227,16 @@ def group_breakdown(theses: list[dict]) -> dict:
     return {"counts": counts, "unattributed": unattributed}
 
 
-def get_thesis(handle: str, db_path: Path | None = None) -> dict | None:
+def get_thesis(handle: str, db_path: Path | None = None, *, with_body: bool = True) -> dict | None:
     """One thesis's full record for ``uc_phd_app/mcp``'s ``get_phd_thesis``
     tool (S4) — everything ``list_theses()`` already resolves (identity,
-    groups) plus the two abstracts it doesn't surface, and the extracted
-    body text. ``None`` if the handle does not exist.
+    groups) plus the two abstracts it doesn't surface, and (by default) the
+    extracted body text. ``None`` if the handle does not exist.
+
+    ``with_body=False`` skips the ``thesis_body()`` read — the detail HTTP
+    route (S5) needs the metadata header without paying for up to 1.2 MB of
+    text it would discard; the MCP tool keeps the default so its contract is
+    unchanged.
 
     Reuses ``list_theses()`` rather than a second identity join: at 18
     theses a linear scan is cheap, and it keeps the resolution logic in one
@@ -245,7 +250,7 @@ def get_thesis(handle: str, db_path: Path | None = None) -> dict | None:
         **match,
         "abstract_pt": row["abstract_pt"] if row else None,
         "abstract_en": row["abstract_en"] if row else None,
-        "body": thesis_body(handle),
+        "body": thesis_body(handle) if with_body else None,
     }
 
 

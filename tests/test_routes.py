@@ -276,6 +276,88 @@ def test_theses_groups_breakdown_names_every_group_and_the_unattributed_count(cl
     assert "more than 18" in body["caveat"]
 
 
+# ── thesis detail + body (S5) ────────────────────────────────────────────────
+
+
+def test_theses_groups_is_not_swallowed_by_the_handle_path_route(client):
+    """THE ordering regression for this card. `/theses/groups` must stay
+    declared before `/theses/{handle:path}` in api/theses.py — a handle-path
+    route matches "groups" as a (nonexistent) handle just as readily, and if
+    it were declared first this would 404 instead of returning the
+    breakdown. See test_static_mount_does_not_swallow_the_api above for the
+    same kind of trap one layer up (static mount vs. API router)."""
+    resp = client.get("/api/theses/groups")
+    assert resp.status_code == 200
+    assert "groups" in resp.json()
+
+
+def test_thesis_detail_returns_metadata_and_both_abstracts_but_no_body(client):
+    body = client.get("/api/theses/10316/000001").json()
+    assert body["handle"] == "10316/000001"
+    assert body["title"] == "Thesis A"
+    assert body["abstract_pt"] == "Resumo A."
+    assert body["abstract_en"] == "Abstract A."
+    assert body["groups"] == ["AC", "NCS"]
+    assert body["body"] is None
+
+
+def test_thesis_detail_404s_for_an_unknown_handle(client):
+    resp = client.get("/api/theses/10316/999999")
+    assert resp.status_code == 404
+
+
+def test_thesis_body_route_reads_the_file_when_full_text_is_true(client, isolated_data_dir, monkeypatch, tmp_path):
+    estudo_geral = tmp_path / "estudo_geral"
+    estudo_geral.mkdir()
+    (estudo_geral / "10316-000001.md").write_text(
+        "---\nhandle: 10316/000001\n---\n\nThe extracted body.\n", encoding="utf-8",
+    )
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
+
+    body = client.get("/api/theses/10316/000001/body").json()
+    assert body == {
+        "handle": "10316/000001",
+        "full_text": True,
+        "body": "The extracted body.\n",
+        "bytes": len("The extracted body.\n".encode("utf-8")),
+    }
+
+
+def test_thesis_body_route_is_null_not_404_when_the_md_file_is_missing(client, tmp_path, monkeypatch):
+    """The thesis exists (full_text=false, Thesis B) — only the body doesn't.
+    Distinct from the 404 above: never collapse "no such thesis" into "no
+    body for this thesis"."""
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(tmp_path / "empty"))
+    (tmp_path / "empty").mkdir()
+
+    resp = client.get("/api/theses/10316/000002/body")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["full_text"] is False
+    assert body["body"] is None
+    assert body["bytes"] == 0
+
+
+def test_thesis_body_route_404s_for_an_unknown_handle(client):
+    assert client.get("/api/theses/10316/999999/body").status_code == 404
+
+
+def test_thesis_routes_match_a_real_slash_in_the_handle(client, tmp_path, monkeypatch):
+    """Handles are two path segments ("10316/000001") — {handle:path} exists
+    precisely so a plain {handle} (which would only capture "10316" and 404
+    on the rest) never regresses back in. The frontend must build this exact
+    shape: per-segment-encoded pieces joined with a literal "/", not
+    encodeURIComponent() on the whole handle (which would percent-escape the
+    slash itself)."""
+    estudo_geral = tmp_path / "estudo_geral"
+    estudo_geral.mkdir()
+    (estudo_geral / "10316-000001.md").write_text("Body via real slash.\n", encoding="utf-8")
+    monkeypatch.setenv("AW_APP_UC_PHD_ESTUDO_GERAL_DIR", str(estudo_geral))
+
+    assert client.get("/api/theses/10316/000001").json()["handle"] == "10316/000001"
+    assert client.get("/api/theses/10316/000001/body").json()["body"] == "Body via real slash.\n"
+
+
 # ── partners linked to theses ───────────────────────────────────────────────
 
 

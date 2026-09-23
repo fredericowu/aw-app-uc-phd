@@ -572,6 +572,14 @@ table.data tbody tr:hover {
   white-space: pre-wrap;
 }
 
+/* One text node, not per-line elements — a 1.2 MB thesis body would be
+   ~20k DOM nodes split by line. Capped at 82ch like .detail-synopsis for
+   readability, not for truncation: the full string is always rendered. */
+.thesis-body {
+  max-width: 82ch;
+  white-space: pre-wrap;
+}
+
 .kv {
   display: grid;
   gap: 2px 16px;

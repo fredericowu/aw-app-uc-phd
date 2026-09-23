@@ -77,6 +77,12 @@ export const api = {
   partnerTheses: () => getJSON('/partners/theses'),
   theses: () => getJSON('/theses'),
   thesesGroups: () => getJSON('/theses/groups'),
+  // Handles contain a slash ("10316/000001"): encodeURIComponent(handle)
+  // whole would escape the slash and stop matching the backend's
+  // {handle:path} route, so each segment is encoded on its own and rejoined
+  // with a literal "/" — same contract App.jsx's openThesis() uses.
+  thesis: (handle) => getJSON(`/theses/${handle.split('/').map(encodeURIComponent).join('/')}`),
+  thesisBody: (handle) => getJSON(`/theses/${handle.split('/').map(encodeURIComponent).join('/')}/body`),
   projects: ({ group, q, limit = 50, offset = 0 } = {}) => {
     const params = new URLSearchParams();
     if (group) params.set('group', group);

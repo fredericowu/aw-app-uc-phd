@@ -40,6 +40,29 @@ async function getJSON(sub) {
   return res.json();
 }
 
+/** Thrown by `api.search` — carries the HTTP status and the parsed error
+ *  body (`{error, reason}` for a degraded-store 503) so a caller can tell
+ *  "the search backend is broken" apart from a generic fetch failure
+ *  instead of matching on message text. */
+export class ApiError extends Error {
+  constructor(message, { status, body } = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
+async function readJSON(res) {
+  const type = res.headers.get('content-type') || '';
+  if (!type.includes('application/json')) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export const api = {
   healthz: () => getJSON('').then(() => null),
   coverage: () => getJSON('/coverage'),
@@ -62,4 +85,27 @@ export const api = {
     return getJSON(`/projects?${params}`);
   },
   project: (id) => getJSON(`/projects/${id}`),
+  // Not `getJSON`: a degraded store answers a typed 503 with a structured
+  // `{error, reason}` detail (see uc_phd_app/api/search.py), and that shape
+  // is the signal a caller needs to render a diagnostic instead of a
+  // generic error string.
+  search: async (q, k = 20) => {
+    const params = new URLSearchParams({ q, k: String(k) });
+    const res = await fetch(apiUrl(`/search?${params}`), { headers: { Accept: 'application/json' } });
+    const body = await readJSON(res);
+    if (!res.ok) {
+      const detail = body && body.detail;
+      const message = (detail && (detail.reason || detail.error))
+        || `search failed (HTTP ${res.status})`;
+      throw new ApiError(message, { status: res.status, body: detail });
+    }
+    if (!body) {
+      throw new ApiError(
+        `GET /search returned a non-JSON response — the SPA's static mount is ` +
+        `probably shadowing the API routes (see routes.py).`,
+        { status: res.status },
+      );
+    }
+    return body;
+  },
 };

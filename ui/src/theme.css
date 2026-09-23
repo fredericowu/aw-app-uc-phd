@@ -583,3 +583,105 @@ table.data tbody tr:hover {
   font-size: 12px;
   padding: 2px 10px;
 }
+
+/* Embargoed/warning variant — series-4 (amber) is the caveat/warning colour
+ * everywhere else in this app (see .caveat's border above). */
+.chip-warn {
+  background: color-mix(in srgb, var(--series-4) 16%, transparent);
+  border-radius: 999px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+/* ── search ─────────────────────────────────────────────────────────────── */
+
+.search-empty {
+  color: var(--text-secondary);
+}
+
+.search-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.search-result-head {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.search-result-head .chart-title {
+  margin: 0;
+}
+
+.search-passages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.search-passages li {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.search-passages li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.search-snippet {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+/* A derived "match" score, not the raw cosine distance — bigger bar always
+ * means a closer match. The raw distance stays available in the title
+ * tooltip for anyone who wants it, explicitly labelled "lower is closer". */
+.search-relevance {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.search-relevance-bar {
+  background: var(--grid);
+  border-radius: 999px;
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  width: 120px;
+}
+
+.search-relevance-bar span {
+  background: var(--sequential-400);
+  display: block;
+  height: 100%;
+}
+
+.search-relevance-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.search-error-title {
+  color: #d03b3b;
+}

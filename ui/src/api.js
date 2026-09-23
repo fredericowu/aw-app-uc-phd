@@ -140,6 +140,16 @@ export const api = {
     const params = new URLSearchParams({ kind, min_weight: String(minWeight), limit: String(limit) });
     return getJSON(`/collab/people/${encodeURIComponent(slug)}?${params}`);
   },
+  bibliographySummary: () => getJSON('/bibliography/summary'),
+  bibliographyTheses: () => getJSON('/bibliography/theses'),
+  bibliography: ({ minCitedBy, q, tier, limit = 50, offset = 0 } = {}) => {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (minCitedBy != null) params.set('min_cited_by', String(minCitedBy));
+    if (q) params.set('q', q);
+    if (tier) params.set('tier', tier);
+    return getJSON(`/bibliography?${params}`);
+  },
+  bibliographyReference: (id) => getJSON(`/bibliography/${encodeURIComponent(id)}`),
   profile: () => getJSON('/profile'),
   saveProfile: (interests, body) => sendJSON('PUT', '/profile', { interests, body }),
   resetProfile: () => sendJSON('POST', '/profile/reset'),

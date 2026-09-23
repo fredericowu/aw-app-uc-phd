@@ -17,6 +17,7 @@ import Partners from './views/Partners';
 import Projects from './views/Projects';
 import ProjectDetail from './views/ProjectDetail';
 import Theses from './views/Theses';
+import Bibliography from './views/Bibliography';
 import ThesisDetail from './views/ThesisDetail';
 import PersonDetail from './views/PersonDetail';
 import Fit from './views/Fit';
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'partners', label: 'Partners' },
   { id: 'projects', label: 'Projects' },
   { id: 'theses', label: 'Theses' },
+  { id: 'bibliography', label: 'Bibliography' },
 ];
 
 function parseHash() {
@@ -150,6 +152,8 @@ export default function App() {
     );
   } else if (route.tab === 'theses') {
     body = <Theses onOpenThesis={openThesis} />;
+  } else if (route.tab === 'bibliography') {
+    body = <Bibliography onOpenThesis={openThesis} />;
   } else {
     body = <Overview />;
   }

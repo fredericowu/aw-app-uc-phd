@@ -39,6 +39,7 @@ things a static page could never do:
 | **Searchable, group-filterable project list** | live query, `uc_phd_app/api/projects.py` |
 | **Per-project detail**, including every raw `project_fields_raw` pair | live query |
 | **Fit** — theses matched against an editable interest profile, with their real supervisors | `profile/research_interests.md` + `sql/thesis_people.sql`, ranked in pgvector |
+| **Bibliography** — every work cited anywhere in the corpus, ranked by how many theses cite it, each expandable to the citing theses and their own wording of the citation | `sql/bibliography_summary.sql`, `sql/bibliography_cited_by_histogram.sql`, `sql/bibliography_match_tiers.sql`, `sql/bibliography_per_thesis.sql`, aggregated in `uc_phd_app/bibliography.py`; the tables are built offline by `analysis/build_bibliography.py` |
 
 **Every figure still traces to a committed `.sql` file.** That was the best
 property of the original repo and it survives the move: `uc_phd_app/db.py`
@@ -133,6 +134,7 @@ one-shot CLI runs, never triggered by a route:
 .venv/bin/python -m scraper.run                    # CISUC projects -> data/cisuc.sqlite3
 .venv/bin/python -m estudo_geral_extractor.run      # DEI PhD theses -> estudo_geral/*.md
 .venv/bin/python -m analysis.build_thesis_facts     # estudo_geral/*.md -> the thesis tables
+.venv/bin/python -m analysis.build_bibliography     # estudo_geral/*.md -> the bibliography tables
 ```
 
 Point the scraper at the data-dir database to refresh what the app serves.
@@ -159,6 +161,47 @@ group.
 written reasoning — is no longer read at runtime. It is the **golden fixture**
 the matcher is replayed against in `tests/test_name_match.py`: reproduce all
 36 matches, resolve none of the 14 the human refused to, or the suite fails.
+
+The fourth one must run **after** `build_thesis_facts` — it needs a `theses`
+row per `.md` and says so by name rather than failing on a bare foreign key.
+
+## Bibliography — what the numbers are, and what they are not
+
+`analysis/build_bibliography.py` parses reference lists out of the extracted
+PDF text and writes `bib_references` / `thesis_references` into the seed.
+Measured on the committed corpus at matcher version 1:
+
+| | |
+|---|---|
+| Theses whose references parsed | **133 of 181** (95.7% of the 139 with body text; 42 are metadata-only stubs) |
+| Distinct works | 23,316 |
+| Citations | 24,559 |
+| Works cited by 2+ theses | 707 (3.0%) |
+| Tier-2 recall vs DOI ground truth | **52.6%** (30 of 57 shared-DOI groups) |
+
+Three things about that table are load-bearing, and the UI states all three
+rather than leaving them here:
+
+- **97.0% of works are cited exactly once.** That is real — 181 theses, ~20
+  years, six research groups that barely share a bibliography — not a parser
+  failure. It is why the ranked view defaults to a floor of 2 citing theses
+  (`bibliography.DEFAULT_MIN_CITED_BY`), the same answer `collab.py` reached
+  for its 4,242 co-project pairs. The full list stays reachable at `≥1`.
+- **`cited_by` is a floor, not a count.** Tier-2 matching succeeds about half
+  the time, so a work shown at 1 may genuinely be cited twice. The per-row
+  `match_tier` column says which tier established each identity, because a
+  count of 3 at tier `title` is a weaker claim than a count of 3 at `doi`.
+- **`matcher_version` is stored per row.** The normalised key is frozen into a
+  committed seed, so improving the matcher needs a rebuild *and* an app
+  version bump — `uc_phd_app/seed.py`'s upgrade rule is what then carries the
+  new seed to an already-installed workspace.
+
+⚠️ **Counting this corpus with `grep` gives wrong answers.** 21 of the 181
+`.md` files contain NUL bytes, so `grep` classifies them as binary and
+silently prints nothing for them — no error, no warning. Pass `-a`, or read
+the files in Python. Three separate "anomalies" in this feature's design notes
+(a `full_text` field that looked missing, a references heading that looked
+lost, two marker counts that disagreed) turned out to be that one cause.
 
 ## Tests
 

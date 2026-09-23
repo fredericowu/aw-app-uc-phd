@@ -39,6 +39,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db, paths, seed
 from . import store as store_mod
+from .api import bibliography as bibliography_api
 from .api import collab as collab_api
 from .api import fit as fit_api
 from .api import partner_links as partner_links_api
@@ -89,6 +90,7 @@ def build_routes(store: store_mod.VectorStore | None = None) -> FastAPI:
     app.include_router(fit_api.router, prefix="/api", tags=["fit"])
     app.include_router(collab_api.router, prefix="/api", tags=["collab"])
     app.include_router(people_api.router, prefix="/api", tags=["people"])
+    app.include_router(bibliography_api.router, prefix="/api", tags=["bibliography"])
 
     # ------------------------------------------------------------------
     # MCP — Streamable HTTP, auto-discovered by aw-mcp-gateway's app-scan

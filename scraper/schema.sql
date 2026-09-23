@@ -185,3 +185,62 @@ CREATE TABLE IF NOT EXISTS scrape_targets (
     error       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_scrape_targets_run ON scrape_targets(run_id);
+
+-- ── Bibliography (analysis/build_bibliography.py) ────────────────────────
+--
+-- One row per DISTINCT work cited anywhere in the corpus, and one row per
+-- (thesis, work) citation. Built offline from estudo_geral/*.md and committed
+-- into the seed for the same reason thesis facts are (see
+-- analysis/build_thesis_facts.py's "Why the seed and not Postgres"): every
+-- join partner is already in this file, and Postgres has no seed mechanism.
+--
+-- `bib_references`, not `references`. SQLite reserves REFERENCES, so a table
+-- of that name is a syntax error unless every single statement that touches
+-- it double-quotes it — forever, in every query, including ones written by
+-- someone who has not read this comment. The design note that named the table
+-- `references` did not know that; the prefix is the whole deviation from it.
+CREATE TABLE IF NOT EXISTS bib_references (
+    id              INTEGER PRIMARY KEY,
+    -- The tier-2 identity: '<normalised first author>|<normalised title>',
+    -- or a 'doi:<doi>' key when tier 1 resolved it. NULL is not allowed —
+    -- a reference with no derivable key gets a per-row 'raw:<id>' key so it
+    -- still counts exactly once instead of collapsing with every other
+    -- unparseable entry into one meaningless bucket.
+    normalised_key  TEXT NOT NULL UNIQUE,
+    -- The longest raw entry string seen for this work, kept verbatim. Longest
+    -- rather than first: the corpus corrupts entries by dropping characters,
+    -- so the longest surviving copy is the most readable one, and the reader
+    -- needs SOMETHING quotable next to a count.
+    display_string  TEXT NOT NULL,
+    doi             TEXT,
+    year            TEXT,
+    first_author    TEXT,
+    -- How this work's identity was established. 'doi' is exact; 'title' is
+    -- the normalised author+title key, measured at 52.6% recall against DOI
+    -- ground truth (analysis/reference_parse.py's module docstring);
+    -- 'unmatched' means no key could be derived and the row is a singleton by
+    -- construction. Stored per row so the UI can say which is which instead
+    -- of presenting one confidence for all of them.
+    match_tier      TEXT NOT NULL CHECK (match_tier IN ('doi', 'title', 'unmatched')),
+    -- analysis/reference_parse.py's MATCHER_VERSION at build time. The key is
+    -- frozen into a committed seed, so improving the matcher needs a rebuild
+    -- and a version bump; this column is what makes a stale seed visible.
+    matcher_version INTEGER NOT NULL,
+    cited_by        INTEGER NOT NULL  -- distinct theses citing it; denormalised
+);
+CREATE INDEX IF NOT EXISTS idx_bib_references_cited_by ON bib_references(cited_by);
+CREATE INDEX IF NOT EXISTS idx_bib_references_doi ON bib_references(doi);
+
+-- One row per (thesis, work). `entry_raw` is that thesis's own wording, kept
+-- because two theses citing one work with different strings IS the evidence
+-- the match tier is claiming something about — discarding it would make the
+-- claim uncheckable.
+CREATE TABLE IF NOT EXISTS thesis_references (
+    handle       TEXT NOT NULL REFERENCES theses(handle),
+    reference_id INTEGER NOT NULL REFERENCES bib_references(id),
+    entry_raw    TEXT NOT NULL,
+    ordinal      INTEGER NOT NULL,
+    PRIMARY KEY (handle, ordinal)
+);
+CREATE INDEX IF NOT EXISTS idx_thesis_references_ref ON thesis_references(reference_id);
+CREATE INDEX IF NOT EXISTS idx_thesis_references_handle ON thesis_references(handle);

@@ -160,6 +160,38 @@ def build_fixture_db(path: Path) -> Path:
         INSERT INTO thesis_keywords (handle, keyword, ordinal) VALUES
             ('10316/000001', 'graphs', 0),
             ('10316/000001', 'graphs', 1);
+
+        -- The bibliography the offline builder writes (analysis/
+        -- build_bibliography.py). Five works covering every shape the query
+        -- layer has to stay honest about: a work above the default floor and
+        -- one below it, all three match tiers, a work with a DOI and works
+        -- without, and a '%' in a display string so the LIKE-escaping test
+        -- has something real to catch.
+        INSERT INTO bib_references
+            (id, normalised_key, display_string, doi, year, first_author,
+             match_tier, matcher_version, cited_by)
+        VALUES
+            (1, 'doi:10.1109/32.666826',
+             'Carreira, J. Xception: a technique for evaluating dependability.',
+             '10.1109/32.666826', '1998', 'Carreira', 'doi', 1, 2),
+            (2, 'gamma|designpatterns',
+             'Gamma, E. (1995). Design patterns.', NULL, '1995', 'Gamma', 'title', 1, 2),
+            (3, 'lovelace|onanalyticalengines',
+             'Lovelace, A. (1843). On analytical engines.', NULL, '1843', 'Lovelace', 'title', 1, 1),
+            (4, 'raw:10316-000001:7',
+             'A 100% unparseable entry, kept countable as one.', NULL, NULL, NULL,
+             'unmatched', 1, 1),
+            (5, 'doi:10.1000/xyz123',
+             'Hopper, G. (1952). Compilers.', '10.1000/xyz123', '1952', 'Hopper', 'doi', 1, 1);
+
+        INSERT INTO thesis_references (handle, reference_id, entry_raw, ordinal) VALUES
+            ('10316/000001', 1, 'Carreira, J. Xception: a technique...', 0),
+            ('10316/000001', 2, 'Gamma, E. (1995). Design patterns.', 1),
+            ('10316/000001', 3, 'Lovelace, A. (1843). On analytical engines.', 2),
+            ('10316/000001', 4, 'A 100% unparseable entry, kept countable as one.', 3),
+            ('10316/000003', 1, 'J. Carreira et al., "Xception", IEEE TSE, 1998.', 0),
+            ('10316/000003', 2, '[12] E. Gamma et al. Design Patterns. 1995.', 1),
+            ('10316/000003', 5, 'Hopper, G. (1952). Compilers.', 2);
         """
     )
     conn.commit()

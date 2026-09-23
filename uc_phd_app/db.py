@@ -75,6 +75,7 @@ def table_counts(db_path: Path | None = None) -> dict:
         "projects", "project_fields_raw", "research_groups", "project_groups",
         "people", "project_people", "project_keywords", "project_partners",
         "theses", "thesis_people", "thesis_keywords",
+        "bib_references", "thesis_references",
         "scrape_runs", "scrape_targets",
     )
     conn = connect(db_path)

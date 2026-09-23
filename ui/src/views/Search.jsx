@@ -19,7 +19,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ApiError, api } from '../api';
-import { AsyncBoundary, Caveat, Section, useAsync } from '../components';
+import { AsyncBoundary, Caveat, useAsync } from '../components';
 import { count } from '../format';
 
 const K = 20;
@@ -156,10 +156,13 @@ export default function Search({ onOpenThesis }) {
   }, [searchState.data]);
 
   return (
-    <Section
-      title="Search"
-      note="Semantic search over the full text and abstracts of every DEI doctoral thesis extracted from Estudo Geral. Ask a question in Portuguese or English — results are ranked by meaning, not keyword match."
-    >
+    <>
+      <p className="chart-title">Search theses</p>
+      <p className="chart-note">
+        Semantic search over the full text and abstracts of every DEI doctoral thesis extracted
+        from Estudo Geral. Ask a question in Portuguese or English — results are ranked by
+        meaning, not keyword match.
+      </p>
       <AsyncBoundary state={thesesState}>
         {(t) => {
           const total = t.theses.length;
@@ -182,7 +185,6 @@ export default function Search({ onOpenThesis }) {
           value={input}
           placeholder="Ask a question, in Portuguese or English…"
           aria-label="Search the theses"
-          autoFocus
           onChange={(e) => setInput(e.target.value)}
         />
       </div>
@@ -233,6 +235,6 @@ export default function Search({ onOpenThesis }) {
           </div>
         </>
       )}
-    </Section>
+    </>
   );
 }

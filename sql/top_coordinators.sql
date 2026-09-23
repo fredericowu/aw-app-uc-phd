@@ -9,6 +9,9 @@
 -- would inflate the ranking for anyone with a multi-group project if it ran
 -- before this split.
 --
+-- Every coordinator, not a top-N — Frederico wants to see who's not in the
+-- top ranks too, not just the busiest ones. No LIMIT here.
+--
 -- Output is long-format, one row per (coordinator, group): the API pivots
 -- it into one stacked-bar series per coordinator. A project with no listed
 -- research group is counted under the synthetic 'UNGROUPED' code rather
@@ -23,7 +26,6 @@ totals AS (
     FROM coordinator_projects
     GROUP BY person_slug
     ORDER BY project_count DESC, person_slug
-    LIMIT 15
 )
 SELECT
     pe.slug AS coordinator_slug,

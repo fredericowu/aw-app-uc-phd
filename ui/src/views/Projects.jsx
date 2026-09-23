@@ -31,7 +31,7 @@ export default function Projects({ onOpenProject }) {
 
   return (
     <Section
-      title="All projects"
+      title="Projects"
       note="Every project in the database, searchable by title and filterable by research group. Open one for its full record."
     >
       <div className="filters">

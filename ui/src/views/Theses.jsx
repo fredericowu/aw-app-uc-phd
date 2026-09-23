@@ -19,6 +19,7 @@ import {
 } from '../components';
 import { groupColorVar, groupSlot, slotVar } from '../colors';
 import { count } from '../format';
+import Search from './Search';
 
 const UNATTRIBUTED = 'UNATTRIBUTED';
 const UNATTRIBUTED_LABEL = 'Unattributed';
@@ -138,6 +139,8 @@ export default function Theses({ onOpenThesis }) {
               </AsyncBoundary>
 
               <Caveat label="How names are resolved">{data.attribution_note}</Caveat>
+
+              <Search onOpenThesis={onOpenThesis} />
 
               <div className="card">
                 <p className="chart-title">All {count(total)} theses</p>

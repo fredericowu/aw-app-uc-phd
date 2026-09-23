@@ -18,18 +18,15 @@ import Projects from './views/Projects';
 import ProjectDetail from './views/ProjectDetail';
 import Theses from './views/Theses';
 import ThesisDetail from './views/ThesisDetail';
-import Search from './views/Search';
 import Fit from './views/Fit';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'search', label: 'Search' },
   { id: 'fit', label: 'Fit' },
   { id: 'groups', label: 'Research groups' },
-  { id: 'top', label: 'Top 10 per group' },
   { id: 'coordinators', label: 'Coordinators & collaboration' },
   { id: 'partners', label: 'Partners' },
-  { id: 'projects', label: 'All projects' },
+  { id: 'projects', label: 'Projects' },
   { id: 'theses', label: 'Theses' },
 ];
 
@@ -86,14 +83,10 @@ export default function App() {
     body = <ProjectDetail projectId={route.projectId} onBack={() => go('#/projects')} />;
   } else if (route.thesisHandle != null) {
     body = <ThesisDetail handle={route.thesisHandle} onBack={() => go('#/theses')} />;
-  } else if (route.tab === 'search') {
-    body = <Search onOpenThesis={openThesis} />;
   } else if (route.tab === 'fit') {
     body = <Fit />;
   } else if (route.tab === 'groups') {
     body = <Groups />;
-  } else if (route.tab === 'top') {
-    body = <TopProjects onOpenProject={openProject} />;
   } else if (route.tab === 'coordinators') {
     body = (
       <>
@@ -107,6 +100,7 @@ export default function App() {
     body = (
       <>
         <Projects onOpenProject={openProject} />
+        <TopProjects onOpenProject={openProject} />
         <Money />
       </>
     );

@@ -75,8 +75,8 @@ export default function Coordinators() {
                 onToggle={toggleGroup}
               />
               <ChartWithTable
-                title="Top coordinators by projects coordinated"
-                note="Source: sql/top_coordinators.sql"
+                title="Coordinators by projects coordinated"
+                note="Every coordinator, not just the busiest ones — source: sql/top_coordinators.sql. At this row count the bar chart itself is tall rather than readable at a glance; the table (toggle above) is the real 'see everyone' view."
                 columns={[
                   { key: 'coordinator', label: 'Coordinator' },
                   {

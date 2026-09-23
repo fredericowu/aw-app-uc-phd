@@ -7,6 +7,7 @@ never leaves a partial file.
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import threading
 from pathlib import Path
@@ -103,10 +104,17 @@ def test_a_users_own_newer_scrape_beats_a_newer_packaged_seed(packaged_seed):
     assert _row_count(live) == 2
 
 
-def test_concurrent_activation_never_leaves_a_partial_database(packaged_seed):
-    """At AW_WORKSPACE_WORKERS>1 every worker activates independently. A naive
-    shutil.copy race produces a truncated file that sqlite3 opens without
-    complaint and then answers with garbage."""
+def test_concurrent_activation_leaves_no_temp_files_and_seeds_once(packaged_seed):
+    """At AW_WORKSPACE_WORKERS>1 every worker activates independently.
+
+    This is the *shape* test: 8 threads race ``ensure_seeded()`` and the result
+    is one correct database with no ``.seed-*`` litter. It deliberately does
+    NOT claim to prove atomicity — ``live.is_file()`` short-circuits after the
+    first writer, so only one copy ever actually runs and a plain
+    ``shutil.copyfile`` passes this just as happily. The atomicity claim is
+    tested by ``test_a_reader_never_observes_a_half_written_database`` below,
+    which is the one that goes red when ``_atomic_copy`` is reverted.
+    """
     results, errors = [], []
     barrier = threading.Barrier(8)
 
@@ -129,6 +137,90 @@ def test_concurrent_activation_never_leaves_a_partial_database(packaged_seed):
     assert live.stat().st_size == paths.seed_db_path().stat().st_size
     # No temp files left behind by the atomic replace.
     assert not list(paths.data_dir().glob(".seed-*"))
+
+
+def _build_padded_db(path: Path, rows: int) -> Path:
+    """A fixture database inflated to a size worth racing against.
+
+    Size is the whole point: ``_atomic_copy`` has to be caught mid-copy, and a
+    3-row database lands in a single write that no reader will ever interrupt.
+    """
+    build_fixture_db(path)
+    conn = sqlite3.connect(path)
+    try:
+        padding = "x" * 512
+        conn.executemany(
+            "INSERT INTO projects (id, title, title_norm, detail_fetched, first_seen_at) "
+            "VALUES (?, ?, ?, 0, '2026-01-01T00:00:00+00:00')",
+            [(1000 + i, f"Pad {i} {padding}", f"pad {i}", ) for i in range(rows)],
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return path
+
+
+def test_a_reader_never_observes_a_half_written_database(tmp_path):
+    """The actual atomicity claim: a reader racing a writer sees the complete
+    OLD file or the complete NEW one — never a short read.
+
+    Why it is written this way. The interesting failure is not "two writers
+    corrupt each other", it is "a reader opens the file while one writer is
+    partway through it". A plain ``shutil.copyfile`` truncates the destination
+    and streams into it, so for the duration of the copy the live database is
+    a valid path holding an invalid file — which ``sqlite3.connect`` opens
+    without complaint and then answers from.
+
+    So the writer here alternates between two payloads of DELIBERATELY
+    DIFFERENT sizes. That makes tearing observable: the only two legal sizes
+    are the two payloads' own, and anything else is a partial write caught in
+    the act. Copying identical bytes (what ``ensure_seeded`` does) can never
+    fail this way, which is exactly why the test above proves nothing.
+    """
+    small = _build_padded_db(tmp_path / "small.sqlite3", 0)
+    large = _build_padded_db(tmp_path / "large.sqlite3", 12000)
+    live = tmp_path / "live.sqlite3"
+
+    small_size = small.stat().st_size
+    large_size = large.stat().st_size
+    assert large_size > small_size * 8, "payloads must differ enough to catch a partial copy"
+
+    shutil.copyfile(large, live)
+    legal_sizes = {small_size, large_size}
+    torn: list[int] = []
+    stop = threading.Event()
+
+    def writer():
+        try:
+            for i in range(30):
+                seed._atomic_copy(small if i % 2 else large, live)
+        finally:
+            stop.set()
+
+    def reader():
+        while not stop.is_set():
+            try:
+                size = live.stat().st_size
+            except FileNotFoundError:  # pragma: no cover - never with os.replace
+                torn.append(-1)
+                continue
+            if size not in legal_sizes:
+                torn.append(size)
+
+    threads = [threading.Thread(target=reader) for _ in range(4)]
+    threads.append(threading.Thread(target=writer))
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not torn, (
+        f"{len(torn)} reader observation(s) caught the live database mid-write "
+        f"(sizes {sorted(set(torn))[:5]}); legal sizes are {sorted(legal_sizes)}"
+    )
+    # And whatever landed last is a complete, readable database.
+    assert _row_count(live) in {3, 12003}
+    assert not list(live.parent.glob(".seed-*"))
 
 
 def test_a_missing_packaged_seed_is_reported_not_fatal(tmp_path, monkeypatch):

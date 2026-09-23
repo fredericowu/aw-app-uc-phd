@@ -63,6 +63,17 @@ function parseHash() {
   return { tab: tab ? tab.id : 'overview', projectId: null, thesisHandle: null, personSlug: null };
 }
 
+// How long the tab's history already was when this document loaded. A person
+// is reachable from five places, so their Back button means "wherever you came
+// from" — but a deep-linked profile has no in-app origin to return to, and
+// `history.length <= 1` does not detect that reliably: a tab opened
+// programmatically (or by some browsers' new-tab flow) carries an about:blank
+// entry first, so length is already 2 and back() lands on a blank page.
+// Verified live — Playwright's own new tab does exactly that. Comparing
+// against the length at load answers the real question ("has this session
+// navigated inside the app yet?") in every one of those cases.
+const HISTORY_LENGTH_AT_LOAD = window.history.length;
+
 function useTheme() {
   const [theme, setTheme] = useState(() => localStorage.getItem('uc-phd-theme') || 'system');
   useEffect(() => {
@@ -103,13 +114,16 @@ export default function App() {
   } else if (route.personSlug != null) {
     // ProjectDetail/ThesisDetail hard-code their origin because each is
     // reached from one place. A person is reached from five, so Back means
-    // "wherever you came from" — falling back to #/coordinators when there is
-    // no history to go back to, which is exactly the deep-link case.
+    // "wherever you came from" — falling back to #/coordinators when this tab
+    // never navigated inside the app, which is exactly the deep-link case.
+    // See HISTORY_LENGTH_AT_LOAD for why that, not `history.length <= 1`.
     body = (
       <PersonDetail
         slug={route.personSlug}
         onBack={() =>
-          (window.history.length > 1 ? window.history.back() : go('#/coordinators'))
+          (window.history.length > HISTORY_LENGTH_AT_LOAD
+            ? window.history.back()
+            : go('#/coordinators'))
         }
       />
     );

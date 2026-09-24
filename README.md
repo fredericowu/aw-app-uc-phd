@@ -33,9 +33,10 @@ things a static page could never do:
 | Projects started per year | `sql/start_date_timeline.sql` |
 | Top coordinators | `sql/top_coordinators.sql` |
 | **Collaboration & teams** — ranked co-project/co-supervision pairs, one person's own neighbourhood, or a filtered node-link graph (node size = degree within the rendered floor) | `sql/collab_co_project.sql`, `sql/collab_co_supervision.sql`, `sql/collab_person_groups.sql`, aggregated in `uc_phd_app/collab.py` — degree is derived in Python over those same rows, not a new query (see `collab.py`'s docstring for why) |
-| The 18 Estudo Geral doctoral theses | `sql/theses.sql` |
+| The 181 Estudo Geral doctoral theses | `sql/theses.sql` |
 | Each thesis's authors/supervisors, resolved to a CISUC person or not | `sql/thesis_people.sql` |
-| How far the name matcher reaches (per tier, over distinct names) | `sql/thesis_match_tiers.sql` |
+| How far the name matcher reaches (per tier, over distinct names, **split by role** — an unresolved author is the correct answer, an unresolved supervisor is a hole) | `sql/thesis_match_tiers.sql` |
+| **Identity coverage** at the grains the advisor/collaboration views consume: supervision edges, theses, co-supervision pairs, and how many name variants collapse to one person | `sql/thesis_attribution_coverage.sql` — rendered on the Theses view and quoted in the co-supervision caveat; see `docs/thesis-attribution.md` |
 | Each thesis's research group(s) and how confident that is | `sql/person_group_shares.sql` (live) + `sql/thesis_group_affinity.sql` (seeded), combined in `uc_phd_app/theses.py` — see `docs/thesis-attribution.md` |
 | **Searchable, group-filterable project list** | live query, `uc_phd_app/api/projects.py` |
 | **Per-project detail**, including every raw `project_fields_raw` pair | live query |

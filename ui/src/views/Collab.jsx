@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { AsyncBoundary, Caveat, DataTable, PersonLink, Section, Tile, useAsync } from '../components';
+import { AsyncBoundary, Caveat, DataTable, ExcludedNote, PersonLink, Section, Tile, useAsync } from '../components';
 import { groupColorVar } from '../colors';
 import { count } from '../format';
 import CollabGraph from './CollabGraph';
@@ -153,6 +153,7 @@ function PairsTable({ kind, minWeight }) {
               Next →
             </button>
           </div>
+          <ExcludedNote excluded={data.excluded} />
           <Caveat>{data.caveat}</Caveat>
           <Caveat label="cross_group">{data.cross_group_caveat}</Caveat>
         </div>
@@ -200,6 +201,7 @@ function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
             rows={data.collaborators}
             getKey={(r) => r.slug}
           />
+          <ExcludedNote excluded={data.excluded} />
           <Caveat>{data.caveat}</Caveat>
           <Caveat label="cross_group">{data.cross_group_caveat}</Caveat>
         </div>

@@ -18,6 +18,7 @@ import {
   YAxis,
 } from 'recharts';
 import { fillClass, slotVar } from './colors';
+import { count } from './format';
 
 /** Fetch-on-mount with the three states every view needs to render. */
 export function useAsync(fn, deps = []) {
@@ -114,6 +115,31 @@ export function Section({ title, note, children }) {
       {note ? <p className="section-note">{note}</p> : null}
       {children}
     </section>
+  );
+}
+
+/** What an identity step dropped, as data rather than as an adjective.
+ *
+ *  The co-supervision views exclude every supervisor name that does not
+ *  resolve to a person — correct (an unresolved name is not a person, and
+ *  inventing a node for it would be a guess), but invisible: you cannot count
+ *  circles that were never drawn, so the surviving graph reads as complete.
+ *  Lives here rather than in Collab.jsx because the ranked table and the graph
+ *  both need it and they must not word it two ways — the same reason
+ *  `AttributionTier` below is shared.
+ *
+ *  `excluded` is null wherever nothing stands between the seed and the view
+ *  (co_project: project_people is already slug-keyed), and this then renders
+ *  nothing at all. */
+export function ExcludedNote({ excluded }) {
+  if (!excluded) return null;
+  return (
+    <p className="chart-note">
+      Excludes {count(excluded.names)} of {count(excluded.name_total)} supervisor names that do not
+      resolve to a person — {count(excluded.edges)} of {count(excluded.edge_total)} supervision
+      edges, and {count(excluded.pairs)} of {count(excluded.pair_total)} co-supervision pairs that
+      are therefore not drawn.
+    </p>
   );
 }
 

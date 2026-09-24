@@ -22,7 +22,7 @@ import { api } from '../api';
 // which is now this graph's detail panel too. Clicking a NODE means "focus it",
 // and giving that gesture a second meaning would break the interaction — the
 // reasoning c6736f2 wrote against the old in-graph panel, unchanged.
-import { AsyncBoundary, Caveat, useAsync } from '../components';
+import { AsyncBoundary, Caveat, ExcludedNote, useAsync } from '../components';
 import { fillClass, groupSlot, GROUP_ORDER } from '../colors';
 import { count } from '../format';
 
@@ -613,6 +613,10 @@ function GraphBody({ data, focus, onFocus }) {
       ) : (
         <p className="state">Computing layout…</p>
       )}
+      {/* The graph is where a missing node is least visible — you cannot count
+          circles that were never drawn — so the exclusion is stated here, not
+          only on the ranked table. Null (and so silent) for co_project. */}
+      <ExcludedNote excluded={data.excluded} />
       <Caveat label="degree">{data.degree_caveat}</Caveat>
     </div>
   );

@@ -32,10 +32,11 @@ the moment a project is scraped, the content half only when the builder
 re-runs.
 
 A name the matcher could not resolve is still a row here, carrying
-``name_raw`` and its tier — never dropped, never guessed. 14 of today's 50
-names are unmatched, all of them thesis authors or external co-supervisors;
-``docs/thesis-attribution.md`` has the full record and the two deliberate
-near-misses.
+``name_raw`` and its tier — never dropped, never guessed. ``identity_coverage``
+below reports how many, at the grain each view actually consumes, rather than
+this docstring carrying a figure that goes stale on every reindex;
+``docs/thesis-attribution.md`` has the full record, the two deliberate
+near-misses, and the two rule relaxations that were measured and rejected.
 """
 from __future__ import annotations
 
@@ -71,6 +72,29 @@ ATTRIBUTION_NOTE = (
     "analysis/build_group_affinity.py. Neither is trusted alone — both are "
     "weak rankings, and the tier reports whether they corroborate each other. "
     "Full record: docs/thesis-attribution.md."
+)
+
+#: Rendered beside ``identity_coverage()``. Its job is to say which of those
+#: numbers is a gap and which is the correct answer — because the largest one
+#: (a third of author names unresolved) is NOT a gap, and a reader shown a
+#: bare percentage will assume every miss is a defect. It also refuses the
+#: obvious "fix": two rule relaxations were implemented and measured against
+#: the real corpus, both bought a handful of edges with a confidently wrong
+#: person, and both left the golden fixture green.
+IDENTITY_COVERAGE_NOTE = (
+    "Coverage is reported per role and per grain because one pooled number "
+    "describes neither population. Author names resolve least often and that "
+    "is the correct answer, not a gap: `people` holds current CISUC staff, "
+    "and a doctoral student is not staff — expect roughly a third of author "
+    "names to stay unresolved and do not read it as a defect. The supervisor "
+    "side is the one the advisor and collaboration views depend on, and it is "
+    "reported at the edge grain (a supervisor on ten theses is ten advisor "
+    "edges, not one name) as well as per thesis. Resolution also degrades by "
+    "decade, because staff lists are current and a 1990s supervisor may have "
+    "left: nothing can match its way past that. The matcher never guesses — "
+    "it tiers every decision and leaves a name unresolved rather than picking "
+    "a plausible person; two attempts to relax it were measured and rejected "
+    "for producing confidently wrong people (docs/thesis-attribution.md)."
 )
 
 #: Tiers that mean "this is a person". ``ambiguous`` is deliberately not one
@@ -342,14 +366,61 @@ def supervisors_for(handles: list[str], db_path: Path | None = None) -> dict[str
     return by_handle
 
 
-def match_tiers(db_path: Path | None = None) -> dict:
-    """How many distinct names landed in each matcher tier.
+def identity_coverage(db_path: Path | None = None) -> dict:
+    """How far the name -> person spine reaches, at every grain the advisor and
+    collaboration views consume.
 
-    Reported rather than hidden: the unmatched count is the honest measure of
-    how far the identity spine reaches, and it will grow as the corpus does.
+    Replaces a single flat ``{tier: name_count}`` dict, which was the wrong
+    shape for two reasons measured over the 181-thesis corpus
+    (``docs/thesis-attribution.md`` has the full record):
+
+    * **It pooled authors with supervisors.** Those two populations have
+      opposite expected outcomes — a doctoral student's absence from `people`
+      (current CISUC staff) is the *correct* answer, an absent supervisor is a
+      real hole — so one pooled 32.9%-unmatched rate described neither.
+    * **It counted names, and the views consume edges.** A supervisor on ten
+      theses is one name and ten advisor edges; the name grain understates what
+      a single failure costs and the views degrade at the edge grain.
+
+    Numbers only. The prose that says which of these is expected rather than a
+    gap is ``IDENTITY_COVERAGE_NOTE``, shipped beside it — same split as
+    ``group_breakdown`` / ``GROUP_CAVEAT``.
     """
-    rows = db.rows(db.load_query("thesis_match_tiers"), (), db_path)
-    return {row["match_status"]: row["name_count"] for row in rows}
+    tiers: dict[str, dict[str, int]] = {}
+    for row in db.rows(db.load_query("thesis_match_tiers"), (), db_path):
+        tiers.setdefault(row["role"], {})[row["match_status"]] = row["name_count"]
+
+    # One row of scalar subqueries, so there is always exactly one — no
+    # None guard, same as collab.summary()'s db.one() calls.
+    row = db.one(db.load_query("thesis_attribution_coverage"), (), db_path)
+    return {
+        "tiers_by_role": tiers,
+        "names": {
+            "author": {
+                "total": row["author_names"],
+                "resolved": row["author_names_resolved"],
+            },
+            "supervisor": {
+                "total": row["supervisor_names"],
+                "resolved": row["supervisor_names_resolved"],
+            },
+        },
+        "supervision_edges": {
+            "total": row["supervision_edges"],
+            "resolved": row["supervision_edges_resolved"],
+        },
+        "theses": {
+            "total": row["theses_total"],
+            "listing_a_supervisor": row["theses_listing_a_supervisor"],
+            "with_a_resolved_supervisor": row["theses_with_a_resolved_supervisor"],
+            "fully_resolved": row["theses_fully_resolved"],
+        },
+        "co_supervision_pairs": {
+            "total": row["co_supervision_pairs"],
+            "resolved": row["co_supervision_pairs_resolved"],
+        },
+        "supervisor_people": row["supervisor_people"],
+    }
 
 
 def group_breakdown(theses: list[dict]) -> dict:

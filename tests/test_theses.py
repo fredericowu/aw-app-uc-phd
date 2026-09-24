@@ -246,11 +246,105 @@ def test_group_breakdown_is_many_to_many_and_counts_the_unattributed(theses_list
     assert breakdown["unattributed"] == 1  # Thesis E only
 
 
-def test_match_tiers_counts_distinct_names_not_rows(live_db):
-    """Eight thesis_people rows over seven distinct names, and the tiers
-    reported over names — "Lovelace, Ada" supervises two theses and is one
-    identity decision, not two."""
-    assert theses.match_tiers(live_db) == {"exact": 3, "unmatched": 3, "ambiguous": 1}
+def test_identity_coverage_tiers_are_split_by_role_over_distinct_names(live_db):
+    """Eight thesis_people rows over seven distinct names, tiered over NAMES
+    and split by ROLE.
+
+    Over names, because "Lovelace, Ada" supervises two theses and is one
+    identity decision, not two. Split by role, because pooling the two hides
+    the finding: every unresolved name here but one is an author, and an author
+    who is not CISUC staff is the matcher being right.
+    """
+    coverage = theses.identity_coverage(live_db)
+    assert coverage["tiers_by_role"] == {
+        "author": {"exact": 1, "unmatched": 3},
+        "supervisor": {"exact": 2, "ambiguous": 1},
+    }
+    # The tier counts and the name-grain totals are two readings of one
+    # population, so they have to agree — a role whose tiers sum to something
+    # other than its total means one of the two queries changed alone.
+    for role, tiers in coverage["tiers_by_role"].items():
+        assert sum(tiers.values()) == coverage["names"][role]["total"]
+
+
+def test_identity_coverage_reports_every_grain_the_views_consume(live_db):
+    """The fixture, counted at each grain (see conftest's thesis_people).
+
+    Supervisors: Lovelace (000001, 000004), Hopper (000001), and one ambiguous
+    name (000003) — 3 distinct names over 4 supervision edges, 3 of them
+    resolved. 000002 and 000005 name no supervisor at all, which is why the
+    thesis-grain denominator is 3 and not 5.
+    """
+    coverage = theses.identity_coverage(live_db)
+    assert coverage["names"] == {
+        "author": {"total": 4, "resolved": 1},
+        "supervisor": {"total": 3, "resolved": 2},
+    }
+    assert coverage["supervision_edges"] == {"total": 4, "resolved": 3}
+    assert coverage["theses"] == {
+        "total": 5,
+        "listing_a_supervisor": 3,
+        "with_a_resolved_supervisor": 2,
+        "fully_resolved": 2,
+    }
+    assert coverage["co_supervision_pairs"] == {"total": 1, "resolved": 1}
+    assert coverage["supervisor_people"] == 2
+
+
+def test_identity_coverage_grains_stay_internally_consistent(live_db):
+    """Invariants rather than corpus figures — these must hold at 18 theses, at
+    181, and after any reindex, which is the only thing a synthetic fixture can
+    honestly promise about the real corpus."""
+    coverage = theses.identity_coverage(live_db)
+    for grain in ("supervision_edges", "co_supervision_pairs"):
+        assert coverage[grain]["resolved"] <= coverage[grain]["total"]
+    for role in ("author", "supervisor"):
+        assert coverage["names"][role]["resolved"] <= coverage["names"][role]["total"]
+    th = coverage["theses"]
+    assert th["fully_resolved"] <= th["with_a_resolved_supervisor"]
+    assert th["with_a_resolved_supervisor"] <= th["listing_a_supervisor"] <= th["total"]
+    # One name is at most one edge per thesis, and aliasing only ever collapses
+    # names into FEWER people (91 -> 64 on the real corpus) — never more.
+    assert coverage["names"]["supervisor"]["total"] <= coverage["supervision_edges"]["total"]
+    assert coverage["supervisor_people"] <= coverage["names"]["supervisor"]["resolved"]
+
+
+def test_identity_coverage_counts_a_pair_lost_to_one_unresolved_name(live_db):
+    """The pair grain is keyed on NAME, not slug, and this is why: a third
+    supervisor who does not resolve still forms two co-supervision pairs with
+    the two who do, and both are lost. Keyed on slug that cost is invisible —
+    an unresolved name has no slug to count."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    conn.execute(
+        """
+        INSERT INTO thesis_people
+            (handle, name_raw, role, person_slug, match_status, match_confidence,
+             match_note, ordinal)
+        VALUES ('10316/000001', 'Nobody, Co Supervisor', 'supervisor', NULL,
+                'unmatched', 0.0, 'no row in people carries that surname', 2)
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    coverage = theses.identity_coverage(live_db)
+    # Three supervisor names on 000001 -> 3 pairs, only the resolved two of
+    # which survive; the thesis is no longer fully resolved but still has one.
+    assert coverage["co_supervision_pairs"] == {"total": 3, "resolved": 1}
+    assert coverage["theses"]["with_a_resolved_supervisor"] == 2
+    assert coverage["theses"]["fully_resolved"] == 1
+
+
+def test_identity_coverage_note_says_unresolved_authors_are_expected():
+    """The largest number this coverage reports is a third of author names
+    unresolved, and it is the matcher being correct. A reader shown a bare
+    percentage assumes every miss is a defect, so the note has to say so — and
+    it is rendered, not just carried (ui/src/views/Theses.jsx)."""
+    note = theses.IDENTITY_COVERAGE_NOTE
+    assert "correct answer, not a gap" in note
+    assert "docs/thesis-attribution.md" in note
 
 
 def test_a_thesis_with_no_people_rows_at_all_still_lists(live_db, tmp_path):

@@ -49,7 +49,7 @@ explicitly rather than dressing it up.
 """
 from __future__ import annotations
 
-from . import db
+from . import db, theses
 
 #: Applied by default to the ranked /collab/pairs table for co_project —
 #: pass min_weight=1 to see every pair including the near-meaningless ones.
@@ -98,14 +98,26 @@ CO_PROJECT_CAVEAT = (
     "measured numbers refer to."
 )
 
-CO_SUPERVISION_CAVEAT = (
+#: A TEMPLATE, not a renderable string — ``co_supervision_caveat()`` fills it
+#: from the live seed. It used to say "a handful of supervisor names ... do not
+#: resolve", written when the corpus was 18 theses. At 181 that "handful" is 35
+#: names over 47 supervision edges, costing 36 of 91 co-supervision pairs — and
+#: this string is RENDERED (ui/src/views/Collab.jsx), so it was actively
+#: misinforming a reader about the size of the graph they were looking at.
+#: Interpolating the measured counts instead of hardcoding them is what stops
+#: the same sentence going stale again on the next reindex.
+CO_SUPERVISION_CAVEAT_TEMPLATE = (
     "weight is the number of theses two people co-supervised together, "
     "restricted to supervisor rows with a resolved person_slug — an "
     "unmatched supervisor name is not a graph node (see "
-    "thesis_people.match_status). A handful of supervisor names on the real "
-    "theses do not resolve to a person and are silently excluded here, the "
-    "same way an unresolved name is excluded from every other per-person "
-    "figure in this app."
+    "thesis_people.match_status), the same way an unresolved name is excluded "
+    "from every other per-person figure in this app. Measured on the current "
+    "corpus that excludes {names} of {name_total} distinct supervisor names, "
+    "{edges} of {edge_total} supervision edges, and costs {pairs} of "
+    "{pair_total} co-supervision pairs — so this graph is smaller than the "
+    "corpus implies, by that much and no more. The same counts ride on every "
+    "co_supervision response as `excluded`, so nothing here has to be parsed "
+    "back out of this sentence."
 )
 
 CROSS_GROUP_CAVEAT = (
@@ -125,6 +137,51 @@ DEGREE_CAVEAT = (
     "floor 3. degree_full is the same count with the floor removed (floor "
     "1) and is never what sizes a node — it only ever appears on hover."
 )
+
+
+def co_supervision_excluded() -> dict:
+    """What an unresolved supervisor name costs this graph, as numbers.
+
+    The co-supervision graph drops every supervisor row with no
+    ``person_slug`` — correctly, since an unresolved name is not a person and
+    inventing a node for it would be the guess this app exists to avoid. But
+    dropping it silently and then rendering the survivors is how a graph comes
+    to look complete. These three counts are what the UI states instead.
+
+    Keyed on NAME, not slug, and that is the point: an unresolved name has no
+    slug, so nothing downstream of ``sql/collab_co_supervision.sql`` can see
+    what it cost. This reads the identity spine directly instead.
+
+    Delegates to ``theses.identity_coverage()`` rather than adding a second
+    query, so "how many supervisor names fail" has exactly one definition in
+    this app. ``theses`` imports only ``db``/``paths``, so this is not a cycle.
+    """
+    coverage = theses.identity_coverage()
+    names = coverage["names"]["supervisor"]
+    edges = coverage["supervision_edges"]
+    pairs = coverage["co_supervision_pairs"]
+    return {
+        "names": names["total"] - names["resolved"],
+        "name_total": names["total"],
+        "edges": edges["total"] - edges["resolved"],
+        "edge_total": edges["total"],
+        "pairs": pairs["total"] - pairs["resolved"],
+        "pair_total": pairs["total"],
+    }
+
+
+def excluded_for(kind: str) -> dict | None:
+    """``co_supervision_excluded()`` for co_supervision, ``None`` for
+    co_project — one accessor so every endpoint carries the key and none of
+    them has to know which kinds have an identity step in front of them."""
+    return co_supervision_excluded() if kind == "co_supervision" else None
+
+
+def co_supervision_caveat() -> str:
+    """``CO_SUPERVISION_CAVEAT_TEMPLATE`` with the live counts in it. A
+    function rather than a constant because the constant was wrong the moment
+    the corpus grew — see that template's own comment."""
+    return CO_SUPERVISION_CAVEAT_TEMPLATE.format(**co_supervision_excluded())
 
 
 def _co_project_pairs() -> list[dict]:
@@ -353,6 +410,11 @@ def summary() -> dict:
             "pair_count": len(weights),
             "pairs_below_floor": sum(1 for w in weights if w < DEFAULT_MIN_WEIGHT[kind]),
             "max_weight": max(weights) if weights else 0,
+            # Present on both kinds so the per-kind shape does not fork, and
+            # None for co_project because there is nothing to exclude there:
+            # project_people is already slug-keyed, so no identity decision
+            # stands between the seed and that graph.
+            "excluded": excluded_for(kind),
         }
     return result
 

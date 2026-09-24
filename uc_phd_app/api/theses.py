@@ -17,17 +17,21 @@ async def list_theses() -> dict:
     """Every thesis: title, author, supervisor(s), year, resolved research
     group(s) (or none), whether full text was indexed, and the source URL.
 
-    ``match_tiers`` reports how many distinct names the offline matcher
-    resolved and how many it could not; ``attribution_tiers`` reports how
-    many theses each of the two attribution signals agreed on — both
-    surfaced next to the data rather than left for someone to discover by
-    counting "(unattributed)" labels."""
+    ``identity_coverage`` reports how far the name -> person spine reaches —
+    per role, per supervision edge, per thesis and per co-supervision pair,
+    because one pooled name-grain rate describes none of them (see
+    ``theses.identity_coverage``); ``identity_note`` is the prose that says
+    which of those numbers is a gap and which is the correct answer.
+    ``attribution_tiers`` reports how many theses each of the two attribution
+    signals agreed on — all surfaced next to the data rather than left for
+    someone to discover by counting "(unattributed)" labels."""
     items = theses.list_theses()
     return {
         "theses": items,
         "caveat": theses.GROUP_CAVEAT,
         "attribution_note": theses.ATTRIBUTION_NOTE,
-        "match_tiers": theses.match_tiers(),
+        "identity_coverage": theses.identity_coverage(),
+        "identity_note": theses.IDENTITY_COVERAGE_NOTE,
         "attribution_tiers": theses.tier_breakdown(items),
     }
 

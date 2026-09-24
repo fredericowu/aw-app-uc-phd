@@ -25,7 +25,10 @@ def _validate_kind(kind: str) -> None:
 
 
 def _caveat_for(kind: str) -> str:
-    return collab.CO_PROJECT_CAVEAT if kind == "co_project" else collab.CO_SUPERVISION_CAVEAT
+    """co_supervision's caveat is BUILT, not a constant: it quotes how many
+    supervisor names, edges and pairs the identity step dropped, and those
+    numbers move with the corpus. See ``collab.co_supervision_caveat``."""
+    return collab.CO_PROJECT_CAVEAT if kind == "co_project" else collab.co_supervision_caveat()
 
 
 def _without_shared_ids(pair: dict) -> dict:
@@ -48,7 +51,7 @@ async def collab_summary() -> dict:
         **collab.summary(),
         "default_min_weight": collab.DEFAULT_MIN_WEIGHT,
         "graph_min_weight": collab.GRAPH_MIN_WEIGHT,
-        "caveats": {"co_project": collab.CO_PROJECT_CAVEAT, "co_supervision": collab.CO_SUPERVISION_CAVEAT},
+        "caveats": {"co_project": collab.CO_PROJECT_CAVEAT, "co_supervision": collab.co_supervision_caveat()},
     }
 
 
@@ -81,6 +84,7 @@ async def collab_pairs(
         "offset": offset,
         "pairs": page,
         "caveat": _caveat_for(kind),
+        "excluded": collab.excluded_for(kind),
         "cross_group_caveat": collab.CROSS_GROUP_CAVEAT,
     }
 
@@ -114,6 +118,7 @@ async def collab_graph(
     return {
         **result,
         "caveat": _caveat_for(kind),
+        "excluded": collab.excluded_for(kind),
         "degree_caveat": collab.DEGREE_CAVEAT,
         "cross_group_caveat": collab.CROSS_GROUP_CAVEAT,
     }
@@ -177,5 +182,6 @@ async def collab_person_neighbours(
         "total": len(collaborators),
         "collaborators": collaborators[:limit],
         "caveat": _caveat_for(kind),
+        "excluded": collab.excluded_for(kind),
         "cross_group_caveat": collab.CROSS_GROUP_CAVEAT,
     }

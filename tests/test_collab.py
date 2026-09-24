@@ -66,6 +66,45 @@ def test_co_supervision_excludes_unmatched_names(live_db):
     assert keys == {("ada", "grace")}
 
 
+def test_co_supervision_excluded_counts_what_the_graph_dropped(live_db):
+    """``test_co_supervision_excludes_unmatched_names`` above proves the drop is
+    correct. This proves it is COUNTED — the drop used to be silent, and a graph
+    you cannot see the missing nodes of reads as complete.
+
+    The fixture's one unresolved supervisor name (thesis 000003's ambiguous
+    one) is 1 of 3 names and 1 of 4 edges; it is that thesis's only supervisor,
+    so it costs no pair.
+    """
+    assert collab.co_supervision_excluded() == {
+        "names": 1,
+        "name_total": 3,
+        "edges": 1,
+        "edge_total": 4,
+        "pairs": 0,
+        "pair_total": 1,
+    }
+
+
+def test_excluded_is_none_for_co_project_which_has_no_identity_step(live_db):
+    """project_people is already slug-keyed, so no name -> person decision
+    stands between the seed and that graph. Reporting 0 excluded there would
+    imply a step that was measured and found clean; None says there is none."""
+    assert collab.excluded_for("co_project") is None
+    assert collab.excluded_for("co_supervision") == collab.co_supervision_excluded()
+
+
+def test_co_supervision_caveat_carries_its_numbers_instead_of_a_handful(live_db):
+    """It used to read "a handful of supervisor names ... do not resolve",
+    written at 18 theses and still rendered at 181, where the handful was 35
+    names over 47 edges. Built from the live counts now, so every placeholder
+    must actually be filled — a stray ``{name}`` ships to the screen."""
+    caveat = collab.co_supervision_caveat()
+    assert "a handful" not in caveat
+    assert "{" not in caveat and "}" not in caveat
+    assert "excludes 1 of 3 distinct supervisor names" in caveat
+    assert "1 of 4 supervision edges" in caveat
+
+
 def test_co_supervision_cross_group_is_none_when_a_person_has_no_groups(live_db):
     """'grace' is on no project at all, so she carries an empty group set —
     cross_group must be null (unknown), never a guessed True/False."""
@@ -84,6 +123,10 @@ def test_summary_reports_people_on_2_or_more_projects(live_db):
     assert s["people_on_multiple_projects"] == 1
     assert s["co_project"]["pair_count"] == 1
     assert s["co_supervision"]["pair_count"] == 1
+    # Both kinds carry the key so the per-kind shape does not fork; only the
+    # one with an identity step in front of it carries numbers.
+    assert s["co_project"]["excluded"] is None
+    assert s["co_supervision"]["excluded"]["edge_total"] == 4
 
 
 def test_neighbours_returns_the_other_person_sorted_by_weight(live_db):
@@ -173,6 +216,27 @@ def test_pairs_route_co_supervision_has_no_normalized_weight_and_default_floor_1
     assert body["min_weight"] == 1
     assert body["total"] == 1
     assert body["pairs"][0]["weight_normalized"] is None
+
+
+def test_every_co_supervision_route_ships_the_exclusion_as_data(client):
+    """The three places a reader meets this graph — the ranked table, the
+    node-link graph and one person's neighbourhood — each carry ``excluded``,
+    so none of them has to have the numbers read back out of the caveat prose.
+    The graph matters most: a node that was never drawn cannot be counted."""
+    for path in (
+        "/api/collab/pairs?kind=co_supervision",
+        "/api/collab/graph?kind=co_supervision",
+        "/api/collab/people/ada?kind=co_supervision",
+    ):
+        body = client.get(path).json()
+        assert body["excluded"]["names"] == 1, path
+        assert body["excluded"]["edge_total"] == 4, path
+        assert "a handful" not in body["caveat"], path
+
+
+def test_co_project_routes_carry_the_key_with_nothing_in_it(client):
+    for path in ("/api/collab/pairs?kind=co_project", "/api/collab/graph?kind=co_project"):
+        assert client.get(path).json()["excluded"] is None, path
 
 
 def test_pairs_route_rejects_an_unknown_kind(client):

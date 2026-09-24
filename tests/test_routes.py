@@ -264,7 +264,12 @@ def test_theses_list_resolves_identity_from_the_seed(client):
     # How far the identity spine reaches, and how far the two attribution
     # signals corroborate each other — both reported next to the data rather
     # than left for a reader to count.
-    assert body["match_tiers"] == {"exact": 3, "unmatched": 3, "ambiguous": 1}
+    assert body["identity_coverage"]["tiers_by_role"] == {
+        "author": {"exact": 1, "unmatched": 3},
+        "supervisor": {"exact": 2, "ambiguous": 1},
+    }
+    assert body["identity_coverage"]["supervision_edges"] == {"total": 4, "resolved": 3}
+    assert "correct answer, not a gap" in body["identity_note"]
     assert body["attribution_tiers"] == {
         "corroborated": 1,
         "contested": 1,

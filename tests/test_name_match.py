@@ -11,6 +11,18 @@ feeds it a lookup table, and nothing in ``analysis/name_match.py`` mentions a
 person — the rules are general and the fixture is the evidence they reproduce
 careful human judgement. Hardcoding a name to force this green would convert
 a validation asset into a lookup table and destroy the only thing it proves.
+
+**GREEN HERE DOES NOT MEAN A RULE CHANGE IS SAFE.** The fixture covers the 18
+theses it documents; the corpus is 181. Two relaxations of ``_fits()`` were
+implemented and measured against the real corpus and BOTH produced a
+confidently wrong person — ``"Fonseca, José Carlos"`` -> ``Carlos M. Fonseca``
+and ``"Cruz, Luís Alberto da Silva"`` -> ``Luís Silva`` — while every test in
+this file stayed green, because neither name is in the 50. The fixture's role
+is unchanged and it is still the most valuable artefact here, but it can no
+longer police the matcher's rules on its own: a rule change has to be measured
+against all 181 theses for new matches AND inspected for wrong ones.
+``docs/thesis-attribution.md`` ("Two rejected relaxations") has both, with the
+edge counts each bought.
 """
 from __future__ import annotations
 

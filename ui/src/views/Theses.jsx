@@ -84,6 +84,48 @@ function GroupChips({ groups, attribution }) {
   );
 }
 
+// The supervisor side at the EDGE grain, which is what the advisor and
+// collaboration views actually consume — a supervisor on ten theses is ten
+// advisor edges, so the name-grain number understates what one failure costs.
+// Deliberately not the pooled 283-name figure: that one mixes in the authors,
+// a third of whom correctly do not resolve.
+function IdentityTile({ identity }) {
+  const edges = identity.supervision_edges;
+  return (
+    <Tile
+      value={edges.total ? `${Math.round((100 * edges.resolved) / edges.total)}%` : '—'}
+      label="Supervisor names resolved to a person"
+      note={
+        `${count(edges.resolved)} of ${count(edges.total)} supervision edges · `
+        + `${count(identity.supervisor_people)} distinct supervisors`
+      }
+    />
+  );
+}
+
+// The rest of the grains, as numbers rather than as an adjective. Every figure
+// comes off the payload: the version of this text that hardcoded "a handful"
+// was written at 18 theses and was still on screen at 181.
+function IdentitySentence({ identity }) {
+  const sup = identity.names.supervisor;
+  const author = identity.names.author;
+  const th = identity.theses;
+  const pairs = identity.co_supervision_pairs;
+  return (
+    <>
+      {count(sup.total - sup.resolved)} of {count(sup.total)} distinct supervisor names do not
+      resolve, so {count(th.with_a_resolved_supervisor)} of {count(th.listing_a_supervisor)} theses
+      that name a supervisor have at least one resolved and {count(th.fully_resolved)} have all of
+      them; {count(pairs.total - pairs.resolved)} of {count(pairs.total)} co-supervision pairs are
+      lost with them. {count(author.total - author.resolved)} of {count(author.total)} author names
+      are unresolved, which is expected rather than a gap.{' '}
+      {count(th.total - th.listing_a_supervisor)} of {count(th.total)} theses name no supervisor at
+      all in their metadata — an extraction gap, not a matching one, and counted separately here for
+      that reason.
+    </>
+  );
+}
+
 export default function Theses({ onOpenThesis }) {
   const listState = useAsync(() => api.theses(), []);
   const groupsState = useAsync(() => api.thesesGroups(), []);
@@ -104,6 +146,11 @@ export default function Theses({ onOpenThesis }) {
           // what let 35 theses tagged with all six look like a success.
           const corroborated = tiers.corroborated || 0;
           const singleSignal = (tiers['people-only'] || 0) + (tiers['content-only'] || 0);
+          // How far the name -> person spine reaches. Until this card it was
+          // computed, shipped on /api/theses, and rendered NOWHERE — which is
+          // the "silently omit the gap" outcome this view was supposed to
+          // avoid. Optional so an older payload still renders.
+          const identity = data.identity_coverage;
           return (
             <>
               <div className="tiles">
@@ -130,7 +177,14 @@ export default function Theses({ onOpenThesis }) {
                       .join(' · ') || undefined
                   }
                 />
+                {identity ? <IdentityTile identity={identity} /> : null}
               </div>
+
+              {identity ? (
+                <Caveat label="Identity coverage">
+                  <IdentitySentence identity={identity} /> {data.identity_note}
+                </Caveat>
+              ) : null}
 
               <AsyncBoundary state={groupsState}>
                 {(g) => {

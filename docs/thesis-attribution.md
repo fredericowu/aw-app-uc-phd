@@ -256,3 +256,131 @@ and if it wins, flip it.
 131 PT and 129 EN abstracts go into one token bag against a mostly-English
 project corpus, so a PT-only thesis is scored on weaker evidence. That is part
 of why the tier is shown at all rather than a bare group label.
+
+---
+
+## Identity coverage at 181 theses (measured 2026-09-24)
+
+The corpus went from the 18 theses this document verified by hand to all 181
+DEI doctoral theses, so ~300 names now pass through
+`analysis/name_match.py` with no human verification. **The decision taken was
+to accept the current matcher coverage**, change nothing in the matcher, and
+spend the work on measuring at the grain the views consume and rendering the
+gap where those views live. What follows is the measurement that decision
+rests on, and the two rule changes that were implemented, measured and
+rejected — recorded so nobody re-runs them.
+
+### Why the 32.9% headline is the wrong number
+
+93 of 283 distinct names unresolved (32.9%) pools two populations with
+**opposite expected outcomes**. `people` holds *current CISUC staff*: a
+doctoral student is not staff, so an unresolved author is the matcher being
+right, while an unresolved supervisor is a real hole in the advisor and
+collaboration views. One rate describes neither.
+
+| grain | figure |
+|---|---|
+| Author names | 181 distinct, **59 unresolved (33%)** — expected, not a gap |
+| Supervisor names | 126 distinct, **35 unresolved (28%)**, 0 ambiguous |
+| **Supervision edges** | **194 / 241 resolved (80%)** — the honest headline for the advisor view |
+| Theses listing ≥1 supervisor | 157 / 181 |
+| …with ≥1 resolved supervisor | **143 / 157 (91%)** |
+| …with *all* supervisors resolved | 114 / 157 (73%) |
+| Co-supervision pairs (name grain) | 91 occurrences, **55 both-resolved (36 lost)** |
+| Distinct supervisor **people** | **64**, from 91 resolved names |
+
+A name appearing in both roles (24 of 283) is counted under each, which is why
+181 + 126 > 283. All of it is derivable from the committed seed — no rebuild
+needed — and it is now a query, `sql/thesis_attribution_coverage.sql`, rather
+than a figure in a comment: every number above went stale once already.
+
+**Two findings that reframed the work.**
+
+1. *The resolved side already aliases correctly and no view exploits it.* 91
+   resolved supervisor names collapse to 64 slugs; 26 slugs are reached by more
+   than one variant. Edmundo Monteiro supervises **15** theses under 2 variants
+   while the busiest single *name* is 10. `sql/collab_co_supervision.sql`
+   already keys on `person_slug` and is correct; `uc_phd_app/theses.py`'s
+   `by_name` keys on `name_raw`, which is right for rendering one thesis and
+   **wrong for any ranking**. There is no advisor-ranking view yet — so this is
+   a constraint for whoever builds one, not a bug to fix now. A ranking keyed
+   on `name_raw` would under-report Edmundo Monteiro by a third and nothing
+   would fail.
+2. *The unresolved tail is flat, which kills directed human verification.* The
+   35 unresolved names form **31 likely-person clusters over 47 lost edges**;
+   the largest is 6 edges (`Correia, António [Dourado [Pereira]]`), then 4,
+   then 3, and **25 of 31 are 1–2 edges**. Every one of the top 9 supervisors
+   by thesis count is already `exact`. There is no "verify the top N" slice:
+   ~31 human decisions to recover 19% of the graph. The only slice with real
+   leverage is the top 2 clusters — 2 decisions for 10 edges — a reasonable
+   future card *if* the advisor view ships and those holes are visibly
+   annoying.
+
+**A ceiling no matcher can raise.** `people` is current staff, so edge
+resolution degrades by decade: **1990s 60%, 2000s 64%, 2010s 79%, 2020s 89%**.
+8 of the 35 unresolved supervisors (Braun, Domingo-Pascual, Pentikousis,
+Zerlauth, Frerichs, Cerejeira, Phithakkitnukoon, Travasso) share no surname
+token with any row in `people` at all — external co-supervisors, correctly
+absent.
+
+### Two rejected relaxations — do not re-run these
+
+Both were implemented against the real corpus and measured. Both bought a
+handful of edges with a **confidently wrong person**, which is the one failure
+mode this whole module exists to prevent.
+
+**A. Relax the stray-initial rule.** `_fits()` rejects a candidate whose
+single-letter token abbreviates no *thesis* given name, so `"Fonseca, Carlos"`
+misses `Carlos M. Fonseca`. Patching exactly that: **+4 of 241 edges
+(80% → 82%)**, no new ambiguity. It also resolves `"Fonseca, José Carlos"` to
+**`Carlos M. Fonseca`** — wrong, because `people` separately holds `José Carlos
+Coelho Martins da Fonseca`, which rule 2 rejects on `coelho`/`martins`, so no
+ambiguity flag catches it. 4 edges for one silent misattribution.
+
+**B. Thesis-side alias clustering.** Link an unresolved name to an
+already-resolved variant of the same person (`"Oliveira, Marília Pascoal
+Curado de"` → `marilia-curado`). Best of the three on paper: **+13 edges
+(80% → 86%)**, 8 unique recoveries, co-supervision pairs 60 → 67, **0 new
+people invented**. It also produces `"Cruz, Luís Alberto da Silva"` →
+**`Luís Silva`**. Luís Cruz is not Luís Silva: a shared primary given name
+plus a token-subset relation is not identity. Rejected.
+
+**C. A hand-written lookup table to force 100%** was ruled out by the Product
+Owner before any of this, and the two measurements above are the independent
+case for it: every automated shortcut to a higher number produced a wrong
+person.
+
+### The golden fixture can no longer police rule changes
+
+**Both rejected rules left `tests/test_name_match.py` completely green.** This
+document's machine-readable twin covers the 18-thesis cohort, and every false
+positive above involves a name outside it. The fixture's role is unchanged and
+it is still the most valuable artefact in the repo — but "the golden fixture
+passes" must never again be read as "this rule change is safe at 181". A rule
+change now has to be measured over all 181 theses for what it newly matches
+*and* inspected for what it matches wrongly. The same warning is on
+`tests/test_name_match.py`'s module docstring, where a coder will actually meet
+it.
+
+### What this makes harder later
+
+- **Coverage is now a published number** (`/api/theses`'s `identity_coverage`,
+  rendered on the Theses view). A corpus extension that drops 80% to 70% is a
+  visible regression — that is the point, but the reindex inherits a figure to
+  defend.
+- **The multi-grain metric is more code than one dict.** A future third role
+  (examiner, co-author) has to be added in three places: the SQL, the payload,
+  the tile.
+- **S7's group attribution sits on top of this layer** and carries this
+  coverage as a multiplier. It should quote it rather than re-derive it.
+
+### Out of scope here, and bigger: 24 theses name no supervisor at all
+
+**24 of 181 theses (1997–2013; 23 of them also have no extracted full text)
+carry no supervisor in their front matter.** That is an *extraction* gap, not a
+matching one, and at ~1.5 supervisors per thesis it is worth roughly 36 edges —
+comparable to the entire 47-edge unmatched loss. It is also why "79% of all 181
+theses have a resolved supervisor" understates the matcher: against the 157
+that actually list one it is 91%. Routed to the Product Owner as a separate
+card against the Estudo Geral extractor; it likely buys more advisor-view
+coverage than any identity work remaining.

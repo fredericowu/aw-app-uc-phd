@@ -32,13 +32,20 @@ def _caveat_for(kind: str) -> str:
 
 
 def _without_shared_ids(pair: dict) -> dict:
-    """``enriched_pairs`` is one internal shape with two deliberate exposure
-    decisions. ``shared_ids`` exists for the graph, whose edges need to name
-    what they stand for; the ranked table is a table of PEOPLE and a 50-row
-    page of it would otherwise carry ~1,400 project ids nothing renders.
-    ``/collab/people/{slug}`` needs no equivalent — ``collab.neighbours``
-    builds its rows key by key rather than returning pairs verbatim, so it
-    never had them."""
+    """``enriched_pairs`` is one internal shape and ``/collab/pairs`` is the
+    one endpoint that still strips ``shared_ids`` out of it.
+
+    It used to be two endpoints. ``/collab/people/{slug}`` now names the
+    shared projects/theses per row (a UI column asked for by name), and the
+    measured cost of that is bounded by the anchor: +4.8 KB on the 17-row
+    case that motivated it, +6.9 KB on the worst person in the corpus at the
+    100-row cap — against ~100 KB ``/collab/graph`` already ships.
+
+    ``/collab/pairs`` is a PAGINATED BROWSE over the whole graph, not a
+    neighbourhood, and nothing renders the ids there: a 50-row page carries
+    ~1,400 of them and measured 2.1x larger with them in. So the strip stays,
+    and stays a decision rather than an accident —
+    ``test_pairs_route_does_not_leak_shared_ids`` pins it."""
     return {k: v for k, v in pair.items() if k != "shared_ids"}
 
 
@@ -168,20 +175,46 @@ async def collab_person_neighbours(
     limit: int = Query(default=100, ge=1, le=500),
 ) -> dict:
     """One person's collaboration neighbourhood — the anchored view the
-    design notes ask for instead of drawing the whole 4,242-edge graph."""
+    design notes ask for instead of drawing the whole 4,242-edge graph.
+
+    Carries ``shared_ids`` per row plus a flat ``shared_labels`` id -> title
+    dictionary, the same shape (and for the same reason) as
+    ``/collab/graph``: the anchor's 17 rows at the default floor name 194 ids
+    over 45 distinct projects, so inlining a title on every reference costs
+    ~4x the dictionary.
+
+    On ``co_project`` only, each row additionally carries ``co_supervised``
+    (thesis handles that pair co-supervised) with its own
+    ``co_supervised_labels`` dictionary. TWO namespaces, deliberately kept
+    apart: project ids are ints, thesis handles are slash-bearing strings
+    ("10316/000001"), and one merged dict would work today only by accident
+    of no collision. ``co_supervised`` is never summed into ``weight`` or
+    folded into ``shared_ids`` — see ``collab.py``'s never-summed invariant.
+    """
     _validate_kind(kind)
     person = db.one("SELECT slug, name FROM people WHERE slug = :slug", {"slug": slug})
     if person is None:
         raise HTTPException(status_code=404, detail=f"no person {slug!r}")
     groups = collab.person_groups().get(slug, set())
     collaborators = collab.neighbours(slug, kind, min_weight)
-    return {
+    # Slice BEFORE building the labels: a label is only worth sending for an
+    # id a returned row actually references, and `total` still reports the
+    # unsliced count so the UI can say how much it is not showing.
+    page = collaborators[:limit]
+    body = {
         "person": {"slug": person["slug"], "name": person["name"], "groups": sorted(groups)},
         "kind": kind,
         "min_weight": min_weight,
         "total": len(collaborators),
-        "collaborators": collaborators[:limit],
+        "collaborators": page,
+        "shared_labels": collab.labels_for(kind, {i for c in page for i in c["shared_ids"]}),
+        "shared_noun": collab.SHARED_NOUN[kind],
+        "shared_noun_plural": collab.SHARED_NOUN_PLURAL[kind],
         "caveat": _caveat_for(kind),
         "excluded": collab.excluded_for(kind),
         "cross_group_caveat": collab.CROSS_GROUP_CAVEAT,
     }
+    if kind == "co_project":
+        handles = {h for c in page for h in c["co_supervised"]}
+        body["co_supervised_labels"] = collab.labels_for("co_supervision", handles)
+    return body

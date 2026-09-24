@@ -35,6 +35,39 @@ function CrossGroupCell({ value }) {
   return value ? 'yes' : 'no';
 }
 
+/** Handles contain a slash ("10316/000001"): encode each segment on its own
+ *  and rejoin with a literal "/", never encodeURIComponent(handle) whole —
+ *  that would escape the slash and stop matching the backend's {handle:path}
+ *  route. Same idiom as App.jsx's openThesis and PersonDetail's thesis list. */
+const thesisHref = (handle) =>
+  `#/theses/${String(handle).split('/').map(encodeURIComponent).join('/')}`;
+const projectHref = (id) => `#/projects/${id}`;
+
+/** A row's shared projects/theses, named rather than only counted, resolved
+ *  through the response's own flat id -> title dictionary.
+ *
+ *  `String(id)`: JSON object keys are always strings, so project id 1 is
+ *  "1" in the dictionary while `shared_ids` keeps it as 1. Pinned on the
+ *  backend (test_person_neighbours_route_carries_shared_ids_labels_and_noun)
+ *  and already handled the same way in CollabGraph.jsx.
+ *
+ *  An empty list is an em dash, not a fallback to something else: 13 of the
+ *  17 rows on the view that asked for the co-supervision column have no
+ *  co-supervised thesis at all (25 of 282 pairs corpus-wide), and that
+ *  absence is the answer. */
+function SharedItems({ ids, labels, href }) {
+  if (!ids || !ids.length) return <span className="chart-note">—</span>;
+  return (
+    <span className="chips">
+      {ids.map((id) => (
+        <a key={String(id)} className="chip" href={href(id)}>
+          {labels?.[String(id)] ?? String(id)}
+        </a>
+      ))}
+    </span>
+  );
+}
+
 function FloorPicker({ kind, value, onChange }) {
   const pinned = kind === 'co_supervision';
   return (
@@ -188,6 +221,14 @@ function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
               Clear focus
             </button>
           </p>
+          {kind === 'co_project' ? (
+            <p className="chart-note">
+              Co-supervised theses is a separate relationship, listed alongside — never added to
+              Weight and never merged into Shared projects. Most rows are empty because most pairs
+              who share projects have not co-supervised a thesis together (25 of 282 pairs at the
+              default floor); that is the finding, not a gap.
+            </p>
+          ) : null}
           <DataTable
             columns={[
               { key: 'name', label: 'Collaborator', render: (r) => <PersonLink slug={r.slug}>{r.name}</PersonLink> },
@@ -195,6 +236,36 @@ function PersonNeighbourhood({ anchor, kind, minWeight, onClear }) {
               { key: 'weight', label: 'Weight', numeric: true, render: (r) => count(r.weight) },
               ...(kind === 'co_project'
                 ? [{ key: 'weight_normalized', label: 'Weight (size-normalised)', numeric: true, render: (r) => r.weight_normalized }]
+                : []),
+              // Kind-aware, from the response's own noun: "Shared projects"
+              // on co_project, "Shared theses" on co_supervision. The plural
+              // comes from the backend because "thesis" + "s" is "thesiss",
+              // which shipped live once — see collab.SHARED_NOUN_PLURAL.
+              {
+                key: 'shared_ids',
+                label: `Shared ${data.shared_noun_plural}`,
+                render: (r) => (
+                  <SharedItems
+                    ids={r.shared_ids}
+                    labels={data.shared_labels}
+                    href={kind === 'co_project' ? projectHref : thesisHref}
+                  />
+                ),
+              },
+              // A SECOND fact in a SECOND column, on co_project only: which
+              // theses this same pair co-supervised. Never added to Weight
+              // and never merged into Shared projects — two edge kinds, two
+              // nouns, two counts, never summed (see collab.py's docstring).
+              // On co_supervision the shared items already ARE the theses,
+              // so the column would just repeat the one to its left.
+              ...(kind === 'co_project'
+                ? [{
+                    key: 'co_supervised',
+                    label: 'Co-supervised theses',
+                    render: (r) => (
+                      <SharedItems ids={r.co_supervised} labels={data.co_supervised_labels} href={thesisHref} />
+                    ),
+                  }]
                 : []),
               { key: 'cross_group', label: 'Different groups?', render: (r) => <CrossGroupCell value={r.cross_group} /> },
             ]}

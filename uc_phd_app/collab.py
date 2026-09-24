@@ -20,7 +20,14 @@ Both are computed from a LONG-FORM query (one row per pair x shared item)
 aggregated here in Python, so every pair keeps ``shared_ids`` — the ids of
 the actual projects/theses behind its weight. That is what lets the graph
 answer "what do these two work on together?" instead of only "how much".
-Only ``/collab/graph`` exposes it; see ``api/collab.py``.
+``/collab/graph`` and ``/collab/people/{slug}`` expose it; ``/collab/pairs``
+deliberately still does not. See ``api/collab.py``.
+
+The person-anchored view additionally carries ``co_supervised`` on its
+``co_project`` rows (``co_supervised_for`` below) — the theses that same pair
+co-supervised. That is a SECOND fact rendered in a SECOND column with its own
+noun and its own count; it is not folded into ``weight`` or ``shared_ids``,
+and folding it in would break the never-summed invariant above.
 
 **Why a floor matters.** Of the 4,242 co_project pairs, most exist because
 two people happened to share exactly one project — a real but close to
@@ -276,6 +283,16 @@ def _shared_titles(kind: str) -> dict:
     return {row["handle"]: row["title"] for row in db.rows("SELECT handle, title FROM theses")}
 
 
+def labels_for(kind: str, ids) -> dict:
+    """``_shared_titles(kind)`` narrowed to exactly ``ids`` — the rule
+    ``graph()`` applies inline, named so the person route can apply the same
+    one to a different set. Only the ids the RETURNED rows reference: a label
+    for an id nothing renders is bytes nobody reads. An id with no row in the
+    table is dropped rather than guessed at."""
+    titles = _shared_titles(kind)
+    return {i: titles[i] for i in ids if i in titles}
+
+
 def enriched_pairs(kind: str) -> list[dict]:
     """Every pair for ``kind``, with names, group lists and ``cross_group``
     attached. The unfiltered, unsorted base every endpoint builds on."""
@@ -419,10 +436,53 @@ def summary() -> dict:
     return result
 
 
+def co_supervised_for(slug: str, supervision_pairs: list[dict]) -> dict[str, list[str]]:
+    """Pure: ``collaborator slug -> thesis handles`` that ``slug`` and that
+    person co-supervised together, from already-enriched ``co_supervision``
+    pairs (see ``enriched_pairs``). Touches no database.
+
+    Pure for the same reason ``build_graph`` is: the shared fixture has NO
+    pair that is both co_project and co_supervision — ``grace`` is on no
+    project at all — and widening it to create one flips Alpha's team size
+    from 2 to 3, which breaks ``weight_normalized == 1.0`` and every group
+    assertion that rides on it. So the cross-kind merge is unit-tested with
+    hand-written pair dicts, and the route only has to prove the key is
+    there and empty.
+
+    No floor is applied, on purpose. The ``min_weight`` the caller passed is
+    a floor on SHARED PROJECTS; co-supervising one thesis together is a
+    different fact at a different grain, and silently dropping it because a
+    project floor was set would make the column lie about what it counts.
+    """
+    index: dict[str, list[str]] = {}
+    for pair in supervision_pairs:
+        if pair["person_a_slug"] == slug:
+            other = pair["person_b_slug"]
+        elif pair["person_b_slug"] == slug:
+            other = pair["person_a_slug"]
+        else:
+            continue
+        index.setdefault(other, []).extend(pair["shared_ids"])
+    return index
+
+
 def neighbours(slug: str, kind: str, min_weight: int) -> list[dict]:
     """Every collaborator of ``slug`` for ``kind``, sorted by weight desc —
     the person-anchored neighbourhood view. Empty is a valid answer (someone
-    whose only project had no co-listed person), not an error."""
+    whose only project had no co-listed person), not an error.
+
+    Each row carries ``shared_ids`` — WHICH projects/theses the weight stands
+    for — because the ranked table on this view now names them per row. A
+    ``co_project`` row additionally carries ``co_supervised``: the theses that
+    pair co-supervised, a separately-named block so the two kinds stay two
+    columns with two nouns and two counts, never one number.
+    """
+    # Built once for the whole neighbourhood rather than per row: the
+    # co_supervision side is 53 pairs against co_project's 4,242, so this
+    # costs a second pass over the smaller of the two graphs (~7 ms).
+    co_supervised = (
+        co_supervised_for(slug, enriched_pairs("co_supervision")) if kind == "co_project" else {}
+    )
     rows = []
     for pair in enriched_pairs(kind):
         if pair["weight"] < min_weight:
@@ -433,15 +493,18 @@ def neighbours(slug: str, kind: str, min_weight: int) -> list[dict]:
             other = "a"
         else:
             continue
-        rows.append(
-            {
-                "slug": pair[f"person_{other}_slug"],
-                "name": pair[f"person_{other}"],
-                "groups": pair[f"person_{other}_groups"],
-                "weight": pair["weight"],
-                "weight_normalized": pair["weight_normalized"],
-                "cross_group": pair["cross_group"],
-            }
-        )
+        other_slug = pair[f"person_{other}_slug"]
+        row = {
+            "slug": other_slug,
+            "name": pair[f"person_{other}"],
+            "groups": pair[f"person_{other}_groups"],
+            "weight": pair["weight"],
+            "weight_normalized": pair["weight_normalized"],
+            "cross_group": pair["cross_group"],
+            "shared_ids": pair["shared_ids"],
+        }
+        if kind == "co_project":
+            row["co_supervised"] = co_supervised.get(other_slug, [])
+        rows.append(row)
     rows.sort(key=lambda r: (-r["weight"], r["name"]))
     return rows

@@ -412,6 +412,67 @@ def test_build_graph_edge_carries_weight_normalized_and_cross_group():
     assert edge["cross_group"] is True
 
 
+# ── uc_phd_app/collab.py — co_supervised_for() (pure, hand-written pairs) ──
+#
+# Same reason build_graph is pure and tested this way, one step worse: the
+# fixture has no pair that is BOTH co_project and co_supervision, and it
+# cannot get one. 'grace' (the only co-supervisor besides 'ada') is on no
+# project at all, and putting her on Alpha to manufacture the overlap flips
+# that project's team_size from 2 to 3 — which breaks
+# test_co_project_weight_normalized_divides_by_team_size_minus_one and the
+# group assertions that ride on Alpha's membership. So the overlap the real
+# corpus does have (25 of 282 co_project pairs at the default floor) is
+# exercised here, over hand-written co_supervision pairs.
+
+
+def test_co_supervised_for_indexes_by_the_other_person():
+    pairs = [_pair("ada", "bob", 2, shared_ids=["10316/1", "10316/2"])]
+    assert collab.co_supervised_for("ada", pairs) == {"bob": ["10316/1", "10316/2"]}
+
+
+def test_co_supervised_for_matches_when_the_anchor_is_person_b():
+    """Pair order is (person_a, person_b) as the query emitted it, not
+    'anchor first' — the anchor is as often the b side, exactly like
+    ``neighbours``."""
+    pairs = [_pair("bob", "ada", 1, shared_ids=["10316/1"])]
+    assert collab.co_supervised_for("ada", pairs) == {"bob": ["10316/1"]}
+
+
+def test_co_supervised_for_ignores_pairs_the_anchor_is_not_in():
+    pairs = [_pair("bob", "cleo", 1, shared_ids=["10316/9"])]
+    assert collab.co_supervised_for("ada", pairs) == {}
+
+
+def test_co_supervised_for_a_person_who_co_supervises_nothing_is_empty():
+    assert collab.co_supervised_for("ada", []) == {}
+
+
+def test_co_supervised_for_applies_no_floor_of_its_own():
+    """The caller's min_weight floors SHARED PROJECTS. A pair that
+    co-supervised exactly one thesis is still a real, and per the corpus a
+    rare, fact — dropping it because a project floor of 4 was set would make
+    the column count something other than what it says."""
+    pairs = [_pair("ada", "bob", 1, shared_ids=["10316/1"])]
+    assert collab.co_supervised_for("ada", pairs) == {"bob": ["10316/1"]}
+
+
+# ── uc_phd_app/collab.py — labels_for() ────────────────────────────────────
+
+
+def test_labels_for_narrows_to_exactly_the_ids_given(live_db):
+    """Projects 2 and 3 exist in the fixture. Asking for id 1 must not ship
+    their titles — this is the rule that keeps the person route's payload
+    proportional to the rows it actually returned, not to the table."""
+    assert collab.labels_for("co_project", [1]) == {1: "Alpha Project"}
+
+
+def test_labels_for_drops_an_id_with_no_row_rather_than_guessing(live_db):
+    assert collab.labels_for("co_project", [1, 999]) == {1: "Alpha Project"}
+    assert collab.labels_for("co_supervision", ["10316/000001", "10316/nope"]) == {
+        "10316/000001": "Thesis A"
+    }
+
+
 def test_graph_rejects_an_unknown_kind(live_db):
     with pytest.raises(ValueError):
         collab.graph("bogus", min_weight=1)
@@ -495,9 +556,56 @@ def test_pairs_route_does_not_leak_shared_ids(client):
     assert body["pairs"] and all("shared_ids" not in p for p in body["pairs"])
 
 
-def test_person_neighbours_route_does_not_leak_shared_ids(client):
+def test_person_neighbours_route_carries_shared_ids_labels_and_noun(client):
+    """The REVERSE of what this route used to pin. It stripped ``shared_ids``
+    because nothing rendered them; the ranked table on this view now names
+    the shared projects per row, so the strip would be the bug. Measured
+    cost of the reversal: +4.8 KB on the 17-collaborator case that asked for
+    it, +6.9 KB worst-in-corpus at the 100-row cap.
+
+    ``shared_labels`` is string-keyed while ``shared_ids`` stays [1] — JSON
+    object keys are always strings. Same asymmetry as the graph route, pinned
+    here too because this is now a second consumer that has to do String(id).
+    """
     body = client.get("/api/collab/people/ada?kind=co_project&min_weight=1").json()
-    assert body["collaborators"] and all("shared_ids" not in c for c in body["collaborators"])
+    assert [c["shared_ids"] for c in body["collaborators"]] == [[1]]
+    assert body["shared_labels"] == {"1": "Alpha Project"}
+    assert body["shared_noun"] == "project"
+    assert body["shared_noun_plural"] == "projects"
+
+
+def test_person_neighbours_route_co_supervision_names_theses_not_projects(client):
+    """Kind-aware: on co_supervision the shared items are thesis HANDLES with
+    thesis titles, and the noun the UI heads the column with follows. 'thesis'
+    + 's' is 'thesiss', which is why the plural is carried, not built."""
+    body = client.get("/api/collab/people/ada?kind=co_supervision&min_weight=1").json()
+    assert [c["shared_ids"] for c in body["collaborators"]] == [["10316/000001"]]
+    assert body["shared_labels"] == {"10316/000001": "Thesis A"}
+    assert body["shared_noun_plural"] == "theses"
+
+
+def test_person_neighbours_route_carries_co_supervised_block_on_co_project(client):
+    """The cross-kind column, at the route grain. The fixture has NO pair that
+    is both co_project and co_supervision on purpose (see
+    ``collab.co_supervised_for``'s docstring for why widening it is
+    forbidden), so what the route can prove is that the key is PRESENT and
+    correctly empty — the merge itself is proved by
+    ``test_co_supervised_for_*`` above, over hand-written pairs.
+
+    Empty, not absent: 13 of the 17 rows on the real view that motivated this
+    show no co-supervision at all, and the UI renders that as an em dash
+    rather than a missing column."""
+    body = client.get("/api/collab/people/ada?kind=co_project&min_weight=1").json()
+    assert [c["co_supervised"] for c in body["collaborators"]] == [[]]
+    assert body["co_supervised_labels"] == {}
+
+
+def test_person_neighbours_route_omits_co_supervised_on_co_supervision(client):
+    """On co_supervision the shared items ARE the theses — a second
+    'Co-supervised theses' column would repeat the first one."""
+    body = client.get("/api/collab/people/ada?kind=co_supervision&min_weight=1").json()
+    assert all("co_supervised" not in c for c in body["collaborators"])
+    assert "co_supervised_labels" not in body
 
 
 def test_summary_route_carries_graph_min_weight(client):

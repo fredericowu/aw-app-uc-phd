@@ -85,6 +85,33 @@ def test_co_supervision_excluded_counts_what_the_graph_dropped(live_db):
     }
 
 
+def test_co_supervision_excluded_pairs_is_nonzero_when_a_pair_is_actually_lost(live_db):
+    """The fixture's one co-supervision pair (ada, grace) always resolves in
+    full, so ``pairs`` sits at 0 on every other test in this file — a
+    computation that always returned 0 would be indistinguishable from a
+    correct one at this layer. Mirrors test_theses.py's own mutation (add an
+    unresolved third supervisor to thesis 000001) one level down, at the
+    ``collab.co_supervision_excluded()`` grain the UI actually renders: the
+    new name forms two more pairs with the two who already resolve, and both
+    are lost."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    conn.execute(
+        """
+        INSERT INTO thesis_people
+            (handle, name_raw, role, person_slug, match_status, match_confidence,
+             match_note, ordinal)
+        VALUES ('10316/000001', 'Nobody, Co Supervisor', 'supervisor', NULL,
+                'unmatched', 0.0, 'no row in people carries that surname', 2)
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    assert collab.co_supervision_excluded()["pairs"] > 0
+
+
 def test_excluded_is_none_for_co_project_which_has_no_identity_step(live_db):
     """project_people is already slug-keyed, so no name -> person decision
     stands between the seed and that graph. Reporting 0 excluded there would

@@ -105,6 +105,18 @@ export default function Overview() {
         note="Real counts across the corpus — each one comes from the same committed queries as the rest of the app, not a hand-typed estimate."
       >
         <AtAGlance />
+        <Caveat label="Data sources">
+          Theses come from Estudo Geral, UC's institutional repository — the
+          DEI{' '}
+          <a href="https://estudogeral.uc.pt/handle/10316/103" target="_blank" rel="noreferrer noopener">
+            "Teses de Doutoramento" collection
+          </a>
+          . Projects come from CISUC's own{' '}
+          <a href="https://www.cisuc.uc.pt/en/projects" target="_blank" rel="noreferrer noopener">
+            projects listing
+          </a>
+          .
+        </Caveat>
       </Section>
       <Section
         title="Coverage"

@@ -65,16 +65,35 @@ function parseHash() {
   return { tab: tab ? tab.id : 'overview', projectId: null, thesisHandle: null, personSlug: null };
 }
 
-// How long the tab's history already was when this document loaded. A person
-// is reachable from five places, so their Back button means "wherever you came
-// from" — but a deep-linked profile has no in-app origin to return to, and
-// `history.length <= 1` does not detect that reliably: a tab opened
-// programmatically (or by some browsers' new-tab flow) carries an about:blank
-// entry first, so length is already 2 and back() lands on a blank page.
-// Verified live — Playwright's own new tab does exactly that. Comparing
-// against the length at load answers the real question ("has this session
-// navigated inside the app yet?") in every one of those cases.
-const HISTORY_LENGTH_AT_LOAD = window.history.length;
+// A person is reachable from five places, so their Back button means
+// "wherever you came from" — but a deep-linked profile has no in-app origin
+// to return to. Neither `history.length <= 1` nor a length captured once at
+// load can tell those apart from a real predecessor: `history.length` is
+// tab-global (an about:blank first entry from some new-tab flows already
+// makes it 2), and it is identical before and after a full reload, so a
+// reload-then-Back on a real predecessor falls through to the fallback.
+//
+// Instead the app stamps its own monotonic nav depth into `history.state`
+// per entry — the same shape React Router v6 uses (`{ idx }`) — because
+// state is per-entry and survives a full reload while `history.length`
+// does not answer per-entry questions at all.
+let lastNavDepth = null;
+function syncNavDepth() {
+  const state = window.history.state;
+  if (state && typeof state.ucPhdIdx === 'number') {
+    // Popped to (or reloaded on) an entry this app already stamped.
+    lastNavDepth = state.ucPhdIdx;
+    return;
+  }
+  lastNavDepth = lastNavDepth === null ? 0 : lastNavDepth + 1;
+  // Two-argument replaceState only — this bundle is served from two
+  // different roots (see the header comment and api.js), and a relative
+  // URL third argument resolves differently under each, breaking deep
+  // links on one of them. Spread the existing state rather than replacing
+  // it wholesale, so this never collides with anything else that writes
+  // history state later.
+  window.history.replaceState({ ...state, ucPhdIdx: lastNavDepth }, '');
+}
 
 function useTheme() {
   const [theme, setTheme] = useState(() => localStorage.getItem('uc-phd-theme') || 'system');
@@ -97,6 +116,14 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // parseHash() builds a new object on every hashchange, so this fires on
+  // the initial mount (seeding the landing entry at depth 0) and on every
+  // subsequent navigation, push or pop — the one seam that covers go() and
+  // PersonLink alike without either needing to call syncNavDepth itself.
+  useEffect(() => {
+    syncNavDepth();
+  }, [route]);
+
   const go = (hash) => {
     window.location.hash = hash;
   };
@@ -116,14 +143,14 @@ export default function App() {
   } else if (route.personSlug != null) {
     // ProjectDetail/ThesisDetail hard-code their origin because each is
     // reached from one place. A person is reached from five, so Back means
-    // "wherever you came from" — falling back to #/coordinators when this tab
-    // never navigated inside the app, which is exactly the deep-link case.
-    // See HISTORY_LENGTH_AT_LOAD for why that, not `history.length <= 1`.
+    // "wherever you came from" — falling back to #/coordinators when this
+    // entry has no in-app predecessor, which is exactly the deep-link case.
+    // See syncNavDepth for why nav depth, not history.length, answers that.
     body = (
       <PersonDetail
         slug={route.personSlug}
         onBack={() =>
-          (window.history.length > HISTORY_LENGTH_AT_LOAD
+          ((window.history.state?.ucPhdIdx ?? 0) > 0
             ? window.history.back()
             : go('#/coordinators'))
         }

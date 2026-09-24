@@ -182,6 +182,7 @@ export default function Search({ onOpenThesis }) {
       <div className="filters">
         <input
           type="search"
+          className="theses-search-input"
           value={input}
           placeholder="Ask a question, in Portuguese or English…"
           aria-label="Search the theses"

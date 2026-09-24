@@ -556,6 +556,13 @@ table.data tbody tr:hover {
   min-width: 260px;
 }
 
+/* Theses search: 3x the shared .filters input width — scoped to this one
+   field so the Bibliography/Collab/CollabGraph/Projects search boxes are
+   unaffected. */
+.filters input[type='search'].theses-search-input {
+  min-width: 780px;
+}
+
 .group-pills {
   display: flex;
   flex-wrap: wrap;

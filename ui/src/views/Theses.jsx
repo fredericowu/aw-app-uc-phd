@@ -180,6 +180,8 @@ export default function Theses({ onOpenThesis }) {
                 {identity ? <IdentityTile identity={identity} /> : null}
               </div>
 
+              <Search onOpenThesis={onOpenThesis} />
+
               {identity ? (
                 <Caveat label="Identity coverage">
                   <IdentitySentence identity={identity} /> {data.identity_note}
@@ -234,8 +236,6 @@ export default function Theses({ onOpenThesis }) {
               </AsyncBoundary>
 
               <Caveat label="How names are resolved">{data.attribution_note}</Caveat>
-
-              <Search onOpenThesis={onOpenThesis} />
 
               <div className="card">
                 <p className="chart-title">All {count(total)} theses</p>

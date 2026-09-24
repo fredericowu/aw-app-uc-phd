@@ -269,6 +269,15 @@ def _attribution(people_shares: dict[str, float], content_scores: dict[str, floa
     }
 
 
+def thesis_count(db_path: Path | None = None) -> int:
+    """Corpus size straight from ``COUNT(*)`` — no join, no attribution work.
+    For anything that only needs the number (e.g. the MCP tool descriptions
+    in ``uc_phd_app/mcp/http_handler.py``), not the full ``list_theses()``
+    resolution."""
+    row = db.one("SELECT COUNT(*) AS n FROM theses", (), db_path)
+    return row["n"] if row else 0
+
+
 def list_theses(db_path: Path | None = None) -> list[dict]:
     """Every thesis, with its author/supervisors resolved to a CISUC person
     (or flagged unattributed) and its research group(s) decided by the two

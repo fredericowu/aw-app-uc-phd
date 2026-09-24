@@ -13,63 +13,83 @@ from __future__ import annotations
 import asyncio
 import json
 
+from .. import db as db_mod
 from .. import store as store_mod
+from .. import theses as theses_mod
 from . import tools
 
-TOOLS_SCHEMA = [
-    {
-        "name": "search_phd_theses",
-        "description": (
-            "Semantic search over the 18 UC DEI / CISUC PhD theses indexed from "
-            "Estudo Geral. Returns ranked excerpts, each carrying `handle`, "
-            "`title`, `authors`, `source_url` and the retrieval fields "
-            "(`similarity`, `distance`, `snippet`, `full_text`), plus a top-level "
-            "`relevance` block explaining these are nearest-passage matches, not "
-            "a calibrated relevant/not-relevant verdict."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Natural-language search query."},
-                "limit": {"type": "integer", "description": "Max results. Default 5."},
-                "year": {"type": "string", "description": "Restrict to theses from this year."},
-                "author": {"type": "string", "description": "Restrict to theses whose author name contains this (case-insensitive)."},
-            },
-            "required": ["query"],
-        },
-    },
-    {
-        "name": "get_phd_thesis",
-        "description": (
-            "Full record for one thesis by handle: title, authors, supervisors, "
-            "research group(s), year, rights, both abstracts (PT/EN), the "
-            "extracted body text, and `source_url` to the Estudo Geral item page."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "handle": {"type": "string", "description": "Thesis handle, e.g. '10316/119520'."},
-            },
-            "required": ["handle"],
-        },
-    },
-    {
-        "name": "list_phd_theses",
-        "description": (
-            "Enumerate the thesis corpus (all 18) with no embedding cost — "
-            "handle, title, authors, year, research group(s), source_url. "
-            "Optionally filter by year or research group code."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "year": {"type": "string", "description": "Restrict to this year."},
-                "group": {"type": "string", "description": "Restrict to this research group code."},
-                "limit": {"type": "integer", "description": "Max rows. Default 50."},
+
+def _corpus_size() -> int | None:
+    """Live thesis count for the descriptions below, re-read on every
+    ``tools/list`` call rather than baked in once — the corpus grows as the
+    scraper reindexes, and a literal here already went stale once (a
+    docstring said "18" long after the corpus had grown to 181)."""
+    try:
+        return theses_mod.thesis_count()
+    except db_mod.DatabaseUnavailable:
+        return None
+
+
+def _corpus_phrase(n: int | None) -> str:
+    return f"the {n} UC DEI / CISUC PhD theses" if n else "the UC DEI / CISUC PhD thesis corpus"
+
+
+def _tools_schema() -> list[dict]:
+    n = _corpus_size()
+    return [
+        {
+            "name": "search_phd_theses",
+            "description": (
+                f"Semantic search over {_corpus_phrase(n)} indexed from "
+                "Estudo Geral. Returns ranked excerpts, each carrying `handle`, "
+                "`title`, `authors`, `source_url` and the retrieval fields "
+                "(`similarity`, `distance`, `snippet`, `full_text`), plus a top-level "
+                "`relevance` block explaining these are nearest-passage matches, not "
+                "a calibrated relevant/not-relevant verdict."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Natural-language search query."},
+                    "limit": {"type": "integer", "description": "Max results. Default 5."},
+                    "year": {"type": "string", "description": "Restrict to theses from this year."},
+                    "author": {"type": "string", "description": "Restrict to theses whose author name contains this (case-insensitive)."},
+                },
+                "required": ["query"],
             },
         },
-    },
-]
+        {
+            "name": "get_phd_thesis",
+            "description": (
+                "Full record for one thesis by handle: title, authors, supervisors, "
+                "research group(s), year, rights, both abstracts (PT/EN), the "
+                "extracted body text, and `source_url` to the Estudo Geral item page."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "handle": {"type": "string", "description": "Thesis handle, e.g. '10316/119520'."},
+                },
+                "required": ["handle"],
+            },
+        },
+        {
+            "name": "list_phd_theses",
+            "description": (
+                f"Enumerate the thesis corpus{f' (all {n})' if n else ''} with no "
+                "embedding cost — handle, title, authors, year, research group(s), "
+                "source_url. Optionally filter by year or research group code."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "string", "description": "Restrict to this year."},
+                    "group": {"type": "string", "description": "Restrict to this research group code."},
+                    "limit": {"type": "integer", "description": "Max rows. Default 50."},
+                },
+            },
+        },
+    ]
 
 
 def _ok(req_id, payload) -> dict:
@@ -97,7 +117,7 @@ async def handle_request(request: dict, *, store: store_mod.VectorStore) -> dict
     if method == "notifications/initialized":
         return None
     if method == "tools/list":
-        return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": TOOLS_SCHEMA}}
+        return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": _tools_schema()}}
     if method != "tools/call":
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": f"Unknown method: {method}"}}
 

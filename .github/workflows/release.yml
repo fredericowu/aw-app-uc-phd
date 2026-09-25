@@ -14,10 +14,16 @@
 #      against an org runner group a personal account can never join — is gone,
 #      verified by a dispatch run that picked up a runner and started.
 #
-#   2. THE SECRET DELIVERY — STILL OPEN. `secrets: inherit` on a
-#      personal-account repo inherits repo-level and environment secrets only.
-#      There are no org secrets to inherit, so MARKETPLACE_SYNC_TOKEN has to
-#      exist as a repo secret on fredericowu/aw-app-uc-phd itself.
+#   2. THE SECRET DELIVERY — SOLVED (2026-09-25), and the fix corrects a
+#      wrong assumption this comment used to make. `secrets: inherit` does
+#      NOT forward a caller's repo secrets to a reusable workflow owned by a
+#      DIFFERENT organization/account — verified live: with the repo secret
+#      present, a dispatch through `inherit` still reached the preflight
+#      with an empty token. GitHub scopes `inherit` to same-org/enterprise
+#      callers only. Passing the secret explicitly below (same shape
+#      aw-app-template already uses) is not a style choice, it is the only
+#      shape that works for a personal-account caller. MARKETPLACE_SYNC_TOKEN
+#      still has to exist as a repo secret on fredericowu/aw-app-uc-phd.
 #
 #   3. WHAT THAT SECRET WOULD HAVE TO BE ABLE TO DO — STILL FREDERICO'S CALL.
 #      Push a branch to, and open a PR on, tekflox/aw-marketplace — i.e. write
@@ -77,4 +83,5 @@ jobs:
     with:
       bump: ${{ inputs.bump || '' }}
       catalog_repo: tekflox/aw-marketplace
-    secrets: inherit
+    secrets:
+      MARKETPLACE_SYNC_TOKEN: ${{ secrets.MARKETPLACE_SYNC_TOKEN }}

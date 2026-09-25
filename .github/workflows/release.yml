@@ -1,55 +1,60 @@
 # Release into the PUBLIC catalog, tekflox/aw-marketplace.
 #
-# ⚠️ THIS WORKFLOW CANNOT RUN YET, AND THAT IS DELIBERATE. It is
-# workflow_dispatch-only rather than push-triggered so that master does not
-# sit permanently red and teach everyone here to ignore red CI. Dispatch-only
-# rather than deleted, because the day the privilege question below is
-# answered this is one setting away from working, and the reasoning is worth
-# more in the file than on a Kanban card.
+# This is now push-triggered, like every other app. One of the three blockers
+# that kept it workflow_dispatch-only is fixed upstream; the other two are the
+# same single credential question, and it is still Frederico's.
 #
-# Three separate things block it. Only the third is a credential, and none of
-# them is a Coder's to decide:
+#   1. THE RUNNER — SOLVED (2026-09-25, card
+#      3e65bf3b-9510-814d-b49e-d0a61520cd0b). aw-marketplace's reusable
+#      app-release.yml no longer hardcodes `runs-on: [self-hosted,
+#      aw-baremetal]`. It derives the runner from the CALLER's owner, so this
+#      personally-owned repo gets `ubuntu-latest` and every tekflox/* app keeps
+#      the byte-identical self-hosted pair it had. Nothing here opts in; there
+#      is no runs_on input to pass. The old failure mode — a job queued forever
+#      against an org runner group a personal account can never join — is gone,
+#      verified by a dispatch run that picked up a runner and started.
 #
-#   1. THE RUNNER. tekflox/aw-marketplace's reusable app-release.yml hardcodes
-#      `runs-on: [self-hosted, aw-baremetal]`. Those runners live in tekflox
-#      org runner group 3 (aw-private), and a GitHub org runner group can only
-#      be shared with repositories IN that org. This repo is owned by a
-#      personal account, so it can never be added. The job would not fail — it
-#      would queue forever. Unlike test.yml and security-scan.yml, we cannot
-#      fix this locally: `runs-on` lives inside the called workflow, not in
-#      this caller. Fixing it properly means a `runs_on` input on
-#      aw-marketplace's reusable workflow, which affects 50+ apps and is its
-#      own card.
+#   2. THE SECRET DELIVERY — STILL OPEN. `secrets: inherit` on a
+#      personal-account repo inherits repo-level and environment secrets only.
+#      There are no org secrets to inherit, so MARKETPLACE_SYNC_TOKEN has to
+#      exist as a repo secret on fredericowu/aw-app-uc-phd itself.
 #
-#   2. THE SECRET DELIVERY. `secrets: inherit` on a personal-account repo
-#      inherits repo-level and environment secrets only. There are no org
-#      secrets to inherit, so MARKETPLACE_SYNC_TOKEN would have to exist as a
-#      repo secret on fredericowu/aw-app-uc-phd itself.
+#   3. WHAT THAT SECRET WOULD HAVE TO BE ABLE TO DO — STILL FREDERICO'S CALL.
+#      Push a branch to, and open a PR on, tekflox/aw-marketplace — i.e. write
+#      access to a TekFlox org repo, stored inside a repo he owns personally.
+#      Nothing has been minted, stored or widened to make this workflow pass.
+#      If he wants it green, the smallest safe shape is a FINE-GRAINED PAT
+#      scoped to tekflox/aw-marketplace (Contents: write, Pull requests: write)
+#      plus this repo (Contents: write) — far narrower than a full-scope
+#      admin:org / delete_repo PAT.
 #
-#   3. WHAT THAT SECRET WOULD HAVE TO BE ABLE TO DO. Push a branch to, and
-#      open a PR on, tekflox/aw-marketplace — i.e. write access to a TekFlox
-#      org repo, stored inside a repo Frederico owns personally. That is a
-#      privilege decision, and it is his. Nothing was minted, stored or
-#      widened to make this workflow pass. If he wants it green, the smallest
-#      safe shape is a FINE-GRAINED PAT scoped to tekflox/aw-marketplace
-#      (Contents: write, Pull requests: write) plus this repo (Contents:
-#      write) — far narrower than a full-scope admin:org / delete_repo PAT.
-#      It still does not solve (1).
+# WHAT A PUSH DOES UNTIL THAT SECRET EXISTS: a RED run, failing on the called
+# workflow's first step, whose error names this repo, the secret, where to put
+# it and the PAT shape above. That is a deliberate trade and it reverses the
+# earlier call in this very file, which chose dispatch-only so master would not
+# "sit permanently red and teach everyone here to ignore red CI". The fear was
+# runs failing for reasons nobody can act on; this one names exactly one action
+# in its own error message. The alternative — staying silent — is what let this
+# app's catalog entry sit at v0.1.1 for months while the repo reached v0.6.0,
+# so `marketplace install --update` kept reinstalling the ancient version.
+# Reversible in one line: delete the `push:` trigger below.
 #
 # Not a blocker, and actually the behaviour we want: the reusable workflow's
 # auto-merge step is gated on `startsWith(github.repository, 'tekflox/')`,
-# which this repo does not match. So a sync PR would open and wait for a
-# human. For a catalog every workspace in the world reads, a human gate on a
-# non-org contributor is correct. Do not try to defeat it.
+# which this repo does not match. So a sync PR opens and waits for a human. For
+# a catalog every workspace in the world reads, a human gate on a non-org
+# contributor is correct. Do not try to defeat it.
 #
-# Until then, catalog entries for this app are hand-synced with
-# aw-marketplace's own scripts/sync_catalog_entry.py — the same script this
-# workflow would run — and the PR is merged by a human. v0.1.0 was published
-# that way.
+# Backstop, independent of all of the above: aw-marketplace's own weekly
+# catalog-drift.yml compares every apps.json entry against its repo's latest
+# tag and opens one issue for anything behind — so a release that silently
+# stops working again gets noticed in a week, not in months, whatever the cause.
 
 name: Release
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
     inputs:
       bump:

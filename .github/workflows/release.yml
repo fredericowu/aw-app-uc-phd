@@ -85,3 +85,4 @@ jobs:
       catalog_repo: tekflox/aw-marketplace
     secrets:
       MARKETPLACE_SYNC_TOKEN: ${{ secrets.MARKETPLACE_SYNC_TOKEN }}
+# CI verify: classic repo-scope token trial 2026-09-25T10:49:42Z

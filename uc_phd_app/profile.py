@@ -47,7 +47,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import yaml
+import yaml  # requirements.txt — now installed by app-release.yml before tests
 
 from . import paths
 

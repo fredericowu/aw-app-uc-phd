@@ -466,6 +466,111 @@ export function TimeLine({ data, categoryKey, valueKey, valueFormat, seriesLabel
   );
 }
 
+function normalizeSearch(s) {
+  return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
+/** A searchable multi-select combobox: a text input that filters `options`
+ *  (case- and diacritic-insensitive), a dropdown of the top matches, and the
+ *  current selection rendered as removable chips. Deliberately small — role
+ *  listbox/option + aria-selected and basic arrow/Enter/Escape keyboard
+ *  support, not a full combobox widget.
+ *
+ *  `options`: [{key, label}]. `selected`: a Set of keys. `onToggle(key)` is
+ *  called for both adding (picked from the dropdown) and removing (chip's ×,
+ *  or re-picking an already-selected option) — the caller owns the Set. */
+export function SearchMultiSelect({ options, selected, onToggle, placeholder }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+
+  const q = normalizeSearch(query);
+  const matches = q ? options.filter((o) => normalizeSearch(o.label).includes(q)).slice(0, 12) : [];
+  const selectedOptions = options.filter((o) => selected.has(o.key));
+
+  function pick(opt) {
+    onToggle(opt.key);
+    setQuery('');
+    setOpen(false);
+    setHighlight(0);
+  }
+
+  function onKeyDown(e) {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      return;
+    }
+    if (!matches.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+      setHighlight((h) => Math.min(h + 1, matches.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === 'Enter' && matches[highlight]) {
+      e.preventDefault();
+      pick(matches[highlight]);
+    }
+  }
+
+  return (
+    <div className="search-multi-select">
+      {selectedOptions.length ? (
+        <span className="chips">
+          {selectedOptions.map((o) => (
+            <span key={o.key} className="author-chip">
+              {o.label}
+              <button type="button" aria-label={`Remove ${o.label}`} onClick={() => onToggle(o.key)}>
+                ×
+              </button>
+            </span>
+          ))}
+        </span>
+      ) : null}
+      <div className="search-multi-select-input">
+        <input
+          type="search"
+          value={query}
+          placeholder={placeholder}
+          role="combobox"
+          aria-expanded={open && matches.length > 0}
+          aria-controls="search-multi-select-listbox"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            setHighlight(0);
+          }}
+          onFocus={() => query && setOpen(true)}
+          // The blur would otherwise fire before a click on an option
+          // registers; the option's own onMouseDown already preventDefault()s
+          // to keep focus, so this delay is just a safety margin.
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={onKeyDown}
+        />
+        {open && matches.length ? (
+          <ul className="search-multi-select-list" role="listbox" id="search-multi-select-listbox">
+            {matches.map((o, i) => (
+              <li
+                key={o.key}
+                role="option"
+                aria-selected={selected.has(o.key)}
+                className={`search-multi-select-option${i === highlight ? ' is-highlighted' : ''}`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pick(o);
+                }}
+              >
+                {o.label}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** Identity legend for the six research groups. Always present where colour
  *  carries identity across more than one chart.
  *

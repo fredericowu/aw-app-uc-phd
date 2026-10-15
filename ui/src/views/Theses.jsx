@@ -10,7 +10,7 @@
 // not resolve still stays visibly "(unattributed)" rather than being guessed,
 // the same treatment "UNGROUPED" gets for projects in Coordinators.jsx.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../api';
 import {
   AsyncBoundary,
@@ -21,16 +21,44 @@ import {
   DataTable,
   GroupLegend,
   ResolvedPersonName,
+  SearchMultiSelect,
   Section,
   Tile,
   useAsync,
 } from '../components';
-import { groupColorVar, groupSlot, slotVar } from '../colors';
+import { GROUP_ORDER, groupColorVar, groupSlot, slotVar } from '../colors';
 import { count } from '../format';
+import { UNATTRIBUTED, filterTheses, personKey, sortTheses } from '../thesesTable';
 import Search from './Search';
 
-const UNATTRIBUTED = 'UNATTRIBUTED';
 const UNATTRIBUTED_LABEL = 'Unattributed';
+
+function toggleInSet(prev, value) {
+  const next = new Set(prev);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
+}
+
+// Click cycles asc -> desc -> none (none = original API order).
+function cycleSort(key, prev) {
+  if (prev.key !== key) return { key, dir: 'asc' };
+  if (prev.dir === 'asc') return { key, dir: 'desc' };
+  if (prev.dir === 'desc') return { key: null, dir: null };
+  return { key, dir: 'asc' };
+}
+
+function SortableTh({ label, sortKey, sort, onSort }) {
+  const active = sort.key === sortKey;
+  return (
+    <th scope="col" aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className="th-sort" onClick={() => onSort(sortKey)}>
+        {label}
+        {active ? <span aria-hidden="true"> {sort.dir === 'asc' ? '▲' : '▼'}</span> : null}
+      </button>
+    </th>
+  );
+}
 
 function slotOf(code) {
   return code === UNATTRIBUTED ? 'muted' : groupSlot(code);
@@ -158,6 +186,41 @@ export default function Theses({ onOpenThesis }) {
   const groupsState = useAsync(() => api.thesesGroups(), []);
   const [showUnattributed, setShowUnattributed] = useState(false);
 
+  // Sort/filter state for the big table — local, not URL (no view in this
+  // app puts filter state in the URL; see Projects.jsx). `data.theses`
+  // arrives whole (~181 rows, no pagination), so every bit of this is a
+  // client-side array operation on a COPY, never a mutation of the source.
+  const [sort, setSort] = useState({ key: null, dir: null });
+  const [selectedGroups, setSelectedGroups] = useState(() => new Set());
+  const [selectedAuthors, setSelectedAuthors] = useState(() => new Set());
+  const onSort = (key) => setSort((prev) => cycleSort(key, prev));
+
+  const authorOptions = useMemo(() => {
+    if (!listState.data) return [];
+    const byKey = new Map();
+    for (const t of listState.data.theses) {
+      for (const p of t.authors) {
+        const key = personKey(p);
+        if (!byKey.has(key)) byKey.set(key, { key, label: p.name });
+      }
+    }
+    return [...byKey.values()].sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+    );
+  }, [listState.data]);
+
+  const visibleTheses = useMemo(() => {
+    if (!listState.data) return [];
+    const filtered = filterTheses(listState.data.theses, {
+      groups: selectedGroups,
+      authorKeys: selectedAuthors,
+    });
+    return sortTheses(filtered, sort);
+  }, [listState.data, selectedGroups, selectedAuthors, sort]);
+
+  const hasFilters = selectedGroups.size > 0 || selectedAuthors.size > 0;
+  const hasSort = Boolean(sort.key && sort.dir);
+
   return (
     <Section
       title="Theses (Estudo Geral)"
@@ -282,52 +345,133 @@ export default function Theses({ onOpenThesis }) {
               <Caveat label="How names are resolved">{data.attribution_note}</Caveat>
 
               <div className="card">
-                <p className="chart-title">All {count(total)} theses</p>
+                <p className="chart-title">
+                  {hasFilters || hasSort
+                    ? `${count(visibleTheses.length)} of ${count(total)} theses`
+                    : `All ${count(total)} theses`}
+                </p>
+
+                <div className="group-pills">
+                  <button
+                    type="button"
+                    className="group-pill"
+                    aria-pressed={selectedGroups.size === 0}
+                    onClick={() => setSelectedGroups(new Set())}
+                  >
+                    All groups
+                  </button>
+                  {GROUP_ORDER.map((code) => (
+                    <button
+                      key={code}
+                      type="button"
+                      className="group-pill"
+                      aria-pressed={selectedGroups.has(code)}
+                      onClick={() => setSelectedGroups((s) => toggleInSet(s, code))}
+                    >
+                      <span className="swatch" style={{ background: groupColorVar(code) }} />
+                      {code}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="group-pill"
+                    aria-pressed={selectedGroups.has(UNATTRIBUTED)}
+                    onClick={() => setSelectedGroups((s) => toggleInSet(s, UNATTRIBUTED))}
+                  >
+                    <span className="swatch" style={{ background: slotVar('muted') }} />
+                    {UNATTRIBUTED_LABEL}
+                  </button>
+                </div>
+
+                <SearchMultiSelect
+                  options={authorOptions}
+                  selected={selectedAuthors}
+                  onToggle={(key) => setSelectedAuthors((s) => toggleInSet(s, key))}
+                  placeholder="Filter by author…"
+                />
+
+                {hasFilters || hasSort ? (
+                  <button
+                    type="button"
+                    className="table-toggle"
+                    onClick={() => {
+                      setSelectedGroups(new Set());
+                      setSelectedAuthors(new Set());
+                      setSort({ key: null, dir: null });
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                ) : null}
+
                 <div className="table-wrap">
                   <table className="data">
                     <thead>
                       <tr>
-                        <th scope="col">Title</th>
-                        <th scope="col">Author</th>
-                        <th scope="col">Supervisor(s)</th>
-                        <th scope="col">Year</th>
-                        <th scope="col">Research group(s)</th>
-                        <th scope="col">Full text</th>
+                        <SortableTh label="Title" sortKey="title" sort={sort} onSort={onSort} />
+                        <SortableTh label="Author" sortKey="author" sort={sort} onSort={onSort} />
+                        <SortableTh
+                          label="Supervisor(s)"
+                          sortKey="supervisors"
+                          sort={sort}
+                          onSort={onSort}
+                        />
+                        <SortableTh label="Year" sortKey="year" sort={sort} onSort={onSort} />
+                        <SortableTh
+                          label="Research group(s)"
+                          sortKey="group"
+                          sort={sort}
+                          onSort={onSort}
+                        />
+                        <SortableTh
+                          label="Full text"
+                          sortKey="full_text"
+                          sort={sort}
+                          onSort={onSort}
+                        />
                       </tr>
                     </thead>
                     <tbody>
-                      {data.theses.map((t) => (
-                        <tr key={t.handle}>
-                          <td>
-                            <button
-                              type="button"
-                              className="link-button"
-                              onClick={() => onOpenThesis(t.handle)}
-                            >
-                              {t.title}
-                            </button>
-                          </td>
-                          <td>
-                            <PersonList people={t.authors} />
-                          </td>
-                          <td>
-                            <PersonList people={t.supervisors} />
-                          </td>
-                          <td>{t.year || '—'}</td>
-                          <td>
-                            <GroupChips groups={t.groups} attribution={t.group_attribution} />
-                          </td>
-                          <td>
-                            {t.full_text ? (
-                              'Indexed'
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)' }}>
-                                Metadata only{t.rights === 'embargoedAccess' ? ' (embargoed)' : ''}
-                              </span>
-                            )}
+                      {visibleTheses.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} style={{ color: 'var(--text-muted)' }}>
+                            No theses match
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        visibleTheses.map((t) => (
+                          <tr key={t.handle}>
+                            <td>
+                              <button
+                                type="button"
+                                className="link-button"
+                                onClick={() => onOpenThesis(t.handle)}
+                              >
+                                {t.title}
+                              </button>
+                            </td>
+                            <td>
+                              <PersonList people={t.authors} />
+                            </td>
+                            <td>
+                              <PersonList people={t.supervisors} />
+                            </td>
+                            <td>{t.year || '—'}</td>
+                            <td>
+                              <GroupChips groups={t.groups} attribution={t.group_attribution} />
+                            </td>
+                            <td>
+                              {t.full_text ? (
+                                'Indexed'
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  Metadata only{t.rights === 'embargoedAccess' ? ' (embargoed)' : ''}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

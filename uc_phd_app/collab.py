@@ -191,25 +191,74 @@ def co_supervision_caveat() -> str:
     return CO_SUPERVISION_CAVEAT_TEMPLATE.format(**co_supervision_excluded())
 
 
+def alias_map() -> dict[str, str]:
+    """``{from_slug: to_slug}`` — CISUC's duplicate directory entries resolved
+    to one identity per human (``scraper/schema.sql``'s ``person_aliases``,
+    written from the curated ``data/person_aliases.json``).
+
+    Every person-pair query below is keyed on ``project_people``/
+    ``thesis_people`` slugs, which are the raw directory slugs on the project
+    side — so a human CISUC lists twice would be TWO nodes in this graph, with
+    their collaborations split between them. Mapping through this is what
+    makes one human one node. Empty for a seed with no reviewed aliases, which
+    is why every call site degrades to the old behaviour rather than branching.
+    """
+    return {
+        row["from_slug"]: row["to_slug"]
+        for row in db.rows("SELECT from_slug, to_slug FROM person_aliases")
+    }
+
+
+def _canonical_pair(slug_a: str, slug_b: str, aliases: dict[str, str]):
+    """The pair's canonical, re-sorted key — or ``None`` when both slugs are
+    one person, which is not a collaboration and must not become a self-loop.
+
+    Re-sorting matters: the SQL emits ``person_a < person_b`` over raw slugs,
+    and canonicalising one side can invert that. Without this, one pair would
+    aggregate under two keys and show up twice at half weight each.
+    """
+    canonical_a = aliases.get(slug_a, slug_a)
+    canonical_b = aliases.get(slug_b, slug_b)
+    if canonical_a == canonical_b:
+        return None
+    return (canonical_a, canonical_b) if canonical_a < canonical_b else (canonical_b, canonical_a)
+
+
 def _co_project_pairs() -> list[dict]:
     """Aggregates ``sql/collab_co_project.sql``'s long form into one row per
     pair. Kept in Python rather than a second committed query, the same way
     ``api/projects.py`` pivots ``top_coordinators`` from long to wide —
     ``weight_normalized`` needs each shared project's own team size, which
-    only exists at the long-form grain."""
+    only exists at the long-form grain.
+
+    Slugs are canonicalised here rather than in the ``.sql`` file, because the
+    identity indirection is this app's concept and the committed queries stay
+    runnable by hand against the raw tables (``db.py``'s rule).
+
+    ``weight`` counts DISTINCT shared projects after canonicalisation: two
+    members of one alias group both listed on one project would otherwise
+    contribute that project twice. ``team_size`` is deliberately left as the
+    raw count of people listed on the project, which is what the normalisation
+    is correcting for — how many names the site put on it.
+    """
+    aliases = alias_map()
     agg: dict[tuple[str, str], dict] = {}
     for row in db.query("collab_co_project"):
-        key = (row["person_a"], row["person_b"])
+        key = _canonical_pair(row["person_a"], row["person_b"], aliases)
+        if key is None:
+            continue
         entry = agg.get(key)
         if entry is None:
             entry = {
-                "person_a_slug": row["person_a"],
-                "person_b_slug": row["person_b"],
+                "person_a_slug": key[0],
+                "person_b_slug": key[1],
                 "weight": 0,
                 "weight_normalized": 0.0,
                 "shared_ids": [],
             }
             agg[key] = entry
+        if row["project_id"] in entry["shared_ids"]:
+            continue
         entry["weight"] += 1
         entry["shared_ids"].append(row["project_id"])
         team_size = row["team_size"]
@@ -224,20 +273,32 @@ def _co_supervision_pairs() -> list[dict]:
     """Aggregates ``sql/collab_co_supervision.sql``'s long form the same way
     ``_co_project_pairs`` does. ``weight_normalized`` stays None: thesis
     teams are small (2-3 supervisors), so the quadratic-inflation concern
-    that motivates co_project's normalisation does not apply."""
+    that motivates co_project's normalisation does not apply.
+
+    ``thesis_people.person_slug`` is already canonical — ``build_thesis_facts
+    .people_rows`` writes it that way — so the mapping here is a no-op on a
+    seed built by this repo. It is applied anyway, because "canonical because
+    the builder happened to run" is not a property this module can check, and
+    the cost of being wrong is one human drawn as two nodes.
+    """
+    aliases = alias_map()
     agg: dict[tuple[str, str], dict] = {}
     for row in db.query("collab_co_supervision"):
-        key = (row["person_a"], row["person_b"])
+        key = _canonical_pair(row["person_a"], row["person_b"], aliases)
+        if key is None:
+            continue
         entry = agg.get(key)
         if entry is None:
             entry = {
-                "person_a_slug": row["person_a"],
-                "person_b_slug": row["person_b"],
+                "person_a_slug": key[0],
+                "person_b_slug": key[1],
                 "weight": 0,
                 "weight_normalized": None,
                 "shared_ids": [],
             }
             agg[key] = entry
+        if row["handle"] in entry["shared_ids"]:
+            continue
         entry["weight"] += 1
         entry["shared_ids"].append(row["handle"])
     return list(agg.values())
@@ -255,10 +316,22 @@ def person_groups() -> dict[str, set[str]]:
     """slug -> set(research group code), from every project (any role) that
     person has ever been listed on. A person with no project membership at
     all (a supervisor with no CISUC project history) is simply absent —
-    callers treat a missing key the same as an empty set."""
+    callers treat a missing key the same as an empty set.
+
+    Keyed on CANONICAL slug, with an alias group's memberships unioned: the
+    graph's nodes are canonical slugs, so a map keyed on raw slugs would look
+    up a node and find nothing. The alias slug is kept as its own key too, so
+    a caller holding a raw slug (``api/people.py`` resolves the group itself)
+    still gets an answer rather than a silent empty set.
+    """
+    aliases = alias_map()
     groups: dict[str, set[str]] = {}
     for row in db.query("collab_person_groups"):
-        groups.setdefault(row["person_slug"], set()).add(row["group_code"])
+        slug = row["person_slug"]
+        groups.setdefault(slug, set()).add(row["group_code"])
+        canonical = aliases.get(slug)
+        if canonical:
+            groups.setdefault(canonical, set()).add(row["group_code"])
     return groups
 
 
@@ -408,7 +481,11 @@ def summary() -> dict:
     """Headline counts for the weight-distribution check the design notes
     ask for — surfaced on screen rather than left for someone to discover by
     scrolling a table."""
-    total_people = db.one("SELECT COUNT(*) AS n FROM people")["n"]
+    # people_canonical, not people: the view is one row per HUMAN, and this
+    # figure is rendered as "N people" (ui/src/views/Collab.jsx). Counting the
+    # raw table would report CISUC's duplicate directory entries as extra
+    # researchers — see scraper/schema.sql's note on the view.
+    total_people = db.one("SELECT COUNT(*) AS n FROM people_canonical")["n"]
     multi_project_people = db.one(
         """
         SELECT COUNT(*) AS n FROM (

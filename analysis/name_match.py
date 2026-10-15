@@ -20,8 +20,10 @@ The four tiers, and why ``ambiguous`` is not a failure
                name carries a name the other does not.
 ``confident``  one answer, but a rule beyond token-set equality got there:
                the candidate's tokens are a strict *subset* of the thesis
-               name's, a standard initial, a duplicate row in ``people``, or
-               the primary-given-name tie-break below.
+               name's, a standard initial, a duplicate row in ``people``, a
+               reviewed person alias (``analysis/person_aliases.py`` — the one
+               input here that is a human's decision rather than a name rule),
+               or the primary-given-name tie-break below.
 ``ambiguous``  more than one person genuinely fits and no rule separates
                them. Surfaced with every candidate attached, never resolved
                by picking one.
@@ -80,10 +82,19 @@ _NON_WORD = re.compile(r"[^a-z0-9]+")
 @dataclass(frozen=True)
 class Person:
     """One row of ``people``. Keyed on ``slug``: 475 rows carry only 472
-    distinct names, so ``name`` is not an identity (scraper/schema.sql)."""
+    distinct names, so ``name`` is not an identity (scraper/schema.sql).
+
+    ``canonical`` is this row's ``person_aliases.to_slug`` when a human has
+    ruled that CISUC lists this same human under another slug too, and
+    ``None`` otherwise — which is every row by default, so nothing that
+    constructs a ``Person`` from a name and a slug has to know this exists.
+    It is the only thing in this module that is not derived from the names:
+    see ``analysis/person_aliases.py`` for why that decision cannot be.
+    """
 
     slug: str
     name: str
+    canonical: str | None = None
 
 
 @dataclass(frozen=True)
@@ -192,12 +203,40 @@ def _quoted(people: tuple[Person, ...]) -> str:
     return ", ".join(f'"{p.name}" ({p.slug})' for p in people)
 
 
-def _same_person_twice(people: tuple[Person, ...]) -> bool:
+def identity_of(person: Person) -> str:
+    """The slug that stands for this row's HUMAN — its canonical when a
+    reviewed alias says CISUC lists them twice, else its own slug."""
+    return person.canonical or person.slug
+
+
+def _one_folded_name(people: tuple[Person, ...]) -> bool:
     """Several rows, one folded name: ``people`` has duplicates of the same
     human (``joao-bicker`` / ``joao-bicker-1``), an inconsistency in the
     scraped source. There is no way to tell which row is "the" one, so all
     of them are kept and downstream unions their groups."""
     return len({fold(p.name) for p in people}) == 1
+
+
+def _one_canonical(people: tuple[Person, ...]) -> bool:
+    """Several rows, one reviewed identity — the ``de x para`` case.
+
+    Byte-equal names (above) only catch the duplicates CISUC happened to
+    spell identically. "Jorge Sá Silva" (``jorge-silva``) and "Jorge Miguel
+    Sa Silva" (``j-silva``) are one human published twice under two spellings,
+    which no comparison of the two names can establish; a person did, against
+    the two CISUC pages, and recorded it in ``data/person_aliases.json``.
+
+    Requires EVERY candidate to share the one identity, not merely two of
+    them: a third, genuinely different person who also fits the thesis name
+    still makes the name ambiguous, and a rule that collapsed anyway would
+    resolve them away.
+    """
+    return len({identity_of(p) for p in people}) == 1
+
+
+def _same_person_twice(people: tuple[Person, ...]) -> bool:
+    """One human under several ``people`` rows — by name, or by review."""
+    return _one_folded_name(people) or _one_canonical(people)
 
 
 def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> NameMatch:
@@ -263,15 +302,20 @@ def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> Name
         )
 
     if _same_person_twice(candidates):
-        return NameMatch(
-            name_raw,
-            CONFIDENT,
-            CONFIDENCE[CONFIDENT],
-            candidates,
-            f"people holds {len(candidates)} rows with the same name — "
-            f"{_quoted(candidates)} — a duplicate in the scraped source, not "
-            "two people. All of them are kept.",
-        )
+        if _one_folded_name(candidates):
+            note = (
+                f"people holds {len(candidates)} rows with the same name — "
+                f"{_quoted(candidates)} — a duplicate in the scraped source, not "
+                "two people. All of them are kept."
+            )
+        else:
+            note = (
+                f"CISUC lists this person under {len(candidates)} directory entries — "
+                f"{_quoted(candidates)} — which data/person_aliases.json records as one "
+                f"human on reviewed evidence, canonical "
+                f"{identity_of(candidates[0])}. Resolved to that one identity."
+            )
+        return NameMatch(name_raw, CONFIDENT, CONFIDENCE[CONFIDENT], candidates, note)
 
     preferred = tuple(p for p in candidates if _carries_primary_given(tokenize(p.name), primary_given))
     if preferred and (len(preferred) == 1 or _same_person_twice(preferred)):

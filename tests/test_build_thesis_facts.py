@@ -32,8 +32,21 @@ def corpus(tmp_path):
     return directory
 
 
-def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db):
-    report = build_mod.build(fixture_db, corpus)
+@pytest.fixture()
+def aliases(tmp_path):
+    """An EMPTY person_aliases.json, for the same reason ``corpus`` is a tmp
+    directory and not the real ``estudo_geral/``: the committed
+    ``data/person_aliases.json`` names real CISUC slugs, and the fixture
+    ``people`` table does not have them — so pointing these tests at it would
+    (correctly) fail validation on every one of them. A test that wants
+    aliases writes its own, as ``test_an_alias_group_*`` below does."""
+    path = tmp_path / "person_aliases.json"
+    path.write_text(json.dumps({"pairs": []}), encoding="utf-8")
+    return path
+
+
+def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db, aliases):
+    report = build_mod.build(fixture_db, corpus, aliases)
 
     assert report["theses"] == 1
     assert report["supervision_edges"] == 2
@@ -57,10 +70,10 @@ def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db
     conn.close()
 
 
-def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db):
+def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db, aliases):
     """The whole reason person_slug is nullable: dropping the 14 names nobody
     can resolve would be data loss dressed up as a clean join."""
-    build_mod.build(fixture_db, corpus)
+    build_mod.build(fixture_db, corpus, aliases)
 
     conn = sqlite3.connect(fixture_db)
     conn.row_factory = sqlite3.Row
@@ -76,7 +89,7 @@ def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixtur
     assert rows["Curie, Marie Sklodowska"]["match_note"]
 
 
-def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db):
+def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db, aliases):
     """The João Bicker case: the PK has to carry person_slug or one of the two
     rows silently overwrites the other."""
     conn = sqlite3.connect(fixture_db)
@@ -84,7 +97,7 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     conn.commit()
     conn.close()
 
-    build_mod.build(fixture_db, corpus)
+    build_mod.build(fixture_db, corpus, aliases)
 
     conn = sqlite3.connect(fixture_db)
     slugs = [
@@ -97,14 +110,14 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     assert slugs == ["ada", "ada-1"]
 
 
-def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db):
+def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases):
     """The tables are a pure function of the committed corpus. An upsert would
     leave a withdrawn thesis in the seed forever."""
-    build_mod.build(fixture_db, corpus)
+    build_mod.build(fixture_db, corpus, aliases)
     (corpus / "10316-000001.md").unlink()
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
 
-    report = build_mod.build(fixture_db, corpus)
+    report = build_mod.build(fixture_db, corpus, aliases)
 
     assert report["theses"] == 0
     conn = sqlite3.connect(fixture_db)
@@ -113,7 +126,7 @@ def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db):
     conn.close()
 
 
-def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db):
+def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db, aliases):
     """The glob is not the inventory. A half-failed download leaves a manifest
     entry with no .md, and trusting the glob would report a smaller corpus
     with no error at all."""
@@ -121,21 +134,21 @@ def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixt
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/999999"}]), encoding="utf-8"
     )
     with pytest.raises(build_mod.ReconciliationError, match="10316/999999"):
-        build_mod.build(fixture_db, corpus)
+        build_mod.build(fixture_db, corpus, aliases)
 
 
-def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db):
+def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db, aliases):
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
     with pytest.raises(build_mod.ReconciliationError, match="unlisted"):
-        build_mod.build(fixture_db, corpus)
+        build_mod.build(fixture_db, corpus, aliases)
 
 
-def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db):
+def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db, aliases):
     """source_url is NOT NULL in the schema; a bare sqlite3.IntegrityError
     would not say which thesis lost its provenance."""
     (corpus / "10316-000001.md").write_text(THESIS_NO_URL, encoding="utf-8")
     with pytest.raises(ValueError, match="10316/000001: no source_url"):
-        build_mod.build(fixture_db, corpus)
+        build_mod.build(fixture_db, corpus, aliases)
 
 
 def test_front_matter_without_delimiters_raises(tmp_path):
@@ -154,22 +167,32 @@ def test_load_people_reads_the_people_table(fixture_db):
         conn.close()
 
 
-def test_the_cli_prints_its_report(corpus, fixture_db, capsys):
-    assert build_mod.main(["--db", str(fixture_db), "--estudo-geral", str(corpus)]) == 0
+def test_the_cli_prints_its_report(corpus, fixture_db, aliases, capsys):
+    assert build_mod.main(
+        ["--db", str(fixture_db), "--estudo-geral", str(corpus),
+         "--person-aliases", str(aliases)]
+    ) == 0
     assert json.loads(capsys.readouterr().out)["theses"] == 1
 
 
 def test_the_committed_seed_holds_the_real_corpus():
     """The seed that actually ships. Asserts the measured shape of the real
-    data — 181 theses (widened from an original 18), 244 supervisor rows, 283
+    data — 181 theses (widened from an original 18), 242 supervisor rows, 283
     distinct names — so a rebuild that silently loses rows fails here rather
-    than in the dashboard."""
+    than in the dashboard.
+
+    The supervisor-row floor was 244 until ``person_aliases`` landed. Two of
+    those rows were the SAME supervisor twice: "Araújo, Filipe" resolved to
+    both ``filipe-araujo`` and ``filipius-1``, which CISUC lists separately
+    and a human has since ruled one person. Collapsing them is the feature,
+    so the floor moved with it — the count of distinct supervision EDGES
+    (``build()``'s ``supervision_edges``, 241) did not change at all."""
     conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
     try:
         assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 181
         assert conn.execute(
             "SELECT COUNT(*) FROM thesis_people WHERE role = 'supervisor'"
-        ).fetchone()[0] >= 244
+        ).fetchone()[0] >= 242
         assert conn.execute(
             "SELECT COUNT(DISTINCT name_raw) FROM thesis_people"
         ).fetchone()[0] == 283
@@ -294,7 +317,7 @@ def test_minimal_evidence_lists_the_two_token_matches_for_human_review():
 
 
 def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
-    corpus, fixture_db
+    corpus, fixture_db, aliases
 ):
     """End to end: a second thesis whose author's longer name also fits 'Ada
     Lovelace' must not merge the two into one student."""
@@ -306,7 +329,7 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/000002"}]), encoding="utf-8"
     )
 
-    report = build_mod.build(fixture_db, corpus)
+    report = build_mod.build(fixture_db, corpus, aliases)
     assert [c["person_slug"] for c in report["author_conflicts"]] == ["ada"]
     assert report["author_conflicts"][0]["kept"]["handle"] == "10316/000001"
 
@@ -325,7 +348,7 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         conn.close()
 
 
-def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db):
+def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db, aliases):
     """The ordering trap: schema.sql's UNIQUE index is created by `build()`
     itself, so a rebuild had to clear the old rows BEFORE applying the schema
     or the fix could never be applied to the data it fixes."""
@@ -344,7 +367,7 @@ def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, 
     finally:
         conn.close()
 
-    assert build_mod.build(fixture_db, corpus)["theses"] == 1
+    assert build_mod.build(fixture_db, corpus, aliases)["theses"] == 1
 
 
 def test_the_committed_seed_resolves_no_slug_to_two_authored_theses():

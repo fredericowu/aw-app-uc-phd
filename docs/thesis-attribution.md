@@ -438,6 +438,70 @@ Owner before any of this, and the two measurements above are the independent
 case for it: every automated shortcut to a higher number produced a wrong
 person.
 
+### The accepted fourth option: a reviewed person-alias table (2026-10-15)
+
+A, B and C above all failed for the same reason — they tried to derive an
+identity decision from the names. The thing that actually worked was to stop
+deriving it.
+
+**`data/person_aliases.json`** records, per pair of `people` rows, whether
+CISUC is listing one human twice: `verdict: "same"` with a chosen `canonical`
+slug and the `evidence` behind it, or `verdict: "distinct"` for the pairs that
+look the same and are not. `analysis/person_aliases.py` validates it against
+the live roster and writes the `same` rows into `person_aliases(from_slug,
+to_slug, evidence)` inside the seed; `scraper/schema.sql` adds a
+`people_canonical` view (one row per human) next to it. The matcher collapses
+candidates that all share one canonical identity
+(`name_match._one_canonical`), `build_thesis_facts.people_rows` writes the
+**canonical** slug — which is what makes `resolve_author_conflicts` and
+`idx_one_thesis_per_resolved_author` see one person rather than two slugs —
+and the profile aggregates across the group with the merge stated on the page.
+
+**Why this is not option C in disguise.** C was a table of *thesis name ->
+person*, forcing the matcher's output. This is a table of *person -> person*,
+upstream of any thesis, correcting an inconsistency in the **source**: both
+slugs are real CISUC directory entries with live URLs, and the merge is
+checkable against them by anyone. The matching rules are untouched, and a name
+no rule resolves is still unresolved.
+
+**Measured over all 181 theses, before and after:**
+
+| | before | after |
+|---|---|---|
+| `exact` | 85 | 85 |
+| `confident` | 143 | **147** |
+| `ambiguous` | 8 | **4** |
+| `unmatched` | 47 | 47 |
+| `thesis_people` rows | 429 | **426** |
+| `author_conflicts` | 0 | 0 |
+
+Every changed row was inspected by hand. The four names that moved from
+`ambiguous` to `confident` are exactly the four whose only two candidates were
+one human: `Moraes, Caroline Relva de`, `Paredes, Simão Pedro Mendes Cruz
+Reis`, `Silva, Jorge Miguel Sá`, `Simões, Marco António Machado`. The three
+lost rows are `filipius-1` duplicates of `filipe-araujo` rows that survive.
+Nothing became unmatched, nothing was demoted, and no new author conflict
+appeared.
+
+**Detection is suggest-only, permanently.** `scraper/people.py`'s
+`possible_duplicates()` flags same-surname, subset-compatible, primary-given-
+compatible pairs (49 on the live 905-row roster) and reports them as
+`possible_duplicates` in the sync counts. It must never merge, and the
+counterexample is in the data: `simao-paredes`/`s-paredes` publish the **same
+ORCID** and are one person, while `nuno-silva-1` (nsilva@criticalsoftware.com,
+Adaptive Computation) and `nuno-silva-4` (npsilva@dei.uc.pt, Software and
+Systems Engineering) satisfy every one of those conditions and are two
+different people. The Kanban card that commissioned this work listed that
+second pair as a known duplicate; the CISUC pages say otherwise, which is
+precisely why the verdict is a human's.
+
+`Silva, Nuno Pedro de Jesus` therefore stays `ambiguous`, correctly: four
+real, distinct people fit that name. The remaining three ambiguous names
+(`Craveiro, Olga Marina Freitas`, `Martins, Pedro Miguel de Oliveira`,
+`Nunes, Paulo Jorge Costa`) are flagged suspects nobody has reviewed yet —
+`pedro-martins`/`pedro-martins-2` being the family this document's own
+motivating case says are **different** people. They are left alone.
+
 ### The golden fixture can no longer police rule changes
 
 **Both rejected rules left `tests/test_name_match.py` completely green.** This
@@ -461,6 +525,17 @@ it.
   the tile.
 - **S7's group attribution sits on top of this layer** and carries this
   coverage as a multiplier. It should quote it rather than re-derive it.
+- **`people.slug` no longer means "one human."** Every count over people, and
+  every person-keyed join, has to resolve through `person_aliases` or read
+  `people_canonical` — the view exists so there is one obvious place to do
+  that, but it is a standing tax on every new consumer. `docs/graph-db-plan.md`
+  must port the indirection, not flatten it.
+- **A second human-maintained identity artefact** now lives beside
+  `docs/thesis-attribution.json`. A wrong `same` entry silently merges two real
+  people at the `confident` tier, which is why `evidence` is a required field
+  and the loader refuses an entry it cannot act on rather than skipping it — a
+  skipped entry would silently *un-merge* a person and still report a
+  successful build.
 
 ### Out of scope here, and bigger: 24 theses name no supervisor at all
 

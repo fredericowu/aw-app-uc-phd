@@ -174,6 +174,24 @@ export default function PersonDetail({ slug, onBack }) {
 
               <Caveat label="What this page is">{data.caveat}</Caveat>
 
+              {/* The "de x para": CISUC lists this human under more than one
+                  directory entry, a human reviewed it, and this profile is the
+                  union. Stated rather than silently collapsed — the figures
+                  below deliberately do not match any single CISUC page. */}
+              {person.aliases?.length ? (
+                <Caveat label="Listed twice by CISUC — merged here">
+                  {data.alias_caveat}{' '}
+                  Also listed as{' '}
+                  {person.aliases.map((a, i) => (
+                    <span key={a.slug}>
+                      {i > 0 ? ', ' : ''}
+                      <PersonLink slug={a.slug}>{a.slug}</PersonLink> ({a.name})
+                    </span>
+                  ))}
+                  .
+                </Caveat>
+              ) : null}
+
               {person.name_siblings.length ? (
                 <Caveat label="Same name, different profile">
                   {data.duplicate_name_caveat}{' '}

@@ -146,7 +146,14 @@ async def collab_people(
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict:
     """Anchor picker: search people by name, or list the busiest
-    collaborators (by project count) when ``q`` is omitted."""
+    collaborators (by project count) when ``q`` is omitted.
+
+    Over ``people_canonical``, so CISUC's duplicate directory entries are not
+    offered as separate anchors — picking the wrong one of a pair used to land
+    on the half of the profile with no projects. The alias's project
+    memberships are counted here under the canonical slug, which is also the
+    slug the graph's nodes carry (``collab.alias_map``).
+    """
     term = (q or "").strip()
     params: dict = {"limit": limit}
     where = ""
@@ -156,7 +163,12 @@ async def collab_people(
     rows = db.rows(
         f"""
         SELECT pe.slug, pe.name, COUNT(DISTINCT pp.project_id) AS project_count
-        FROM people pe LEFT JOIN project_people pp ON pp.person_slug = pe.slug
+        FROM people_canonical pe
+        LEFT JOIN project_people pp
+               ON pp.person_slug = pe.slug
+               OR pp.person_slug IN (
+                      SELECT from_slug FROM person_aliases WHERE to_slug = pe.slug
+                  )
         {where}
         GROUP BY pe.slug, pe.name
         ORDER BY project_count DESC, pe.name
@@ -195,6 +207,16 @@ async def collab_person_neighbours(
     person = db.one("SELECT slug, name FROM people WHERE slug = :slug", {"slug": slug})
     if person is None:
         raise HTTPException(status_code=404, detail=f"no person {slug!r}")
+    # The graph's nodes are canonical slugs, so an aliased slug has to be
+    # resolved before it can be an anchor — otherwise asking about one of
+    # CISUC's two entries for a person returns an empty neighbourhood and
+    # reads as "this person collaborates with nobody".
+    alias_row = db.one(
+        "SELECT to_slug FROM person_aliases WHERE from_slug = :slug", {"slug": slug}
+    )
+    if alias_row:
+        slug = alias_row["to_slug"]
+        person = db.one("SELECT slug, name FROM people WHERE slug = :slug", {"slug": slug})
     groups = collab.person_groups().get(slug, set())
     collaborators = collab.neighbours(slug, kind, min_weight)
     # Slice BEFORE building the labels: a label is only worth sending for an

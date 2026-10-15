@@ -37,6 +37,7 @@ from pathlib import Path
 
 import yaml
 
+from . import person_aliases
 from .name_match import (
     AMBIGUOUS,
     CONFIDENCE,
@@ -44,6 +45,7 @@ from .name_match import (
     EXACT,
     UNMATCHED,
     Person,
+    identity_of,
     match_name,
     split_thesis_name,
     tokenize,
@@ -100,8 +102,19 @@ def reconcile(front_matters: list[dict], manifest_path: Path) -> None:
         )
 
 
+#: Every ``people`` row with its reviewed canonical identity attached, when it
+#: has one. A LEFT JOIN rather than two queries folded together in Python: the
+#: alias is a property of the row, and a row with no alias must come back
+#: carrying NULL rather than be absent.
+_PEOPLE_SQL = """
+SELECT p.slug, p.name, a.to_slug
+FROM people p
+LEFT JOIN person_aliases a ON a.from_slug = p.slug
+"""
+
+
 def load_people(conn: sqlite3.Connection) -> list[Person]:
-    return [Person(row[0], row[1]) for row in conn.execute("SELECT slug, name FROM people")]
+    return [Person(row[0], row[1], row[2]) for row in conn.execute(_PEOPLE_SQL)]
 
 
 def thesis_row(front_matter: dict) -> tuple:
@@ -127,14 +140,35 @@ def thesis_row(front_matter: dict) -> tuple:
 
 def people_rows(front_matter: dict, people: list[Person], cache: dict) -> list[tuple]:
     """``thesis_people`` rows for one thesis — one per resolved candidate, and
-    exactly one carrying a NULL slug when nothing resolved."""
+    exactly one carrying a NULL slug when nothing resolved.
+
+    **The canonical slug is written, not the matched one**, and it happens
+    *here* rather than anywhere later in the pipeline. Two reasons, both load-
+    bearing:
+
+    * ``resolve_author_conflicts`` below groups author claims BY SLUG. Two
+      thesis authors landing on two rows of one alias group have to collide
+      and demote; written as the raw slugs they would slip past as two
+      separate claimants, which is exactly the false merge that pass exists
+      to catch — only harder to see, because the two slugs are one person.
+    * ``idx_one_thesis_per_resolved_author`` (scraper/schema.sql) then sees
+      canonical slugs too, so the backstop guards the same thing the pass
+      does rather than a weaker version of it.
+
+    Deduped, because collapsing an alias group means several candidates now
+    name one slug — one person, one row.
+    """
     rows = []
     for role, field in ROLE_FIELDS:
         for ordinal, name_raw in enumerate(front_matter.get(field) or []):
             if name_raw not in cache:
                 cache[name_raw] = match_name(name_raw, people)
             result = cache[name_raw]
-            slugs = [p.slug for p in result.people] if result.status in (EXACT, CONFIDENT) else [None]
+            slugs = (
+                list(dict.fromkeys(identity_of(p) for p in result.people))
+                if result.status in (EXACT, CONFIDENT)
+                else [None]
+            )
             for slug in slugs:
                 rows.append(
                     (
@@ -303,8 +337,12 @@ def keyword_rows(front_matter: dict) -> list[tuple]:
     ]
 
 
-def build(db_path: Path, estudo_geral_dir: Path) -> dict:
-    """Rebuild the three tables from scratch. Returns what it wrote."""
+def build(db_path: Path, estudo_geral_dir: Path, aliases_path: Path | None = None) -> dict:
+    """Rebuild the three tables from scratch. Returns what it wrote.
+
+    ``person_aliases`` is rebuilt in the same transaction, from
+    ``data/person_aliases.json`` — the identity map the matcher then reads.
+    """
     front_matters = load_front_matters(estudo_geral_dir)
     reconcile(front_matters, estudo_geral_dir / "manifest.json")
 
@@ -328,6 +366,13 @@ def build(db_path: Path, estudo_geral_dir: Path) -> dict:
                 conn.execute(f"DELETE FROM {table}")
 
         conn.executescript(SCHEMA.read_text(encoding="utf-8"))
+
+        # Identity before matching, in that order and not the other: the
+        # curated "de x para" decides which `people` rows are one human, and
+        # `load_people` reads the result of it onto every Person. Validated
+        # against the live rows and raised on, never skipped — see
+        # analysis/person_aliases.py on why a silent skip un-merges a person.
+        aliases = person_aliases.load_and_write(conn, aliases_path)
         people = load_people(conn)
 
         cache: dict = {}
@@ -351,6 +396,7 @@ def build(db_path: Path, estudo_geral_dir: Path) -> dict:
     tiers = collections.Counter(m.status for m in cache.values())
     return {
         "theses": len(theses),
+        "person_aliases": aliases,
         "thesis_people_rows": len(thesis_people),
         "thesis_keywords": len(thesis_keywords),
         "supervision_edges": sum(
@@ -375,9 +421,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
     parser.add_argument("--estudo-geral", type=Path, default=DEFAULT_ESTUDO_GERAL)
+    parser.add_argument("--person-aliases", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    report = build(args.db, args.estudo_geral)
+    report = build(args.db, args.estudo_geral, args.person_aliases)
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0
 

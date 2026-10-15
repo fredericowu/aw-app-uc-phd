@@ -70,11 +70,30 @@ KEYWORDS_CAVEAT = (
 )
 
 #: Why a person's name may not identify them.
+#:
+#: This is the NO-EVIDENCE case and stays that way. An exact-name twin whose
+#: identity nobody has ruled on is a different situation from an alias group,
+#: which has evidence by construction — ``_ALIAS_GROUP_SQL`` members are
+#: therefore excluded from ``name_siblings`` below, so a reviewed pair
+#: graduates out of this caveat instead of carrying both at once.
 DUPLICATE_NAME_CAVEAT = (
     "More than one CISUC profile carries this display name. They are separate "
     "slugs and this app has no evidence about whether they are the same human "
     "— nothing here merges them, and every figure on this page is keyed on "
     "slug, not name."
+)
+
+#: Said out loud whenever this profile is an aggregate of several CISUC
+#: directory entries, because every figure on the page then counts something
+#: the site itself splits in two — a reader comparing this project count
+#: against one CISUC page would otherwise find it too high and be right to.
+ALIAS_CAVEAT = (
+    "CISUC's own People directory lists this person under {count} separate "
+    "entries, which a human reviewed and recorded as one human in "
+    "data/person_aliases.json (with the evidence). This profile is the union "
+    "of all of them: projects, theses and keywords are aggregated across the "
+    "group and de-duplicated, and {canonical} is the canonical slug every "
+    "figure in this app is keyed on. Visiting either slug lands here."
 )
 
 # ``thesis_people.match_status`` tiers that mean "this is a person". Built from
@@ -99,16 +118,49 @@ WHERE href IS NOT NULL
 LIMIT 1
 """
 
+# The requested slug's canonical identity, or nothing when it already is one.
+# One hop, never a loop: person_aliases.from_slug is a PRIMARY KEY and
+# analysis/person_aliases.py refuses a chain (see its validate()).
+_CANONICAL_SQL = "SELECT to_slug FROM person_aliases WHERE from_slug = :slug"
+
+# Every ``people`` row CISUC publishes for this one human: the canonical row
+# plus the reviewed aliases pointing at it. Ordered canonical-first so the
+# group's head is the profile identity and the rest are the "also listed as".
+_ALIAS_GROUP_SQL = """
+SELECT p.slug, p.name, 1 AS is_canonical
+FROM people p WHERE p.slug = :canonical
+UNION ALL
+SELECT p.slug, p.name, 0 AS is_canonical
+FROM person_aliases a JOIN people p ON p.slug = a.from_slug
+WHERE a.to_slug = :canonical
+ORDER BY is_canonical DESC, slug
+"""
+
+# Exact-name twins, EXCLUDING this person's own alias group — a reviewed pair
+# is no longer a "same name, no evidence" case, and showing it as both would
+# tell a reader two contradictory things about one pair.
 _SIBLING_SLUGS_SQL = """
 SELECT slug, name FROM people
-WHERE name = (SELECT name FROM people WHERE slug = :slug) AND slug <> :slug
+WHERE name = (SELECT name FROM people WHERE slug = :slug)
+  AND slug NOT IN (SELECT from_slug FROM person_aliases WHERE to_slug = :canonical)
+  AND slug <> :canonical
 ORDER BY slug
 """
 
-# One row per (project, role) — the grain project_people actually has. Folded
-# into one entry per project below, which is what makes the distinct counting
-# above true by construction rather than by a COUNT(DISTINCT ...) a later edit
-# could quietly turn back into COUNT(*).
+# ``person_slug IN (<the alias group>)`` everywhere a person is identified,
+# rather than ``= :slug``. The group is one slug for the overwhelming majority
+# of people, so this is the same query with one extra placeholder — but where
+# CISUC split a human in two, it is the difference between a profile showing
+# their 16 projects and a profile showing 0 of them under the other slug.
+#
+# The placeholder list is built from the group's SIZE, never from its contents
+# (``_group_params`` below), so no slug is ever interpolated into SQL text.
+#
+# project_people and thesis_people are both keyed on person_slug, and a
+# project/thesis reachable through two members of one group would appear
+# twice — every count below is already DISTINCT on the project id / handle,
+# and ``_fold_projects`` folds the project rows, so the de-duplication the
+# group needs is the de-duplication these queries already did for roles.
 _PROJECTS_SQL = """
 SELECT
     p.id,
@@ -122,38 +174,52 @@ SELECT
     pp.ordinal,
     (SELECT GROUP_CONCAT(pg.group_code, ',')
        FROM project_groups pg WHERE pg.project_id = p.id) AS group_codes
-FROM project_people pp
+FROM (SELECT DISTINCT project_id, role, ordinal FROM project_people
+      WHERE person_slug IN ({group})) pp
 JOIN projects p ON p.id = pp.project_id
-WHERE pp.person_slug = :slug
 ORDER BY p.start_date DESC, p.title, pp.role
 """
 
-_THESES_SQL = f"""
-SELECT tp.role, t.handle, t.title, t.year, t.full_text, t.source_url
+_THESES_SQL = """
+SELECT DISTINCT tp.role, t.handle, t.title, t.year, t.full_text, t.source_url
 FROM thesis_people tp
 JOIN theses t ON t.handle = tp.handle
-WHERE tp.person_slug = :slug AND tp.match_status IN ({_TIER_PLACEHOLDERS})
+WHERE tp.person_slug IN ({group}) AND tp.match_status IN ({tiers})
 ORDER BY t.year DESC, t.title
 """
 
 _PROJECT_KEYWORDS_SQL = """
 SELECT k.keyword, COUNT(DISTINCT k.project_id) AS project_count
 FROM project_keywords k
-WHERE k.project_id IN (SELECT project_id FROM project_people WHERE person_slug = :slug)
+WHERE k.project_id IN (
+    SELECT project_id FROM project_people WHERE person_slug IN ({group})
+)
 GROUP BY k.keyword
 ORDER BY project_count DESC, k.keyword
 """
 
-_THESIS_KEYWORDS_SQL = f"""
+_THESIS_KEYWORDS_SQL = """
 SELECT k.keyword, COUNT(DISTINCT k.handle) AS thesis_count
 FROM thesis_keywords k
 WHERE k.handle IN (
     SELECT handle FROM thesis_people
-    WHERE person_slug = :slug AND match_status IN ({_TIER_PLACEHOLDERS})
+    WHERE person_slug IN ({group}) AND match_status IN ({tiers})
 )
 GROUP BY k.keyword
 ORDER BY thesis_count DESC, k.keyword
 """
+
+
+def _group_params(slugs: list[str]) -> tuple[str, dict]:
+    """``("(:g0, :g1)", {"g0": ..., "g1": ...})`` for an IN list.
+
+    Bound parameters, generated from the group's length — a slug is caller
+    input (it arrives in the URL path) and never becomes SQL text, so the
+    ``:slug``-everywhere property the rest of this module has is kept even
+    though the arity is now variable.
+    """
+    names = [f"g{i}" for i in range(len(slugs))]
+    return ", ".join(f":{name}" for name in names), dict(zip(names, slugs))
 
 
 def _fold_projects(rows: list[dict]) -> list[dict]:
@@ -195,19 +261,48 @@ async def person_detail(slug: str) -> dict:
     everything else this dataset knows about them is.
 
     404s on an unknown slug, matching ``api/collab.py``'s person route.
+
+    **A requested slug is resolved to its alias group first.** Where CISUC's
+    own directory lists one human twice, asking for either slug returns the
+    one canonical profile, aggregated over every entry in the group — not a
+    404, and not two half-empty pages, one of which carries all the projects
+    and the other all the ORCID. ``ALIAS_CAVEAT`` says so on the page: these
+    figures deliberately do not match any single CISUC page.
     """
-    person = db.one("SELECT slug, name FROM people WHERE slug = :slug", {"slug": slug})
-    if person is None:
+    if db.one("SELECT slug FROM people WHERE slug = :slug", {"slug": slug}) is None:
         raise HTTPException(status_code=404, detail=f"no person {slug!r}")
 
-    url_row = db.one(_CISUC_URL_SQL, {"slug": slug})
-    siblings = db.rows(_SIBLING_SLUGS_SQL, {"slug": slug})
+    alias_row = db.one(_CANONICAL_SQL, {"slug": slug})
+    canonical = alias_row["to_slug"] if alias_row else slug
+    group = db.rows(_ALIAS_GROUP_SQL, {"canonical": canonical})
+    group_slugs = [row["slug"] for row in group]
+    placeholders, group_params = _group_params(group_slugs)
 
-    projects = _fold_projects(db.rows(_PROJECTS_SQL, {"slug": slug}))
+    # The canonical row IS the profile identity — requesting an alias slug
+    # renders the person CISUC's richer entry describes, by that entry's name.
+    person = next(row for row in group if row["is_canonical"])
+    aliases = [{"slug": row["slug"], "name": row["name"]} for row in group if not row["is_canonical"]]
+
+    # Any group member's published href, canonical first: the person has one
+    # CISUC page per entry, and the canonical entry is the one to send a
+    # reader to. Still never a reconstructed URL — if the site published no
+    # href for any of them, there is no link.
+    url_row = next(
+        (row for row in (db.one(_CISUC_URL_SQL, {"slug": s}) for s in group_slugs) if row),
+        None,
+    )
+    siblings = db.rows(_SIBLING_SLUGS_SQL, {"slug": canonical, "canonical": canonical})
+    person_groups = collab.person_groups()
+
+    projects = _fold_projects(
+        db.rows(_PROJECTS_SQL.format(group=placeholders), group_params)
+    )
     coordinated = [p for p in projects if "coordinator" in p["roles"]]
 
-    tier_params = {"slug": slug, **_TIER_PARAMS}
-    thesis_rows = db.rows(_THESES_SQL, tier_params)
+    tier_params = {**group_params, **_TIER_PARAMS}
+    thesis_rows = db.rows(
+        _THESES_SQL.format(group=placeholders, tiers=_TIER_PLACEHOLDERS), tier_params
+    )
 
     def _thesis(row: dict) -> dict:
         return {
@@ -228,8 +323,13 @@ async def person_detail(slug: str) -> dict:
             # any project, any role" answer — reused rather than re-derived.
             # (theses.py's _person_groups asks a different, coordinator-first
             # question for a different purpose; the two are not interchangeable.)
-            "groups": sorted(collab.person_groups().get(slug, set())),
+            # Unioned over the group: a human whose project history CISUC split
+            # across two entries belongs to the groups of both.
+            "groups": sorted(set().union(*(person_groups.get(s, set()) for s in group_slugs))),
             "name_siblings": siblings,
+            # The other CISUC directory entries for this same human. Empty for
+            # almost everyone; never None, so the frontend can read .length.
+            "aliases": aliases,
         },
         "projects": {
             "project_count": len(projects),
@@ -246,10 +346,16 @@ async def person_detail(slug: str) -> dict:
             "caveat": THESIS_MATCH_CAVEAT,
         },
         "keywords": {
-            "project": db.rows(_PROJECT_KEYWORDS_SQL, {"slug": slug}),
-            "thesis": db.rows(_THESIS_KEYWORDS_SQL, tier_params),
+            "project": db.rows(_PROJECT_KEYWORDS_SQL.format(group=placeholders), group_params),
+            "thesis": db.rows(
+                _THESIS_KEYWORDS_SQL.format(group=placeholders, tiers=_TIER_PLACEHOLDERS),
+                tier_params,
+            ),
             "caveat": KEYWORDS_CAVEAT,
         },
         "caveat": PROFILE_CAVEAT,
         "duplicate_name_caveat": DUPLICATE_NAME_CAVEAT if siblings else None,
+        "alias_caveat": (
+            ALIAS_CAVEAT.format(count=len(group_slugs), canonical=canonical) if aliases else None
+        ),
     }

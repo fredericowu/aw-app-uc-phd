@@ -63,6 +63,42 @@ CREATE TABLE IF NOT EXISTS people (
     name TEXT NOT NULL
 );
 
+-- The person-alias "de x para": CISUC's own directory lists some humans under
+-- TWO person rows, and this is which of them is which.
+--
+-- Written offline by `python -m analysis.build_thesis_facts` from the curated,
+-- human-reviewed data/person_aliases.json — see analysis/person_aliases.py for
+-- why the decision cannot be automated (the same name shape that proves
+-- simao-paredes/s-paredes are one person, via a shared ORCID, is carried by
+-- nuno-silva-1/nuno-silva-4, who are two different people).
+--
+-- `people` rows are NOT merged or deleted. scraper/people.py re-serves both
+-- slugs on every sync, so a deleted row would simply come back; both CISUC
+-- pages are live URLs; and project_people/project_fields_raw provenance hangs
+-- off both slugs. The indirection is the mechanism, not a migration step.
+--
+-- from_slug is the PRIMARY KEY, which is also what makes resolution exactly
+-- one hop: a slug can be an alias of at most one canonical, and the loader
+-- additionally refuses a to_slug that is itself a from_slug (a chain), so no
+-- consumer ever has to loop.
+CREATE TABLE IF NOT EXISTS person_aliases (
+    from_slug TEXT PRIMARY KEY REFERENCES people(slug),
+    to_slug   TEXT NOT NULL REFERENCES people(slug),
+    evidence  TEXT NOT NULL   -- why a human ruled these one person. Not optional.
+);
+CREATE INDEX IF NOT EXISTS idx_person_aliases_to ON person_aliases(to_slug);
+
+-- One row per HUMAN, where `people` is one row per CISUC directory entry.
+--
+-- `people.slug` stopped meaning "one human" the moment the table above
+-- existed, and every count over people is wrong by the number of aliases
+-- unless it resolves through it. This view is the one obvious place to do
+-- that, so a future consumer has something to join to instead of
+-- rediscovering the problem — see uc_phd_app/collab.py:summary().
+CREATE VIEW IF NOT EXISTS people_canonical AS
+SELECT slug, name FROM people
+WHERE slug NOT IN (SELECT from_slug FROM person_aliases);
+
 CREATE TABLE IF NOT EXISTS project_people (
     project_id  INTEGER NOT NULL REFERENCES projects(id),
     person_slug TEXT NOT NULL REFERENCES people(slug),

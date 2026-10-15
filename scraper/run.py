@@ -222,7 +222,15 @@ def main():
     if people_counts is None:
         people_note = "people_dir=FAILED"
     else:
-        people_note = f"people_dir={people_counts['with_page']}"
+        # The suspect count rides into scrape_runs.notes next to the roster
+        # size, because that is the one place a human reliably looks after a
+        # scrape — a growing number here means CISUC has filed more people
+        # twice and data/person_aliases.json needs a verdict (scraper/people.py
+        # :possible_duplicates). It is never acted on automatically.
+        people_note = (
+            f"people_dir={people_counts['with_page']} "
+            f"dup_suspects={len(people_counts['possible_duplicates'])}"
+        )
     notes = f"stubs={stub_count} {people_note}"
     db.finish_scrape_run(conn, run_id, finished_at, total_data, len(listing_rows), detail_ok, detail_failed, notes)
     conn.commit()
@@ -233,7 +241,20 @@ def main():
         f"{people_note}"
     )
     if people_counts is not None:
-        print(f"people: {people_counts}")
+        suspects = people_counts["possible_duplicates"]
+        print(f"people: { {k: v for k, v in people_counts.items() if k != 'possible_duplicates'} }")
+        if suspects:
+            print(
+                f"{len(suspects)} same-surname pairs may be one human listed twice — "
+                "add a verdict to data/person_aliases.json to rule on one (or to "
+                "silence it):"
+            )
+            for suspect in suspects:
+                print(
+                    f"  {suspect['a']} ({suspect['name_a']}) <-> "
+                    f"{suspect['b']} ({suspect['name_b']})"
+                    + ("  [identical display name]" if suspect["same_display_name"] else "")
+                )
     if detail_failed:
         print(f"WARNING: {detail_failed} detail pages failed after retries — see scrape_targets.", file=sys.stderr)
     if people_failed:

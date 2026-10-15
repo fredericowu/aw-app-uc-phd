@@ -38,6 +38,9 @@ from pathlib import Path
 
 import requests
 
+from analysis import person_aliases
+from analysis.name_match import _is_initial_of, fold, tokenize
+
 from . import db
 from .listing import USER_AGENT
 from .parse import normalize_ws
@@ -179,6 +182,80 @@ def person_rows(rows):
     return people, no_page
 
 
+def _given_compatible(tokens_a, tokens_b):
+    """Do these two names agree on the name the person is actually CALLED?
+
+    The first given token, the same one `analysis/name_match.py`'s tie-break
+    uses, and for the same reason: a shared *middle* name is a coincidence
+    between two real people far more often than it is one person. An initial
+    on either side counts ("J. Silva" / "Jorge Silva"), because that is how
+    CISUC abbreviates one of its two entries for the same human.
+    """
+    if not tokens_a or not tokens_b:
+        return False
+    a, b = tokens_a[0], tokens_b[0]
+    return a == b or _is_initial_of(a, (b,)) or _is_initial_of(b, (a,))
+
+
+def possible_duplicates(people, reviewed=None):
+    """Same-surname pairs in `people` that MIGHT be one human. Suggest only.
+
+    `people` is (slug, name) pairs; `reviewed` is the pairs a human has
+    already ruled on under either verdict (`analysis.person_aliases
+    .reviewed_pairs`), which are subtracted — the point of recording a
+    `distinct` verdict is that the pair goes quiet instead of being reported
+    forever.
+
+    The rule: same folded surname (last token), one name's token set a subset
+    of the other's, and the first given names compatible. All six known
+    families are caught by it (measured against the live 905-row roster,
+    2026-10-15, where it reports 49 pairs).
+
+    **This never merges anything, and must not be made to.** `nuno-silva-1`
+    ("Nuno Silva", nsilva@criticalsoftware.com, Adaptive Computation) and
+    `nuno-silva-4` ("Nuno Pedro de Jesus Silva", npsilva@dei.uc.pt, Software
+    and Systems Engineering) satisfy every condition above and are two
+    different people; `simao-paredes`/`s-paredes` satisfy exactly the same
+    conditions and publish the same ORCID. Nothing in the two NAMES tells
+    those two cases apart, which is why the output of this function is a list
+    for a human to read and `data/person_aliases.json` is where the answer
+    goes. Auto-merging here would produce the confidently-wrong person this
+    repo already has a history of (see docs/thesis-attribution.md).
+    """
+    reviewed = reviewed or set()
+    by_surname = {}
+    for slug, name in people:
+        tokens = tokenize(name)
+        if not tokens:
+            continue
+        by_surname.setdefault(tokens[-1], []).append((slug, name, tokens))
+
+    out = []
+    for group in (by_surname[surname] for surname in sorted(by_surname)):
+        for index, (slug_a, name_a, tokens_a) in enumerate(group):
+            for slug_b, name_b, tokens_b in group[index + 1 :]:
+                set_a, set_b = set(tokens_a), set(tokens_b)
+                if not (set_a <= set_b or set_b <= set_a):
+                    continue
+                # The given tokens are everything but the surname; a
+                # single-token name has none, and compares as itself.
+                if not _given_compatible(tokens_a[:-1] or tokens_a, tokens_b[:-1] or tokens_b):
+                    continue
+                pair = (slug_a, slug_b) if slug_a < slug_b else (slug_b, slug_a)
+                if pair in reviewed:
+                    continue
+                out.append(
+                    {
+                        "a": pair[0],
+                        "b": pair[1],
+                        "name_a": name_a if pair[0] == slug_a else name_b,
+                        "name_b": name_b if pair[0] == slug_a else name_a,
+                        "same_display_name": fold(name_a) == fold(name_b),
+                    }
+                )
+    return sorted(out, key=lambda entry: (entry["a"], entry["b"]))
+
+
 def sync_people(conn, rows):
     """Upsert every directory entry into `people`. Returns the counts.
 
@@ -186,6 +263,10 @@ def sync_people(conn, rows):
     eye: the first is this source overwriting a name the project pages wrote
     (last writer wins, and run.py puts this step last), the second is the
     historical project-only people this source cannot see.
+
+    `possible_duplicates` is the third, and the one that is *actionable*: a
+    pair CISUC may be listing twice, that nobody has ruled on yet. A verdict
+    in `data/person_aliases.json` is what makes it stop appearing.
     """
     people, no_page = person_rows(rows)
 
@@ -206,6 +287,15 @@ def sync_people(conn, rows):
         db.upsert_person(conn, slug, name)
     conn.commit()
 
+    # Detection runs over the whole POST-UPSERT `people` table, not just this
+    # fetch's directory rows: half of every known family (`filipius-1`,
+    # `j-silva`) is a directory-only entry and the other half (`filipe-araujo`,
+    # `jorge-silva`) came from a project page years ago. Reading only the
+    # directory would see one side of the pair and report nothing.
+    all_people = [(row[0], row[1]) for row in conn.execute("SELECT slug, name FROM people")]
+    reviewed = person_aliases.reviewed_pairs(person_aliases.load_pairs())
+    suspects = possible_duplicates(all_people, reviewed)
+
     directory_slugs = {slug for slug, _ in people}
     return {
         "fetched": len(rows),
@@ -217,6 +307,8 @@ def sync_people(conn, rows):
         "absent_from_directory": len(set(existing) - directory_slugs),
         "people_total_after": len(set(existing) | directory_slugs),
         "renames": renames,
+        "reviewed_pairs": len(reviewed),
+        "possible_duplicates": suspects,
     }
 
 

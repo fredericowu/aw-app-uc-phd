@@ -611,3 +611,92 @@ def test_person_neighbours_route_omits_co_supervised_on_co_supervision(client):
 def test_summary_route_carries_graph_min_weight(client):
     body = client.get("/api/collab/summary").json()
     assert body["graph_min_weight"] == collab.GRAPH_MIN_WEIGHT
+
+
+# ── person aliases: one human is one node ───────────────────────────────────
+#
+# CISUC lists some people under two `people` rows. Keyed on the raw slugs,
+# such a human is TWO nodes here with their collaborations split between
+# them, and a project listing both rows produces a self-loop. These fixtures
+# build exactly that shape and the tests assert it collapses.
+
+
+@pytest.fixture()
+def alan_merged(live_db):
+    """``alan-1`` reviewed as an alias of ``alan``, and listed on Alpha
+    alongside ``alan`` itself — the pathological case: one project carrying
+    BOTH rows of one alias group."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        conn.executescript(
+            "INSERT INTO people (slug, name) VALUES ('alan-1', 'Alan M. Turing');"
+            "INSERT INTO person_aliases (from_slug, to_slug, evidence) VALUES"
+            " ('alan-1', 'alan', 'Same mailbox local part on both CISUC pages.');"
+            "INSERT INTO project_people (project_id, person_slug, role, ordinal) VALUES"
+            " (1, 'alan-1', 'researcher', 3);"
+            # BOTH slugs of the group supervise Thesis A. `people_rows` writes
+            # only the canonical slug, so this repo's own builder cannot
+            # produce these two rows — but a seed built before the alias was
+            # reviewed can, and so can any other writer. The canonicalisation
+            # in collab.py is what makes that seed render one supervisor
+            # instead of two, which is the case these rows cover.
+            "INSERT INTO thesis_people VALUES"
+            " ('10316/000001', 'Turing, Alan', 'supervisor', 'alan',"
+            "  'confident', 0.8, 'reviewed alias', 2),"
+            " ('10316/000001', 'Turing, Alan Mathison', 'supervisor', 'alan-1',"
+            "  'confident', 0.8, 'reviewed alias', 3);"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return live_db
+
+
+def test_an_alias_group_is_one_node_not_a_self_loop(alan_merged):
+    """Alpha lists ``alan`` and ``alan-1``. Raw, that is an (alan, alan-1)
+    pair — one person collaborating with themselves. It must not exist."""
+    pairs = {(p["person_a_slug"], p["person_b_slug"]) for p in collab.enriched_pairs("co_project")}
+    assert ("alan", "alan-1") not in pairs
+    assert not any("alan-1" in pair for pair in pairs)
+
+
+def test_a_project_reached_through_two_alias_slugs_counts_once(alan_merged):
+    """``ada`` shares Alpha with ``alan`` and with ``alan-1``, which are one
+    human. Weight 1, not 2 — a double count would say they collaborate twice
+    as much as they do."""
+    pairs = {(p["person_a_slug"], p["person_b_slug"]): p for p in collab.enriched_pairs("co_project")}
+    assert pairs[("ada", "alan")]["weight"] == 1
+    assert pairs[("ada", "alan")]["shared_ids"] == [1]
+
+
+def test_co_supervision_collapses_an_alias_group_the_same_way(alan_merged):
+    """Thesis A is now supervised by ``ada``, ``grace``, ``alan`` and
+    ``alan-1``. The last two are one person: one (ada, alan) edge of weight
+    1, and no (alan, alan-1) edge."""
+    pairs = {(p["person_a_slug"], p["person_b_slug"]): p for p in collab.enriched_pairs("co_supervision")}
+    assert ("alan", "alan-1") not in pairs
+    assert pairs[("ada", "alan")]["weight"] == 1
+    assert pairs[("ada", "alan")]["shared_ids"] == ["10316/000001"]
+
+
+def test_person_groups_answers_for_the_canonical_and_the_alias_slug(alan_merged):
+    """The graph's nodes are canonical, so the map has to be keyed that way —
+    but ``api/people.py`` holds raw slugs, so both must resolve."""
+    groups = collab.person_groups()
+    assert groups["alan"] == {"NCS", "AC"}
+    assert groups["alan-1"] == {"NCS", "AC"}
+
+
+def test_summary_counts_people_canonical_not_the_raw_table(alan_merged):
+    """``alan-1`` is a duplicate directory entry, not an extra researcher."""
+    assert collab.summary()["total_people"] == 4  # ada, alan, grace, grace-1
+
+
+def test_the_person_route_resolves_an_alias_slug_to_its_canonical_anchor(client, alan_merged):
+    """Asking about one of CISUC's two entries must not answer "collaborates
+    with nobody" — the nodes are canonical, so the anchor has to be too."""
+    body = client.get("/api/collab/people/alan-1?min_weight=1").json()
+    assert body["person"]["slug"] == "alan"
+    assert [c["slug"] for c in body["collaborators"]] == ["ada"]

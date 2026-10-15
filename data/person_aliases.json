@@ -1,0 +1,82 @@
+{
+  "note": "Human-reviewed identity verdicts for pairs of CISUC `people` rows that name the same human. CISUC's own directory lists some people twice — once under the slug a project page linked to, once under the slug the People directory publishes — and no name rule can tell that from two real people who happen to share a surname and a given name. So every entry here is a decision a person made against the live CISUC pages, with the evidence written down. `verdict: \"same\"` collapses the pair: `canonical` keeps its identity, the other slug becomes an alias of it (analysis/person_aliases.py writes them into `person_aliases`, and the matcher, the profile and every person count resolve through it). `verdict: \"distinct\"` records the opposite decision — these two really are different humans — and exists so scraper/people.py's detection pass stops re-flagging a pair somebody has already looked at. Adding a wrong \"same\" entry silently merges two real people at the matcher's confident tier, which is the one failure this whole app is built to avoid: `evidence` is mandatory and is not decoration. See docs/thesis-attribution.md.",
+  "pairs": [
+    {
+      "a": "j-silva",
+      "b": "jorge-silva",
+      "verdict": "same",
+      "canonical": "jorge-silva",
+      "evidence": "Same institutional mailbox local part at two UC departments: jorge-silva publishes sasilva@deec.uc.pt, j-silva publishes sasilva@dei.uc.pt ('sa silva'). jorge-silva is the live profile — Collaborator, Networks, Communications and Security, 18 CISUC projects; j-silva ('Jorge Miguel Sa Silva') is a directory-only entry with no category, no group and no project history. Canonical jorge-silva for the project history."
+    },
+    {
+      "a": "marco-simoes",
+      "b": "msimoes",
+      "verdict": "same",
+      "canonical": "msimoes",
+      "evidence": "Same mailbox local part, staff and student forms of one UC address: msimoes@dei.uc.pt vs msimoes@student.dei.uc.pt. msimoes is the current profile — Integrated Researcher, Adaptive Computation, ORCID 0000-0003-3713-2464, 6 CISUC projects; marco-simoes ('Marco António Machado Simões') is flagged 'Former member', Category Student, bio-inspired Artificial Intelligence, no projects — the student record of the same person. Canonical msimoes for the project history and the ORCID."
+    },
+    {
+      "a": "s-paredes",
+      "b": "simao-paredes",
+      "verdict": "same",
+      "canonical": "simao-paredes",
+      "evidence": "Both CISUC pages publish the SAME ORCID, 0000-0002-1021-1173 — a per-person identifier, so this pair is not an inference. Addresses are the same local part at two institutions (sparedes@isec.pt, sparedes@dei.uc.pt). simao-paredes is the live profile — Collaborator, Adaptive Computation, 8 CISUC projects; s-paredes ('Simao Pedro M. Paredes') carries only the name and the ORCID. Canonical simao-paredes for the project history."
+    },
+    {
+      "a": "filipe-araujo",
+      "b": "filipius-1",
+      "verdict": "same",
+      "canonical": "filipe-araujo",
+      "evidence": "Same mailbox local part at two UC hosts: filipius@uc.pt vs filipius@dei.uc.pt — and 'filipius' is literally the slug CISUC filed the second entry under. Both pages publish the display name 'Filipe Araujo'. filipe-araujo is the live profile — Integrated Researcher, Software and Systems Engineering, 16 CISUC projects; filipius-1 adds ORCID 0000-0002-1663-1937 and the DEI affiliation but has no project history. Canonical filipe-araujo for the project history."
+    },
+    {
+      "a": "c-moraes",
+      "b": "c-r-d-moraes",
+      "verdict": "same",
+      "canonical": "c-moraes",
+      "evidence": "One person under a short and a long form of the same name: c-moraes is 'Caroline Moraes', carelva.moraes@gmail.com ('ca[roline] relva moraes'), ORCID 0000-0002-9917-8276, Integrated PhD Student in Information Systems; c-r-d-moraes is 'Caroline Relva De Moraes', cmoraes@dei.uc.pt, a directory-only entry with no category and no group. Both addresses spell out the same three names in different order, and these are the only two Caroline Moraes rows in the whole roster (r-moraes is Regina Lucia de Oliveira Moraes, remoraes@dei.uc.pt, Software and Systems Engineering — a different person, not part of this pair). Neither slug has project history, so canonical c-moraes for the richer profile: it is the one carrying the ORCID, the category and the research group."
+    },
+    {
+      "a": "nuno-silva",
+      "b": "nuno-silva-1",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "Different humans whose names are token-compatible. nuno-silva is 'Nuno Antunes Silva', nantunes@student.dei.uc.pt, Cognitive and Media Systems; nuno-silva-1 is 'Nuno Silva', nsilva@criticalsoftware.com, Adaptive Computation. Different mailboxes at different domains, different research groups."
+    },
+    {
+      "a": "nuno-silva",
+      "b": "nuno-silva-2",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "Different humans. nuno-silva is 'Nuno Antunes Silva', nantunes@student.dei.uc.pt, Cognitive and Media Systems; nuno-silva-2 is 'Nuno Silva', nunofilipecruzsilva@gmail.com (Nuno Filipe Cruz Silva), Adaptive Computation. Different mailboxes, different research groups, and the second address spells out a middle name the first does not carry."
+    },
+    {
+      "a": "nuno-silva",
+      "b": "nuno-silva-4",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "Different humans. nuno-silva is 'Nuno Antunes Silva', nantunes@student.dei.uc.pt, Cognitive and Media Systems; nuno-silva-4 is 'Nuno Pedro de Jesus Silva', npsilva@dei.uc.pt, Software and Systems Engineering, research interests Dependability / RAMS / Safety Critical Systems. Different mailboxes, different groups, and neither name's tokens are a subset of the other's."
+    },
+    {
+      "a": "nuno-silva-1",
+      "b": "nuno-silva-2",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "Two different humans CISUC publishes under the IDENTICAL display name 'Nuno Silva', both in Adaptive Computation — the case that proves a byte-equal name is not an identity. nuno-silva-1 is nsilva@criticalsoftware.com; nuno-silva-2 is nunofilipecruzsilva@gmail.com (Nuno Filipe Cruz Silva). Two unrelated mailboxes at two unrelated domains."
+    },
+    {
+      "a": "nuno-silva-1",
+      "b": "nuno-silva-4",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "Different humans, and the pair the Kanban card expected to be one person — the evidence says otherwise. nuno-silva-1 is 'Nuno Silva', nsilva@criticalsoftware.com, Adaptive Computation; nuno-silva-4 is 'Nuno Pedro de Jesus Silva', npsilva@dei.uc.pt, Software and Systems Engineering, research interests Dependability / RAMS / Safety Critical Systems. Different mailboxes at different domains, different research groups. 'Nuno Silva' being a token subset of 'Nuno Pedro de Jesus Silva' is exactly the subset-compatibility that cannot prove identity."
+    },
+    {
+      "a": "nuno-silva-2",
+      "b": "nuno-silva-4",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "Different humans. nuno-silva-2 is 'Nuno Silva', nunofilipecruzsilva@gmail.com (Nuno Filipe Cruz Silva), Adaptive Computation; nuno-silva-4 is 'Nuno Pedro de Jesus Silva', npsilva@dei.uc.pt, Software and Systems Engineering. Different mailboxes, different groups — the middle names the two addresses spell out ('filipe cruz' vs 'pedro de jesus') are incompatible."
+    }
+  ]
+}

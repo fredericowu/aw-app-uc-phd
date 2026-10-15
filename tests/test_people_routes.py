@@ -160,6 +160,88 @@ def test_keywords_stay_separate_by_source(client):
     assert "kept separate" in body["caveat"]
 
 
+@pytest.fixture()
+def grace_merged(live_db):
+    """``grace-1`` reviewed as an alias of ``grace``, with a project and a
+    thesis hanging off the ALIAS slug.
+
+    That is the real shape, not a contrivance: the five committed families all
+    have the project history on one slug and the directory entry on the other
+    (``filipe-araujo`` holds 16 projects, ``filipius-1`` holds none), so a
+    profile that reads only the canonical slug is the bug this fixture catches.
+    """
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        conn.executescript(
+            "INSERT INTO person_aliases (from_slug, to_slug, evidence) VALUES"
+            " ('grace-1', 'grace', 'Same mailbox local part on both CISUC pages.');"
+            # On the alias slug only — the canonical has no project at all.
+            "INSERT INTO project_people (project_id, person_slug, role, ordinal) VALUES"
+            " (1, 'grace-1', 'researcher', 2);"
+            "UPDATE thesis_people SET person_slug = 'grace-1' "
+            " WHERE handle = '10316/000002' AND role = 'author';"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return live_db
+
+
+def test_an_alias_slug_returns_the_canonical_profile_not_a_404(client, grace_merged):
+    body = client.get("/api/people/grace-1").json()
+    assert body["person"]["slug"] == "grace"
+    assert body["person"]["aliases"] == [{"slug": "grace-1", "name": "Grace Hopper"}]
+
+
+def test_the_profile_aggregates_projects_across_the_alias_group(client, grace_merged):
+    """``grace`` has no project of its own; ``grace-1`` is on Alpha. One human,
+    one project — reachable from either slug."""
+    for slug in ("grace", "grace-1"):
+        body = client.get(f"/api/people/{slug}").json()
+        assert body["projects"]["project_count"] == 1, slug
+        assert [p["id"] for p in body["projects"]["items"]] == [1], slug
+        # Alpha's keywords come in through the alias slug too.
+        assert {k["keyword"] for k in body["keywords"]["project"]} == {"networks", "security"}
+        # And both of Alpha's groups land in the unioned group list — which
+        # the canonical slug, having no project, could not have produced.
+        assert body["person"]["groups"] == ["AC", "NCS"], slug
+
+
+def test_the_profile_aggregates_theses_across_the_alias_group(client, grace_merged):
+    body = client.get("/api/people/grace").json()["theses"]
+    assert [t["handle"] for t in body["authored"]] == ["10316/000002"]  # via grace-1
+    assert [t["handle"] for t in body["supervised"]] == ["10316/000001"]  # via grace
+
+
+def test_a_merged_profile_says_so_and_drops_the_no_evidence_caveat(client, grace_merged):
+    """``grace``/``grace-1`` are byte-equal names, so they used to carry the
+    "same name, no evidence" caveat. A reviewed pair HAS evidence and
+    graduates out of it — carrying both would say two contradictory things."""
+    body = client.get("/api/people/grace").json()
+    assert body["person"]["name_siblings"] == []
+    assert body["duplicate_name_caveat"] is None
+    assert "2 separate entries" in body["alias_caveat"]
+    assert "grace" in body["alias_caveat"]
+
+
+def test_an_unreviewed_twin_still_carries_the_no_evidence_caveat(client):
+    """The control: without an alias row, nothing merges and the caveat the
+    app has always shown is untouched."""
+    body = client.get("/api/people/grace").json()
+    assert body["person"]["name_siblings"] == [{"slug": "grace-1", "name": "Grace Hopper"}]
+    assert body["alias_caveat"] is None
+    assert body["duplicate_name_caveat"] is not None
+
+
+def test_a_person_with_no_alias_carries_an_empty_alias_list(client):
+    """Never None — the frontend reads ``.length`` on it."""
+    body = client.get("/api/people/ada").json()
+    assert body["person"]["aliases"] == []
+    assert body["alias_caveat"] is None
+
+
 def test_collaborators_are_not_in_this_payload(client):
     """Deliberate: collab.enriched_pairs() recomputes all 4,242 pairs per
     call, so the profile header must not block on it — the frontend fetches

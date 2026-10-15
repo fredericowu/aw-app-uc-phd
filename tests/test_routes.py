@@ -210,6 +210,21 @@ def test_projects_list_filters_by_group_and_title(client):
     assert client.get("/api/projects?group=AC&q=beta").json()["total"] == 0
 
 
+def test_projects_list_filters_by_detail_unavailable(client):
+    unavailable = client.get("/api/projects?detail_unavailable=true").json()
+    assert unavailable["total"] == 1
+    assert unavailable["projects"][0]["title"] == "Gamma Stub"
+
+    available = client.get("/api/projects?detail_unavailable=false").json()
+    assert available["total"] == 2
+    assert {p["title"] for p in available["projects"]} == {"Alpha Project", "Beta Project"}
+
+    # Composable with the existing filters — AC only has Alpha, which has a
+    # detail page, so narrowing to AC + no-detail-page is empty.
+    assert client.get("/api/projects?group=AC&detail_unavailable=true").json()["total"] == 0
+    assert client.get("/api/projects?group=AC&detail_unavailable=false").json()["total"] == 1
+
+
 def test_project_search_treats_like_wildcards_as_literal_characters(client):
     """A user searching for "%" means the character. Without escaping, "%"
     matches every row and the result set looks plausible but is wrong."""

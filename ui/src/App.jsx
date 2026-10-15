@@ -182,7 +182,7 @@ export default function App() {
   } else if (route.tab === 'bibliography') {
     body = <Bibliography onOpenThesis={openThesis} />;
   } else {
-    body = <Overview />;
+    body = <Overview onOpenProject={openProject} />;
   }
 
   const nextTheme = { system: 'light', light: 'dark', dark: 'system' }[theme];

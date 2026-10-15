@@ -1,8 +1,9 @@
 // At a glance, then Coverage — the "can you trust this data?" section, kept
 // second because every other number depends on the answer.
 
+import { useState } from 'react';
 import { api } from '../api';
-import { AsyncBoundary, Caveat, Section, Tile, useAsync } from '../components';
+import { AsyncBoundary, Caveat, DataTable, Section, Tile, useAsync } from '../components';
 import { GROUP_ORDER } from '../colors';
 import { count } from '../format';
 
@@ -45,7 +46,7 @@ function AtAGlance() {
           repeatStudents > 0
             ? `${count(repeatStudents)} student${repeatStudents === 1 ? '' : 's'} ` +
               `${repeatStudents === 1 ? 'appears' : 'appear'} as author on more than one thesis`
-            : 'One thesis, one student, so far'
+            : undefined
         }
       />
       <Tile value={count(projectCount)} label="Projects" />
@@ -55,8 +56,38 @@ function AtAGlance() {
   );
 }
 
-function Coverage() {
+/** Lazy-fetched only once the "No detail page" tile is expanded — the list
+ *  the tile's count is summarizing, each title wired straight into the same
+ *  in-app project detail view the Projects tab opens (never the external
+ *  site: these are exactly the projects for which it has none). */
+function NoDetailProjects({ onOpenProject }) {
+  const state = useAsync(() => api.projects({ detailUnavailable: true, limit: 500 }), []);
+  return (
+    <AsyncBoundary state={state}>
+      {(data) => (
+        <DataTable
+          columns={[
+            {
+              key: 'title',
+              label: 'Project',
+              render: (r) => (
+                <button type="button" className="link-button" onClick={() => onOpenProject(r.id)}>
+                  {r.title}
+                </button>
+              ),
+            },
+          ]}
+          rows={data.projects}
+          getKey={(r) => r.id}
+        />
+      )}
+    </AsyncBoundary>
+  );
+}
+
+function Coverage({ onOpenProject }) {
   const state = useAsync(() => api.coverage(), []);
+  const [expanded, setExpanded] = useState(false);
   return (
     <AsyncBoundary state={state}>
       {({ coverage: c }) => (
@@ -72,11 +103,21 @@ function Coverage() {
               }
             />
             <Tile value={count(c.detail_fetched_ok)} label="Detail pages fetched" />
-            <Tile
-              value={count(c.detail_unavailable)}
-              label="No detail page"
-              note="The site publishes none for these"
-            />
+            <div className="tile">
+              <div className="tile-value">{count(c.detail_unavailable)}</div>
+              <div className="tile-label">No detail page</div>
+              <div className="tile-note">The site publishes none for these</div>
+              {c.detail_unavailable > 0 ? (
+                <button
+                  type="button"
+                  className="table-toggle"
+                  aria-expanded={expanded}
+                  onClick={() => setExpanded((v) => !v)}
+                >
+                  {expanded ? 'Show fewer' : `+ ${count(c.detail_unavailable)} more`}
+                </button>
+              ) : null}
+            </div>
             <Tile value={count(c.null_titles)} label="Projects with no title" />
             <Tile
               value={`${count(c.scrape_targets_terminal)} / ${count(c.scrape_targets_rows)}`}
@@ -84,6 +125,7 @@ function Coverage() {
               note="Every listing row reached a terminal status"
             />
           </div>
+          {expanded ? <NoDetailProjects onOpenProject={onOpenProject} /> : null}
           <Caveat label="Why three different totals">
             Each number counts something different and all three are correct.
             The database holds every project the listing published; a smaller
@@ -97,7 +139,7 @@ function Coverage() {
   );
 }
 
-export default function Overview() {
+export default function Overview({ onOpenProject }) {
   return (
     <>
       <Section
@@ -122,7 +164,7 @@ export default function Overview() {
         title="Coverage"
         note="What the scraper actually got, measured against the site's own count rather than asserted."
       >
-        <Coverage />
+        <Coverage onOpenProject={onOpenProject} />
       </Section>
     </>
   );

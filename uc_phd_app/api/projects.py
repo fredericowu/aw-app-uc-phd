@@ -205,6 +205,9 @@ WHERE (:group IS NULL OR EXISTS (
           SELECT 1 FROM project_groups pg
           WHERE pg.project_id = p.id AND pg.group_code = :group))
   AND (:q IS NULL OR p.title LIKE :like ESCAPE '\\')
+  AND (:detail_unavailable IS NULL
+       OR (:detail_unavailable = 1 AND p.detail_unavailable_reason IS NOT NULL)
+       OR (:detail_unavailable = 0 AND p.detail_unavailable_reason IS NULL))
 ORDER BY p.title
 LIMIT :limit OFFSET :offset
 """
@@ -216,6 +219,9 @@ WHERE (:group IS NULL OR EXISTS (
           SELECT 1 FROM project_groups pg
           WHERE pg.project_id = p.id AND pg.group_code = :group))
   AND (:q IS NULL OR p.title LIKE :like ESCAPE '\\')
+  AND (:detail_unavailable IS NULL
+       OR (:detail_unavailable = 1 AND p.detail_unavailable_reason IS NOT NULL)
+       OR (:detail_unavailable = 0 AND p.detail_unavailable_reason IS NULL))
 """
 
 
@@ -231,6 +237,9 @@ def _escape_like(term: str) -> str:
 async def list_projects(
     group: str | None = Query(default=None, description="Research group code, e.g. NCS"),
     q: str | None = Query(default=None, description="Free-text search over project titles"),
+    detail_unavailable: bool | None = Query(
+        default=None, description="Filter on whether the site publishes a detail page"
+    ),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict:
@@ -242,6 +251,7 @@ async def list_projects(
         "group": group,
         "q": term,
         "like": _escape_like(term) if term else "",
+        "detail_unavailable": detail_unavailable,
         "limit": limit,
         "offset": offset,
     }

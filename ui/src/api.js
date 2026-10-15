@@ -83,10 +83,11 @@ export const api = {
   // with a literal "/" — same contract App.jsx's openThesis() uses.
   thesis: (handle) => getJSON(`/theses/${handle.split('/').map(encodeURIComponent).join('/')}`),
   thesisBody: (handle) => getJSON(`/theses/${handle.split('/').map(encodeURIComponent).join('/')}/body`),
-  projects: ({ group, q, limit = 50, offset = 0 } = {}) => {
+  projects: ({ group, q, detailUnavailable, limit = 50, offset = 0 } = {}) => {
     const params = new URLSearchParams();
     if (group) params.set('group', group);
     if (q) params.set('q', q);
+    if (detailUnavailable != null) params.set('detail_unavailable', String(detailUnavailable));
     params.set('limit', String(limit));
     params.set('offset', String(offset));
     return getJSON(`/projects?${params}`);

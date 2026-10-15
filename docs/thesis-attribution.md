@@ -502,6 +502,35 @@ real, distinct people fit that name. The remaining three ambiguous names
 `pedro-martins`/`pedro-martins-2` being the family this document's own
 motivating case says are **different** people. They are left alone.
 
+#### Amendment (2026-10-15): the 12th verdict, and the consumer it exposed
+
+`teresa-pessoa` / `teresa-pessoa-1` — both literally "Teresa Pessoa" — were
+reported by `possible_duplicates()` (1 of its 39 open suspects) and nobody had
+read that output, so the pair reached production as **two bars in the
+Coordinators chart**. Ruled `same`, canonical `teresa-pessoa`: one CiênciaVitae
+CV (Ciência ID A013-8BAE-FF03, ORCID 0000-0002-5252-3618, FPCE-UC) accounts for
+all four projects and both of the two disjoint publication sets the two CISUC
+pages carry, and `tpeassoa@fpce.uc.pt` on the first page is a typo for the
+`tpessoa@fpce.uc.pt` the second one publishes — the address printed under her
+name in *Comunicar* 38 (2012), and found nowhere else on the web. The mailbox
+rule that settled the five original `same` verdicts could not settle this one:
+the two local parts differ, and neither page publishes a category, a group or
+an ORCID. Evidence from outside CISUC is sometimes the only evidence there is.
+
+The verdict alone did not fix the chart. **Every one of the five original
+`same` pairs keeps all its project history on one slug** (`filipe-araujo` has
+16 projects, `filipius-1` none), so no committed family had ever exercised a
+*project-keyed* consumer that fails to resolve — and `sql/top_coordinators.sql`
+was exactly that: it joined `people` directly, so `teresa-pessoa` (TKCOM) and
+`teresa-pessoa-1` (STAR) drew one bar each. It now resolves through
+`person_aliases` and reads `people_canonical`, and
+`tests/test_routes.py::test_coordinators_resolve_through_person_aliases`
+coordinates one fixture human under both slugs — including both slugs on the
+same project — so the regression cannot come back silently. 107 coordinator
+bars -> 106; thesis facts unchanged (Teresa authors and supervises nothing in
+the corpus). The "standing tax on every new consumer" below is the general
+case; this was the first unpaid bill.
+
 ### The golden fixture can no longer police rule changes
 
 **Both rejected rules left `tests/test_name_match.py` completely green.** This

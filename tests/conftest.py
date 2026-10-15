@@ -76,11 +76,14 @@ def build_fixture_db(path: Path) -> Path:
         -- failing to resolve.
         --
         -- 'grace-1' carries the SAME display name as 'grace' under a second
-        -- slug. Three such pairs exist in the real snapshot (joao-bicker /
-        -- joao-bicker-1, nuno-seco / nuno-seco-1, teresa-pessoa /
-        -- teresa-pessoa-1) and this app has no evidence whether they are the
-        -- same human — nothing merges them, and the profile page has to say
-        -- so rather than silently present one of them as "the" person.
+        -- slug. Two such pairs in the real snapshot are still unreviewed
+        -- (joao-bicker / joao-bicker-1, nuno-seco / nuno-seco-1) and this app
+        -- has no evidence whether they are the same human — nothing merges
+        -- them, and the profile page has to say so rather than silently
+        -- present one of them as "the" person. A third, teresa-pessoa /
+        -- teresa-pessoa-1, HAS since been reviewed and ruled one person
+        -- (data/person_aliases.json), which is what the alias fixtures in
+        -- tests/test_routes.py and tests/test_people_routes.py model.
         INSERT INTO people (slug, name) VALUES
             ('ada', 'Ada Lovelace'), ('alan', 'Alan Turing'),
             ('grace', 'Grace Hopper'), ('grace-1', 'Grace Hopper');

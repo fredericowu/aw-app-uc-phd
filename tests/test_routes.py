@@ -130,6 +130,55 @@ def test_timeline_and_funding_and_coordinators(client):
     assert "UNGROUPED" in coord_body["caveat"]
 
 
+@pytest.fixture()
+def grace_coordinates_under_both_slugs(live_db):
+    """``grace-1`` reviewed as an alias of ``grace``, with coordinator rows on
+    BOTH slugs — the shape that drew two "Teresa Pessoa" bars in production.
+
+    `teresa-pessoa` coordinates TKCOM and `teresa-pessoa-1` coordinates STAR,
+    and `data/person_aliases.json` rules them one person. Every other
+    committed family keeps all its project history on one slug, so none of
+    them could have caught this. Gamma is coordinated by both slugs on
+    purpose: resolution must not count one project twice.
+    """
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        conn.executescript(
+            "INSERT INTO person_aliases (from_slug, to_slug, evidence) VALUES"
+            " ('grace-1', 'grace', 'One CV lists both slugs'' projects.');"
+            "INSERT INTO project_people (project_id, person_slug, role, ordinal) VALUES"
+            " (1, 'grace',   'coordinator', 2),"
+            " (3, 'grace',   'coordinator', 0),"
+            " (3, 'grace-1', 'coordinator', 1),"
+            " (2, 'grace-1', 'coordinator', 2);"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return live_db
+
+
+def test_coordinators_resolve_through_person_aliases(
+    client, grace_coordinates_under_both_slugs
+):
+    """One bar for one human, with the two slugs' projects combined."""
+    coordinators = client.get("/api/coordinators").json()["coordinators"]
+
+    assert [c["coordinator_slug"] for c in coordinators] == ["grace", "ada"]
+    # Alpha (NCS+AC) and Gamma (no group) off `grace`, Beta (NCS) and Gamma
+    # again off `grace-1` — three distinct projects, not four rows.
+    assert coordinators[0] == {
+        "coordinator_slug": "grace",
+        "coordinator": "Grace Hopper",
+        "project_count": 3,
+        "NCS": 2,
+        "AC": 1,
+        "UNGROUPED": 1,
+    }
+
+
 def test_partners_breakdown_by_type_and_coverage(client):
     body = client.get("/api/partners").json()
 

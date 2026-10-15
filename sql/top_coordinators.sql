@@ -1,5 +1,17 @@
 -- Same person keyed by slug, not display name — the site has people who
--- share a name under different profiles/slugs. Ranking and project_count
+-- share a name under different profiles/slugs. The slug is then resolved
+-- through `person_aliases` (the curated data/person_aliases.json), because
+-- `people.slug` stopped meaning "one human" the moment that table existed
+-- and a coordinator holding one slug's projects and another's would draw two
+-- bars: `teresa-pessoa` coordinates TKCOM and `teresa-pessoa-1` coordinates
+-- STAR, and they are one person. Resolution is one hop by construction
+-- (from_slug is a PRIMARY KEY and the loader refuses a chain), the LEFT JOIN
+-- leaves a non-alias slug alone, and the DISTINCT below absorbs the case
+-- where both slugs of a pair coordinate the SAME project. `people_canonical`
+-- rather than `people` at the end is the other half of the same property: a
+-- bar can only ever be a canonical identity, so a resolution that stopped
+-- working shows up as a missing coordinator instead of a silent duplicate.
+-- Ranking and project_count
 -- use COUNT(DISTINCT project_id) over the coordinator-role rows ALONE
 -- (coordinator_projects/totals, below), before the join to project_groups:
 -- project_people's composite PK lets one person hold both coordinator and
@@ -17,8 +29,9 @@
 -- research group is counted under the synthetic 'UNGROUPED' code rather
 -- than silently dropping that coordinator's segment.
 WITH coordinator_projects AS (
-    SELECT DISTINCT pp.person_slug, pp.project_id
+    SELECT DISTINCT COALESCE(a.to_slug, pp.person_slug) AS person_slug, pp.project_id
     FROM project_people pp
+    LEFT JOIN person_aliases a ON a.from_slug = pp.person_slug
     WHERE pp.role = 'coordinator'
 ),
 totals AS (
@@ -35,7 +48,7 @@ SELECT
     rg.name AS group_name,
     COUNT(DISTINCT cp.project_id) AS group_project_count
 FROM totals t
-JOIN people pe ON pe.slug = t.person_slug
+JOIN people_canonical pe ON pe.slug = t.person_slug
 JOIN coordinator_projects cp ON cp.person_slug = t.person_slug
 LEFT JOIN project_groups pg ON pg.project_id = cp.project_id
 LEFT JOIN research_groups rg ON rg.code = pg.group_code

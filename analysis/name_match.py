@@ -16,14 +16,30 @@ general, and the fixture is what proves they reproduce a careful human.
 
 The four tiers, and why ``ambiguous`` is not a failure
 -----------------------------------------------------
-``exact``      one candidate fits on whole tokens alone.
-``confident``  one answer, but a rule beyond whole-token equality got there:
-               a standard initial, a duplicate row in ``people``, or the
-               primary-given-name tie-break below.
+``exact``      one candidate fits and **the token sets are equal** — neither
+               name carries a name the other does not.
+``confident``  one answer, but a rule beyond token-set equality got there:
+               the candidate's tokens are a strict *subset* of the thesis
+               name's, a standard initial, a duplicate row in ``people``, or
+               the primary-given-name tie-break below.
 ``ambiguous``  more than one person genuinely fits and no rule separates
                them. Surfaced with every candidate attached, never resolved
                by picking one.
 ``unmatched``  nobody fits.
+
+Why subset coverage is ``confident`` and not ``exact``. ``_fits()`` accepts a
+candidate whose tokens are a subset of the thesis name's, because the CISUC
+form is routinely the shorter one ("Pedro Martins" for "Martins, Pedro Miguel
+de Oliveira"). That rule is the workhorse — 106 of the 190 distinct names this
+resolves rest on it (122 of 213 counting a name once per role, the grain
+``sql/thesis_match_tiers.sql`` reports), and most are right — so it still
+assigns a slug. What it
+cannot do is *prove* identity: the thesis names the candidate does not carry
+are unverified, and "Martins, Pedro" and "Martins, Pedro Miguel de Oliveira"
+are two different people who both fit one CISUC row. The tier now says which
+of the two it is, and ``analysis/build_thesis_facts.py`` enforces the corpus
+invariant (one person authors at most one thesis) that catches the collision
+the tier alone only describes.
 
 The corpus is about to grow from 18 theses to 181, so the unmatched and
 ambiguous rates will rise. That is the honest outcome, and the reason
@@ -220,13 +236,30 @@ def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> Name
                 f"Matched {_quoted(candidates)} via a standard initial "
                 "abbreviating one of the given names.",
             )
+        candidate_tokens = tokenize(candidates[0].name)
+        if set(candidate_tokens) == set(thesis_tokens):
+            return NameMatch(
+                name_raw,
+                EXACT,
+                CONFIDENCE[EXACT],
+                candidates,
+                f"{_quoted(candidates)} carries exactly the tokens of the thesis "
+                f'name — the sets are equal and the surname "{surname_label}" '
+                "matches.",
+            )
+        # Set comparison, not length: it also absorbs a thesis name that
+        # repeats a token ("Pereira, Francisco Colunas Pereira da Câmara"),
+        # which a count would read as an unconfirmed extra given name.
+        uncorroborated = list(dict.fromkeys(t for t in thesis_tokens if t not in candidate_tokens))
         return NameMatch(
             name_raw,
-            EXACT,
-            CONFIDENCE[EXACT],
+            CONFIDENT,
+            CONFIDENCE[CONFIDENT],
             candidates,
-            f"Every token of {_quoted(candidates)} appears in the thesis name, "
-            f'and the surname "{surname_label}" matches.',
+            f"Every token of {_quoted(candidates)} appears in the thesis name "
+            f'and the surname "{surname_label}" matches, but the thesis carries '
+            "given names the candidate cannot confirm: "
+            f"{', '.join(uncorroborated)}.",
         )
 
     if _same_person_twice(candidates):

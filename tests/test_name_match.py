@@ -154,12 +154,20 @@ def test_the_measured_tier_distribution_is_what_the_card_reports():
     """The honest number, asserted rather than claimed in a report: 50 distinct
     names, 36 resolved, 14 not. Change the rules and this moves — which is the
     point, because a rule that quietly resolves five more names should have to
-    say so here first."""
+    say so here first.
+
+    The 36/14 split is what the card reported and has not moved. The split
+    *within* the 36 did, at the tier redefinition (pedro-martins card): 27 of
+    these names resolve on a candidate whose tokens are a strict subset of the
+    thesis name's, which used to read ``exact``/1.0 and now reads
+    ``confident``/0.8. Same slug, honest tier — only 4 of the 50 are the
+    token-set equality the ``exact`` tier now means."""
     people = _real_people()
     tiers = {EXACT: 0, CONFIDENT: 0, AMBIGUOUS: 0, UNMATCHED: 0}
     for name in _golden():
         tiers[match_name(name, people).status] += 1
-    assert tiers == {EXACT: 31, CONFIDENT: 5, AMBIGUOUS: 0, UNMATCHED: 14}
+    assert tiers == {EXACT: 4, CONFIDENT: 32, AMBIGUOUS: 0, UNMATCHED: 14}
+    assert tiers[EXACT] + tiers[CONFIDENT] == 36
 
 
 # --------------------------------------------------------------------------
@@ -192,11 +200,51 @@ def test_an_exact_match_needs_no_tie_break():
     assert result.confidence == 1.0
 
 
+# --------------------------------------------------------------------------
+# The exact/confident boundary — redefined at the pedro-martins false merge
+# --------------------------------------------------------------------------
+
+
+def test_exact_means_the_token_sets_are_equal():
+    """``exact`` is now a claim about both names, not just the candidate: the
+    thesis name carries nothing the ``people`` row does not."""
+    result = match_name("Lovelace, Ada", PEOPLE)
+    assert result.status == EXACT
+    assert result.confidence == 1.0
+    assert "sets are equal" in result.note
+
+
+def test_a_single_subset_candidate_is_confident_not_exact():
+    """The pedro-martins case, on the synthetic table. "Ada Lovelace" fits
+    "Lovelace, Ada Augusta Byron" and gets the slug — subset coverage is the
+    rule 106 of the 190 names resolved in the real corpus rest on, so removing
+    it would cost ~105 correct links to kill one wrong one. What it must not do
+    is claim 1.0: "Augusta" and "Byron" are unverified, and some other
+    Lovelace may own them."""
+    result = match_name("Lovelace, Ada Augusta Byron", PEOPLE)
+    assert result.status == CONFIDENT
+    assert result.confidence == 0.8
+    assert [p.slug for p in result.people] == ["ada"]
+    assert "cannot confirm: augusta, byron" in result.note
+
+
+def test_a_thesis_name_repeating_a_token_is_still_an_equality():
+    """Generalised from "Pereira, Francisco Colunas Pereira da Câmara": the
+    surname recurs among the given names, so a token *count* would read the
+    repeat as an unconfirmed extra. Sets do not."""
+    result = match_name("Noether, Emmy Noether", [Person("noether", "Emmy Noether")])
+    assert result.status == EXACT
+
+
 def test_a_surname_alone_is_not_a_match():
     """The rule that rejects "Nádia Patrícia da Silva Medeiros" for
     "Medeiros, Júlio Cordeiro": sharing a surname is not being the same
-    person, so every candidate token has to be accounted for."""
-    assert match_name("Noether, Amalie Emmy", PEOPLE).status == EXACT
+    person, so every candidate token has to be accounted for.
+
+    "Emmy Noether" still resolves for "Noether, Amalie Emmy" — at ``confident``
+    since the tier redefinition, because "Amalie" is a thesis given name the
+    candidate does not carry. The rule under test is the second line."""
+    assert match_name("Noether, Amalie Emmy", PEOPLE).status == CONFIDENT
     assert match_name("Noether, Wolfgang", PEOPLE).status == UNMATCHED
 
 
@@ -249,7 +297,10 @@ def test_the_primary_given_name_is_only_a_tie_break_not_a_filter():
     Jorge da Costa", where the one fitting candidate carries a middle name
     and not the first."""
     result = match_name("Turing, Christopher Alan", [Person("alan", "Alan Turing")])
-    assert result.status == EXACT
+    # Resolved, which is the point here; ``confident`` rather than ``exact``
+    # because "Christopher" is unconfirmed — see the tier redefinition below.
+    assert result.status == CONFIDENT
+    assert [p.slug for p in result.people] == ["alan"]
 
 
 def test_two_people_the_tie_break_cannot_separate_stay_ambiguous():

@@ -37,7 +37,17 @@ from pathlib import Path
 
 import yaml
 
-from .name_match import AMBIGUOUS, CONFIDENT, EXACT, UNMATCHED, Person, match_name
+from .name_match import (
+    AMBIGUOUS,
+    CONFIDENCE,
+    CONFIDENT,
+    EXACT,
+    UNMATCHED,
+    Person,
+    match_name,
+    split_thesis_name,
+    tokenize,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "scraper" / "schema.sql"
@@ -46,6 +56,11 @@ DEFAULT_ESTUDO_GERAL = ROOT / "estudo_geral"
 
 ROLE_FIELDS = (("author", "authors"), ("supervisor", "supervisors"))
 TIERS = (EXACT, CONFIDENT, AMBIGUOUS, UNMATCHED)
+THESIS_TABLES = ("thesis_keywords", "thesis_people", "theses")
+
+#: Column positions in a ``thesis_people`` row tuple, so the passes below read
+#: as names rather than as ``row[3]``.
+HANDLE, NAME_RAW, ROLE, SLUG, STATUS, MATCH_CONFIDENCE, NOTE, ORDINAL = range(8)
 
 
 class ReconciliationError(RuntimeError):
@@ -136,6 +151,151 @@ def people_rows(front_matter: dict, people: list[Person], cache: dict) -> list[t
     return rows
 
 
+def _token_set(text: str) -> frozenset:
+    return frozenset(tokenize(text))
+
+
+def resolve_author_conflicts(
+    rows: list[tuple], people: list[Person]
+) -> tuple[list[tuple], list[dict]]:
+    """One ``people`` row authors at most one thesis — enforced over the corpus.
+
+    ``match_name`` resolves one name at a time and cannot see that it just
+    handed the same slug to a second, differently-spelled author. Subset
+    coverage makes that easy: "Martins, Pedro" and "Martins, Pedro Miguel de
+    Oliveira" are two real people two years apart, and both fit the one CISUC
+    row "Pedro Martins". Tightening the matcher to token-set equality would
+    have killed the collision and 121 correct links with it, so the rule lives
+    here instead, where the whole corpus is visible at once.
+
+    Who keeps the slug: the claimant whose name is a token-set *equality* with
+    the ``people`` row, when exactly one is. Every other claimant is demoted
+    to an ``ambiguous``, NULL-slug row carrying the conflict in its note —
+    the same shape ``people_rows`` writes for a name nothing resolved, because
+    that is now what it is. Zero or several set-equal claimants means nothing
+    separates them, so all of them are demoted.
+
+    **Authors only.** One supervisor across many theses is the normal case and
+    the whole point of the advisor view; the same rule there would delete it.
+    """
+    names = {p.slug: p.name for p in people}
+    claimants: dict[str, dict[tuple[str, str], bool]] = {}
+    for row in rows:
+        if row[ROLE] != "author" or row[SLUG] is None:
+            continue
+        claimants.setdefault(row[SLUG], {})[(row[HANDLE], row[NAME_RAW])] = _token_set(
+            names.get(row[SLUG], "")
+        ) == _token_set(row[NAME_RAW])
+
+    conflicts: list[dict] = []
+    demotions: dict[tuple[str, str], str] = {}
+    for slug in sorted(s for s, by_claimant in claimants.items() if len(by_claimant) > 1):
+        by_claimant = claimants[slug]
+        equal = sorted(c for c, is_equal in by_claimant.items() if is_equal)
+        keeper = equal[0] if len(equal) == 1 else None
+        for claimant in sorted(by_claimant):
+            if claimant == keeper:
+                continue
+            if keeper is not None:
+                reason = (
+                    f"slug {slug} is also claimed by thesis {keeper[0]}, whose author "
+                    f'"{keeper[1]}" equals the CISUC row "{names[slug]}" exactly; this '
+                    "subset claim cannot be confirmed against it"
+                )
+            else:
+                reason = (
+                    f"slug {slug} is claimed by {len(by_claimant)} different thesis "
+                    f'author names and none of them equals the CISUC row '
+                    f'"{names[slug]}" exactly; no claim can be preferred over another'
+                )
+            demotions[claimant] = (
+                f"Resolved to {slug} on the name alone, then withdrawn: one person "
+                f"authors at most one thesis in this corpus, and {reason}."
+            )
+        conflicts.append(
+            {
+                "person_slug": slug,
+                "person_name": names.get(slug),
+                "kept": {"handle": keeper[0], "name_raw": keeper[1]} if keeper else None,
+                "demoted": [
+                    {"handle": handle, "name_raw": name_raw}
+                    for handle, name_raw in sorted(by_claimant)
+                    if (handle, name_raw) != keeper
+                ],
+                "decision": (
+                    "kept the one set-equality claim, demoted the rest"
+                    if keeper
+                    else "no single set-equality claim — demoted every claimant"
+                ),
+            }
+        )
+
+    if not demotions:
+        return rows, conflicts
+
+    # The demoted claimant may hold several rows (a duplicated `people` row
+    # resolves to two slugs); all of them collapse into the one NULL row.
+    first_ordinal: dict[tuple[str, str], int] = {}
+    for row in rows:
+        key = (row[HANDLE], row[NAME_RAW])
+        if row[ROLE] == "author" and key in demotions:
+            first_ordinal.setdefault(key, row[ORDINAL])
+
+    out: list[tuple] = []
+    emitted: set = set()
+    for row in rows:
+        key = (row[HANDLE], row[NAME_RAW])
+        if row[ROLE] != "author" or key not in demotions:
+            out.append(row)
+            continue
+        if key in emitted:
+            continue
+        emitted.add(key)
+        out.append(
+            (
+                key[0],
+                key[1],
+                "author",
+                None,
+                AMBIGUOUS,
+                CONFIDENCE[AMBIGUOUS],
+                demotions[key],
+                first_ordinal[key],
+            )
+        )
+    return out, conflicts
+
+
+def minimal_evidence_matches(rows: list[tuple], people: list[Person]) -> list[dict]:
+    """Resolved authors whose ``people`` row carries nothing but the surname
+    and the first given name — the shape the pedro-martins false merge had.
+
+    Two tokens is the weakest evidence this matcher ever acts on, and nothing
+    in a name can tell a correct one from a wrong one: the conflict pass above
+    only catches a collision when *both* people are in the corpus. This list
+    exists so the rest stay visible for a human spot-check rather than being
+    silently counted as resolved.
+    """
+    names = {p.slug: p.name for p in people}
+    out: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        if row[ROLE] != "author" or row[SLUG] is None:
+            continue
+        key = (row[NAME_RAW], row[SLUG])
+        if key in out:
+            continue
+        surname_tokens, given_tokens = split_thesis_name(row[NAME_RAW])
+        floor = set(surname_tokens) | ({given_tokens[0]} if given_tokens else set())
+        if _token_set(names.get(row[SLUG], "")) <= floor:
+            out[key] = {
+                "handle": row[HANDLE],
+                "name_raw": row[NAME_RAW],
+                "person_slug": row[SLUG],
+                "person_name": names.get(row[SLUG]),
+            }
+    return [out[key] for key in sorted(out)]
+
+
 def keyword_rows(front_matter: dict) -> list[tuple]:
     return [
         (front_matter["handle"], keyword, ordinal)
@@ -150,6 +310,23 @@ def build(db_path: Path, estudo_geral_dir: Path) -> dict:
 
     conn = sqlite3.connect(db_path)
     try:
+        # Full replace, not upsert: the input is a committed directory, so the
+        # tables are a pure function of it and a stale row from a thesis that
+        # was withdrawn upstream would otherwise survive forever.
+        #
+        # It happens BEFORE the schema is applied, not after the inserts where
+        # it used to: schema.sql now carries a UNIQUE index over resolved
+        # author rows, and `executescript` would try to build that index over
+        # the rows this run is about to replace — so rebuilding a seed that
+        # still holds a false merge would fail on the very constraint the
+        # rebuild exists to satisfy.
+        existing = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        for table in THESIS_TABLES:
+            if table in existing:
+                conn.execute(f"DELETE FROM {table}")
+
         conn.executescript(SCHEMA.read_text(encoding="utf-8"))
         people = load_people(conn)
 
@@ -161,12 +338,9 @@ def build(db_path: Path, estudo_geral_dir: Path) -> dict:
             thesis_people += people_rows(fm, people, cache)
             thesis_keywords += keyword_rows(fm)
 
-        # Full replace, not upsert: the input is a committed directory, so the
-        # tables are a pure function of it and a stale row from a thesis that
-        # was withdrawn upstream would otherwise survive forever.
-        conn.execute("DELETE FROM thesis_keywords")
-        conn.execute("DELETE FROM thesis_people")
-        conn.execute("DELETE FROM theses")
+        thesis_people, author_conflicts = resolve_author_conflicts(thesis_people, people)
+        minimal_evidence = minimal_evidence_matches(thesis_people, people)
+
         conn.executemany("INSERT INTO theses VALUES (?,?,?,?,?,?,?,?,?,?)", theses)
         conn.executemany("INSERT INTO thesis_people VALUES (?,?,?,?,?,?,?,?)", thesis_people)
         conn.executemany("INSERT INTO thesis_keywords VALUES (?,?,?)", thesis_keywords)
@@ -183,10 +357,17 @@ def build(db_path: Path, estudo_geral_dir: Path) -> dict:
             1 for fm in front_matters for _ in (fm.get("supervisors") or [])
         ),
         "distinct_names": len(cache),
+        # What the MATCHER concluded, per distinct name. The conflict pass
+        # below overrides some of these per (thesis, name) without moving a
+        # count here — deliberately: this is the matcher's own report card,
+        # and sql/thesis_match_tiers.sql reads the written rows for the other
+        # view. `author_conflicts` is where the two differ.
         "tiers": {tier: tiers.get(tier, 0) for tier in TIERS},
         "unresolved": sorted(
             name for name, m in cache.items() if m.status in (AMBIGUOUS, UNMATCHED)
         ),
+        "author_conflicts": author_conflicts,
+        "minimal_evidence_matches": minimal_evidence,
     }
 
 

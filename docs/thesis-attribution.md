@@ -83,6 +83,75 @@ they fail exact matching even though they look likely:
 Both are called out again inline in `docs/thesis-attribution.json`'s `note`
 field for the two names.
 
+### The `exact` tier means token-set EQUALITY (amended 2026-10-15)
+
+Rule 2 above is **asymmetric**: the candidate's tokens have to be covered by
+the thesis name, not the other way round, because the CISUC form is routinely
+the shorter one. That asymmetry still decides whether a slug is assigned — it
+is the workhorse: of the 190 distinct names the matcher resolves across the
+181-thesis corpus, 106 rest on it — 122 of 213 at the once-per-role grain
+`sql/thesis_match_tiers.sql` reports (82 of 122 authors, 40 of 91
+supervisors). What it no longer decides is the *tier*:
+
+- **`exact` (1.0)** — the two folded token sets are **equal**. Neither name
+  carries a name the other does not. (Sets, not counts, so a thesis name that
+  repeats a token — `"Pereira, Francisco Colunas Pereira da Câmara"` — is
+  still an equality rather than a phantom extra given name.)
+- **`confident` (0.8)** — a single candidate fits on **strict subset**
+  coverage and/or via an initial. The slug is still assigned; the note names
+  the thesis tokens the candidate cannot corroborate.
+
+Subset coverage cannot *prove* identity, and saying 1.0 claimed it did.
+
+### One `people` row authors at most one thesis
+
+Tier honesty describes the weakness; it does not catch it. The corpus-level
+invariant does, in `analysis/build_thesis_facts.py`
+(`resolve_author_conflicts`): after every name is matched, any `person_slug`
+claimed as **author** by more than one thesis is a false merge, because two
+different people wrote those two theses. Resolution:
+
+- exactly one claimant whose name is a **set-equality** with the `people`
+  row → it keeps the slug; every other claimant is demoted to
+  `ambiguous` / NULL slug with a note naming the conflict;
+- zero or several set-equal claimants → **all** claimants are demoted.
+
+**Supervisors are exempt.** One supervisor across many theses is the normal
+case and the entire point of the advisor view.
+
+The escape hatch, if a genuine dual doctorate ever appears in this corpus: the
+build demotes both claims and lists the conflict in `author_conflicts`, and
+`scraper/schema.sql`'s partial unique index
+(`idx_one_thesis_per_resolved_author`) refuses to let a re-merge be committed
+at all. That is loud by design — a real second doctorate has to be a human
+decision recorded here, not something the matcher quietly absorbs. Note that
+`people.slug` was **already** the primary key of `people`; a unique student
+slug was never the missing piece. The defect was the other direction, a wrong
+many-people → one-slug *mapping*, which no key on `people` can see.
+
+### The motivating case: `pedro-martins`
+
+One CISUC row, `"Pedro Martins"`, was claimed by two theses at `exact`/1.0,
+which is what turned 181 theses into "180 Students":
+
+| Handle | Year | Thesis author name | Topic | Supervisor |
+|---|---|---|---|---|
+| `10316/23751` | 2014 | `Martins, Pedro` | local image feature detection (computer vision) | Paulo de Carvalho |
+| `10316/29090` | 2016 | `Martins, Pedro Miguel de Oliveira` | elastic ETL for data warehouses | Pedro Furtado |
+
+The 2014 name is a token-set equality with the CISUC row and keeps the slug;
+the 2016 name is a strict subset claim and is demoted. The corroborating
+evidence is the CISUC row's own project history: ArthroNav and C-BASED, both
+computer vision, and **zero** ETL or data-warehousing projects. The matcher
+does not read that — it keeps the set-equal claim on the name alone — but a
+human checking the decision has it.
+
+The riskier residue is the class this *cannot* see: a two-token CISUC row
+matched to a longer thesis name where the real second person is simply not in
+the corpus. The build report lists every one of them as
+`minimal_evidence_matches` (81 at time of writing) for spot-checking, rather
+than pretending they are ruled out.
+
 ## Result
 
 **36 of 50 unique names (72%) resolved; 14 (28%) are unattributed.**

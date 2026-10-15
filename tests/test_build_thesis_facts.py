@@ -177,3 +177,184 @@ def test_the_committed_seed_holds_the_real_corpus():
         assert conn.execute("SELECT COUNT(*) FROM theses WHERE source_url IS NULL").fetchone()[0] == 0
     finally:
         conn.close()
+
+
+# --------------------------------------------------------------------------
+# The author-uniqueness invariant — one people row, at most one authored PhD
+# --------------------------------------------------------------------------
+
+ADA = Person("ada", "Ada Lovelace")
+
+
+def _author_row(handle, name_raw, slug, status="confident", confidence=0.8, ordinal=0):
+    return (handle, name_raw, "author", slug, status, confidence, "matched", ordinal)
+
+
+def test_the_set_equality_claimant_keeps_the_slug_and_the_subset_claim_is_demoted():
+    """The pedro-martins shape, in miniature: two different real people whose
+    names both fit one CISUC row. The one whose name IS the row keeps it."""
+    rows = [
+        _author_row("t1", "Lovelace, Ada", "ada", status="exact", confidence=1.0),
+        _author_row("t2", "Lovelace, Ada Augusta Byron", "ada"),
+    ]
+    out, conflicts = build_mod.resolve_author_conflicts(rows, [ADA])
+
+    assert out[0] == rows[0]
+    demoted = out[1]
+    assert demoted[build_mod.SLUG] is None
+    assert demoted[build_mod.STATUS] == "ambiguous"
+    assert demoted[build_mod.MATCH_CONFIDENCE] == 0.4
+    assert "also claimed by thesis t1" in demoted[build_mod.NOTE]
+    assert '"Lovelace, Ada" equals the CISUC row "Ada Lovelace" exactly' in demoted[build_mod.NOTE]
+
+    assert conflicts == [
+        {
+            "person_slug": "ada",
+            "person_name": "Ada Lovelace",
+            "kept": {"handle": "t1", "name_raw": "Lovelace, Ada"},
+            "demoted": [{"handle": "t2", "name_raw": "Lovelace, Ada Augusta Byron"}],
+            "decision": "kept the one set-equality claim, demoted the rest",
+        }
+    ]
+
+
+def test_with_no_set_equal_claimant_every_claimant_is_demoted():
+    """Nothing separates two subset claims, so preferring either would be the
+    same guess the matcher was just stopped from making."""
+    rows = [
+        _author_row("t1", "Lovelace, Ada Augusta", "ada"),
+        _author_row("t2", "Lovelace, Ada Byron", "ada"),
+    ]
+    out, conflicts = build_mod.resolve_author_conflicts(rows, [ADA])
+
+    assert [row[build_mod.SLUG] for row in out] == [None, None]
+    assert all(row[build_mod.STATUS] == "ambiguous" for row in out)
+    assert all("none of them equals the CISUC row" in row[build_mod.NOTE] for row in out)
+    assert conflicts[0]["kept"] is None
+    assert conflicts[0]["decision"] == "no single set-equality claim — demoted every claimant"
+    assert len(conflicts[0]["demoted"]) == 2
+
+
+def test_one_supervisor_across_many_theses_is_not_a_conflict():
+    """The normal case, and the whole advisor view. Exempt on purpose."""
+    rows = [
+        ("t1", "Lovelace, Ada Augusta", "supervisor", "ada", "confident", 0.8, "matched", 0),
+        ("t2", "Lovelace, Ada Byron", "supervisor", "ada", "confident", 0.8, "matched", 0),
+    ]
+    assert build_mod.resolve_author_conflicts(rows, [ADA]) == (rows, [])
+
+
+def test_one_person_authoring_one_thesis_under_two_duplicate_rows_is_untouched():
+    """``people`` holds grace/grace-1 for one human, so one author legitimately
+    writes two rows. Two rows, one handle — not a conflict."""
+    duplicates = [Person("grace", "Grace Hopper"), Person("grace-1", "Grace Hopper")]
+    rows = [
+        _author_row("t1", "Hopper, Grace", "grace"),
+        _author_row("t1", "Hopper, Grace", "grace-1"),
+    ]
+    assert build_mod.resolve_author_conflicts(rows, duplicates) == (rows, [])
+
+
+def test_a_demoted_claimant_collapses_to_a_single_null_slug_row():
+    """It arrived as two rows (a duplicated ``people`` row); unresolved names
+    are written as exactly one row, so that is what it leaves as."""
+    duplicates = [Person("grace", "Grace Hopper"), Person("grace-1", "Grace Hopper")]
+    rows = [
+        _author_row("t1", "Hopper, Grace", "grace", status="exact", confidence=1.0),
+        _author_row("t1", "Hopper, Grace", "grace-1", status="exact", confidence=1.0),
+        _author_row("t2", "Hopper, Grace Brewster", "grace", ordinal=3),
+        _author_row("t2", "Hopper, Grace Brewster", "grace-1", ordinal=3),
+    ]
+    out, conflicts = build_mod.resolve_author_conflicts(rows, duplicates)
+
+    assert out[:2] == rows[:2]
+    assert len(out) == 3
+    assert out[2][build_mod.HANDLE] == "t2"
+    assert out[2][build_mod.SLUG] is None
+    assert out[2][build_mod.ORDINAL] == 3
+    assert len(conflicts) == 2  # one per contested slug
+
+
+def test_minimal_evidence_lists_the_two_token_matches_for_human_review():
+    """Surname + first given name is the weakest evidence the matcher acts on,
+    and no name-only rule can tell a right one from a wrong one."""
+    people = [ADA, Person("alan", "Alan Mathison Turing")]
+    rows = [
+        _author_row("t1", "Lovelace, Ada Augusta", "ada"),
+        _author_row("t2", "Turing, Alan Mathison", "alan"),
+    ]
+    assert build_mod.minimal_evidence_matches(rows, people) == [
+        {
+            "handle": "t1",
+            "name_raw": "Lovelace, Ada Augusta",
+            "person_slug": "ada",
+            "person_name": "Ada Lovelace",
+        }
+    ]
+
+
+def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
+    corpus, fixture_db
+):
+    """End to end: a second thesis whose author's longer name also fits 'Ada
+    Lovelace' must not merge the two into one student."""
+    second = THESIS_MD.replace("10316/000001", "10316/000002").replace(
+        "- Lovelace, Ada\n", "- Lovelace, Ada Augusta Byron\n"
+    )
+    (corpus / "10316-000002.md").write_text(second, encoding="utf-8")
+    (corpus / "manifest.json").write_text(
+        json.dumps([{"handle": "10316/000001"}, {"handle": "10316/000002"}]), encoding="utf-8"
+    )
+
+    report = build_mod.build(fixture_db, corpus)
+    assert [c["person_slug"] for c in report["author_conflicts"]] == ["ada"]
+    assert report["author_conflicts"][0]["kept"]["handle"] == "10316/000001"
+
+    conn = sqlite3.connect(fixture_db)
+    try:
+        assert conn.execute(
+            "SELECT person_slug FROM thesis_people WHERE role = 'author' "
+            "AND person_slug IS NOT NULL GROUP BY person_slug "
+            "HAVING COUNT(DISTINCT handle) > 1"
+        ).fetchall() == []
+        assert conn.execute(
+            "SELECT match_status FROM thesis_people WHERE handle = '10316/000002' "
+            "AND role = 'author'"
+        ).fetchone() == ("ambiguous",)
+    finally:
+        conn.close()
+
+
+def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db):
+    """The ordering trap: schema.sql's UNIQUE index is created by `build()`
+    itself, so a rebuild had to clear the old rows BEFORE applying the schema
+    or the fix could never be applied to the data it fixes."""
+    conn = sqlite3.connect(fixture_db)
+    try:
+        conn.executescript(
+            "DROP INDEX IF EXISTS idx_one_thesis_per_resolved_author;"
+            "INSERT INTO theses (handle, slug, title, source_url) VALUES"
+            " ('old/1', 'old-1', 'Old One', 'https://example.test/1'),"
+            " ('old/2', 'old-2', 'Old Two', 'https://example.test/2');"
+            "INSERT INTO thesis_people VALUES"
+            " ('old/1', 'Lovelace, Ada', 'author', 'ada', 'exact', 1.0, 'stale', 0),"
+            " ('old/2', 'Lovelace, Ada Byron', 'author', 'ada', 'exact', 1.0, 'stale', 0);"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    assert build_mod.build(fixture_db, corpus)["theses"] == 1
+
+
+def test_the_committed_seed_resolves_no_slug_to_two_authored_theses():
+    """The invariant, asserted on the file that actually ships."""
+    conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
+    try:
+        assert conn.execute(
+            "SELECT person_slug FROM thesis_people WHERE role = 'author' "
+            "AND person_slug IS NOT NULL GROUP BY person_slug "
+            "HAVING COUNT(DISTINCT handle) > 1"
+        ).fetchall() == []
+    finally:
+        conn.close()

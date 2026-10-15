@@ -148,6 +148,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_thesis_people_identity
 CREATE INDEX IF NOT EXISTS idx_thesis_people_person ON thesis_people(person_slug);
 CREATE INDEX IF NOT EXISTS idx_thesis_people_role ON thesis_people(role);
 
+-- One resolved person authors at most one thesis in this corpus.
+--
+-- A unique *student slug* was never missing: people.slug is already that
+-- table's PRIMARY KEY, so two rows could never share one. The defect this
+-- guards is the other direction and invisible to that key — a wrong
+-- many-real-people -> one-slug MAPPING, which is how "Martins, Pedro" (2014,
+-- computer vision) and "Martins, Pedro Miguel de Oliveira" (2016, ETL) both
+-- landed on `pedro-martins` and turned 181 theses into 180 students.
+--
+-- Partial on both counts, deliberately: unresolved names are kept as rows
+-- with a NULL slug and there are many of them, and one supervisor on many
+-- theses is the normal case, not a conflict. The invariant is enforced at
+-- build time by analysis/build_thesis_facts.py, which demotes the losing
+-- claimant with a note; this index is the backstop that makes a re-merge
+-- impossible to commit even if that pass is ever bypassed.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_thesis_per_resolved_author
+    ON thesis_people(person_slug) WHERE role = 'author' AND person_slug IS NOT NULL;
+
 -- Keyed on ordinal, not keyword, for the same reason project_partners is: a
 -- thesis legitimately repeats a keyword (9 of 18 do — case variants, and a
 -- literal '-' the source publishes as a separator). Kept verbatim, in

@@ -130,3 +130,58 @@ def test_funding_breakdown_collapses_fct_spelling_variants_but_not_joint_funders
     assert breakdown["FCT/CAPES"] == 1
     assert breakdown["FCT and DAAD"] == 1
     assert breakdown["PT Inovação"] == 1
+
+
+# --------------------------------------------------------------------------
+# The author-uniqueness backstop in scraper/schema.sql
+# --------------------------------------------------------------------------
+
+
+def _insert_author(conn, handle, name_raw, slug):
+    conn.execute(
+        "INSERT INTO theses (handle, slug, title, source_url) VALUES (?, ?, ?, ?)",
+        (handle, handle.replace("/", "-"), f"Thesis {handle}", f"https://example.test/{handle}"),
+    )
+    conn.execute(
+        "INSERT INTO thesis_people VALUES (?, ?, 'author', ?, 'exact', 1.0, 'note', 0)",
+        (handle, name_raw, slug),
+    )
+
+
+def test_one_resolved_person_cannot_author_two_theses(fixture_db):
+    """The DB-level backstop for the pedro-martins false merge. The matcher
+    and analysis/build_thesis_facts.py's conflict pass are what make this
+    index satisfiable; the index is what makes a regression uncommittable."""
+    conn = sqlite3.connect(fixture_db)
+    try:
+        _insert_author(conn, "10316/900001", "Lovelace, Ada", "ada")
+        with pytest.raises(sqlite3.IntegrityError, match="thesis_people.person_slug"):
+            _insert_author(conn, "10316/900002", "Lovelace, Ada Byron", "ada")
+    finally:
+        conn.close()
+
+
+def test_the_backstop_is_partial_so_unresolved_names_and_supervisors_still_repeat(fixture_db):
+    """Both exemptions are load-bearing: unresolved names are kept as NULL-slug
+    rows and there are 93 of them, and one supervisor across many theses is
+    the advisor view's entire reason to exist."""
+    conn = sqlite3.connect(fixture_db)
+    try:
+        for handle in ("10316/900003", "10316/900004"):
+            conn.execute(
+                "INSERT INTO theses (handle, slug, title, source_url) VALUES (?, ?, ?, ?)",
+                (handle, handle.replace("/", "-"), "T", f"https://example.test/{handle}"),
+            )
+            conn.execute(
+                "INSERT INTO thesis_people VALUES (?, 'Nobody, At All', 'author', NULL, "
+                "'unmatched', 0.0, 'note', 0)",
+                (handle,),
+            )
+            conn.execute(
+                "INSERT INTO thesis_people VALUES (?, 'Lovelace, Ada', 'supervisor', 'ada', "
+                "'exact', 1.0, 'note', 1)",
+                (handle,),
+            )
+        conn.commit()
+    finally:
+        conn.close()

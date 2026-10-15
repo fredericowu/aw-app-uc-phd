@@ -154,6 +154,25 @@ than pretending they are ruled out.
 
 ## Result
 
+> **Amended at the people-directory card (2026-10-15): 43 of 50 resolved, 7
+> unattributed.** The counts in this section and the table below are the
+> original record and are left as written — but `people` has since gained a
+> second source. It was built only from scraped *project* pages, so "no person
+> in the people table shares the surname X" — the reasoning behind most of the
+> 14 — was a statement about a pool that could not contain a PhD student who
+> never worked on a scraped project. `scraper/people.py` now also ingests
+> CISUC's own ~740-person People directory, and 7 of the 14 resolved against
+> candidates that had never been available: Dib, Júnior, Medeiros, Pereira
+> (Tiago Oliveira), Rosero, Santos (Joana Cristo dos) and Silva (Leonardo
+> Soares e). **No rule in `analysis/name_match.py` was changed.** Each was
+> checked by hand against the thesis and the person's own CISUC page before
+> `docs/thesis-attribution.json` was moved to `matched`; the evidence is in
+> each entry's `note`. The widened pool also made `Moraes, Caroline Relva de`
+> `ambiguous` — CISUC lists that one human twice — which is the designed
+> answer and still not a resolution. Live tiers are asserted in
+> `tests/test_name_match.py`, which is the number to trust over this
+> paragraph.
+
 **36 of 50 unique names (72%) resolved; 14 (28%) are unattributed.**
 
 The deterministic matcher reproduces that result exactly, and reports it in

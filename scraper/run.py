@@ -18,6 +18,7 @@ from . import db
 from .detail import parse_detail_page, project_fields
 from .listing import LISTING_URL, USER_AGENT, ListingError, fetch_all_projects
 from .parse import classify_partner, parse_date, parse_money, split_partners
+from .people import PEOPLE_URL, PeopleError, fetch_all_people, sync_people
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = REPO_ROOT / "data" / "cisuc.sqlite3"
@@ -202,17 +203,46 @@ def main():
         conn.commit()
         time.sleep(SLEEP_BETWEEN_DETAIL_FETCHES)
 
+    # CISUC's own People directory, after the project pages so its fuller
+    # display names win the overlap. Deliberately not fatal: every project
+    # above is already committed, and throwing that away because a second
+    # source was unreachable would be the worse failure. Loud + non-zero exit
+    # instead, and the run's notes record which way it went.
+    print(f"fetching people directory from {PEOPLE_URL} ...")
+    people_failed = None
+    people_counts = None
+    try:
+        people_rows, people_total = fetch_all_people(session)
+        people_counts = sync_people(conn, people_rows)
+    except (PeopleError, requests.RequestException) as exc:
+        people_failed = str(exc)
+        print(f"WARNING: people directory fetch failed: {exc}", file=sys.stderr)
+
     finished_at = now_iso()
-    notes = f"stubs={stub_count}"
+    if people_counts is None:
+        people_note = "people_dir=FAILED"
+    else:
+        people_note = f"people_dir={people_counts['with_page']}"
+    notes = f"stubs={stub_count} {people_note}"
     db.finish_scrape_run(conn, run_id, finished_at, total_data, len(listing_rows), detail_ok, detail_failed, notes)
     conn.commit()
 
     print(
         f"[{finished_at}] done. listing_rows={len(listing_rows)} "
-        f"detail_ok={detail_ok} detail_failed={detail_failed} stubs={stub_count}"
+        f"detail_ok={detail_ok} detail_failed={detail_failed} stubs={stub_count} "
+        f"{people_note}"
     )
+    if people_counts is not None:
+        print(f"people: {people_counts}")
     if detail_failed:
         print(f"WARNING: {detail_failed} detail pages failed after retries — see scrape_targets.", file=sys.stderr)
+    if people_failed:
+        print(
+            "FAILED: the project scrape is committed, but the people directory step did not run "
+            f"({people_failed}) — rerun `python -m scraper.people` before rebuilding identity.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

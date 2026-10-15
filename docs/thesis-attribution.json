@@ -127,8 +127,14 @@
     ]
   },
   "Dib, Mário Alberto da Silveira": {
-    "status": "unattributed",
-    "note": "No person in the people table shares the surname Dib. Thesis author, not expected to be CISUC staff."
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "mario-dib",
+        "name": "Mario Dib"
+      }
+    ],
+    "note": "Resolved at the people-directory card: the original note (\"no person shares the surname Dib\") was a statement about the people table, which until that card held only people scraped off a project page. CISUC's own directory lists mario-dib (mariodib@outlook.com) as an Integrated PhD Student in Adaptive Computation, the group of this thesis's supervisor Bernardete Ribeiro. \"Dib\" has no other bearer in the 740-person directory."
   },
   "Flora, José Eduardo Ferreira": {
     "status": "matched",
@@ -198,8 +204,14 @@
     ]
   },
   "Júnior, Ivanilson França Vieira": {
-    "status": "unattributed",
-    "note": "No person in the people table shares the surname Júnior (or Vieira as a leading surname). Thesis author."
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "ivanilsonjunior",
+        "name": "Ivanilson Franca Vieira Junior"
+      }
+    ],
+    "note": "Resolved at the people-directory card. Token-set equality with the directory row \"Ivanilson Franca Vieira Junior\" — every token of both names accounted for — and CISUC places them in NCS, the group of both supervisors (Jorge Granjal, Marília Curado) of this Industrial-IoT networking thesis."
   },
   "Machado, Fernando Jorge Penousal Martins": {
     "status": "matched",
@@ -220,8 +232,14 @@
     ]
   },
   "Medeiros, Júlio Cordeiro": {
-    "status": "unattributed",
-    "note": "The one Medeiros in the people table (\"Nádia Patrícia da Silva Medeiros\") has a different given name. Thesis author."
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "julio-medeiros",
+        "name": "Júlio Medeiros"
+      }
+    ],
+    "note": "Resolved at the people-directory card. The original note compared against the one Medeiros then in the table (\"Nádia Patrícia da Silva Medeiros\"); the directory adds julio-medeiros (juliomedeiros@dei.uc.pt, ORCID 0000-0003-2852-6285), the only Júlio in all 740 entries, an Integrated PhD Student in Adaptive Computation — the group of supervisor César Teixeira, with whom the cognitive-load/physiological-signals topic of this thesis is shared."
   },
   "Mendes, António José Nunes": {
     "status": "matched",
@@ -259,8 +277,14 @@
     ]
   },
   "Pereira, Tiago Oliveira": {
-    "status": "unattributed",
-    "note": "people has many Pereira entries but none named Tiago Oliveira (or matching given-name tokens). Thesis author."
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "tiago-pereira-1",
+        "name": "Tiago Pereira"
+      }
+    ],
+    "note": "Resolved at the people-directory card, and the one of these seven that needed evidence beyond the name: \"Tiago Pereira\" is two common tokens, the pedro-martins false-merge shape. The directory page settles it independently — the address is top@dei.uc.pt, i.e. Tiago Oliveira Pereira, carrying the middle name \"Oliveira\" that this thesis name has and the CISUC display name does not. Member of Adaptive Computation, the group of supervisor Joel Arrais, whose de-novo-molecular-design line this thesis is in. No other Tiago Pereira in the directory."
   },
   "Pessoa, Diogo Rafael Mendes": {
     "status": "matched",
@@ -323,12 +347,24 @@
     ]
   },
   "Rosero, Raúl Homero Llasag": {
-    "status": "unattributed",
-    "note": "No person in the people table shares the surname Rosero. Thesis author."
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "raul-rosero",
+        "name": "Raúl Homero Llasag Rosero"
+      }
+    ],
+    "note": "Resolved at the people-directory card. Token-set equality with the directory row \"Raúl Homero Llasag Rosero\" across four distinctive tokens; \"Rosero\" has no other bearer in the directory."
   },
   "Santos, Joana Cristo dos": {
-    "status": "unattributed",
-    "note": "The one \"Cristo\" match in the people table (\"Maria da Graça Cristo dos Santos Lopes Ruano\") is a different given name entirely. Thesis author."
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "j-c-santos",
+        "name": "Joana Cristo Santos"
+      }
+    ],
+    "note": "Resolved at the people-directory card. The original note rejected the only \"Cristo\" then in the table (\"Maria da Graça Cristo dos Santos Lopes Ruano\") on the given name, correctly. The directory adds j-c-santos \"Joana Cristo Santos\", an Integrated PhD Student in Cognitive and Media Systems, co-supervised in the missing-data line (Miriam Santos, Pedro Henriques Abreu) that is this thesis's own subject."
   },
   "Santos, Miriam Raquel Seoane Pereira Seguro": {
     "status": "matched",
@@ -349,8 +385,14 @@
     ]
   },
   "Silva, Leonardo Soares e": {
-    "status": "unattributed",
-    "note": "No person in the people table shares the surname Silva combined with the given name Leonardo (and no \"Soares e Silva\" pattern). Thesis author."
+    "status": "matched",
+    "matches": [
+      {
+        "slug": "leonardo-silva",
+        "name": "Leonardo Silva"
+      }
+    ],
+    "note": "Resolved at the people-directory card. \"Leonardo Silva\" is also a two-token minimal-evidence shape on the commonest Portuguese surname, so it was checked against the page rather than accepted: the address is lsoaresesilva@gmail.com, spelling out the \"Soares e Silva\" that this thesis name carries and the display name drops. Integrated PhD Student in Cognitive and Media Systems, the area of both supervisors (Anabela Gomes, António José Mendes) of this computer-supported-collaborative-learning thesis."
   },
   "Silva, Rodrigo Ronner Tertulino da": {
     "status": "unattributed",

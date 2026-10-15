@@ -152,22 +152,37 @@ def test_the_golden_fixture_still_covers_every_real_name():
 
 def test_the_measured_tier_distribution_is_what_the_card_reports():
     """The honest number, asserted rather than claimed in a report: 50 distinct
-    names, 36 resolved, 14 not. Change the rules and this moves — which is the
+    names, 43 resolved, 7 not. Change the rules and this moves — which is the
     point, because a rule that quietly resolves five more names should have to
     say so here first.
 
-    The 36/14 split is what the card reported and has not moved. The split
-    *within* the 36 did, at the tier redefinition (pedro-martins card): 27 of
-    these names resolve on a candidate whose tokens are a strict subset of the
-    thesis name's, which used to read ``exact``/1.0 and now reads
-    ``confident``/0.8. Same slug, honest tier — only 4 of the 50 are the
-    token-set equality the ``exact`` tier now means."""
+    **This moved once without a rule change, and that is why the numbers are
+    not the ones the original card reported.** It was 36/14 against a ``people``
+    table built only from scraped *project* pages; the people-directory card
+    added CISUC's own 740-person directory as a second source
+    (``scraper/people.py``), and 7 of the 14 then resolved against candidates
+    that had simply never been in the pool. Nothing in ``name_match.py``
+    changed. Each of the 7 was checked by hand against the thesis and the
+    person's CISUC page before ``docs/thesis-attribution.json`` was moved to
+    ``matched``, with the evidence in each entry's note — two of them
+    (``Pereira, Tiago Oliveira``, ``Silva, Leonardo Soares e``) are two-token
+    minimal-evidence shapes that were confirmed on the page's e-mail address
+    carrying the exact middle name the display name drops, not on the name
+    string. The widened pool also costs one: ``Moraes, Caroline Relva de`` now
+    finds two directory rows for the same human and reads ``ambiguous``, which
+    is the designed answer and still not a resolution.
+
+    The split *within* the resolved set carries the earlier tier redefinition
+    (pedro-martins card): most of these names resolve on a candidate whose
+    tokens are a strict subset of the thesis name's, which used to read
+    ``exact``/1.0 and now reads ``confident``/0.8. Same slug, honest tier —
+    only the 7 ``exact`` are the token-set equality that tier now means."""
     people = _real_people()
     tiers = {EXACT: 0, CONFIDENT: 0, AMBIGUOUS: 0, UNMATCHED: 0}
     for name in _golden():
         tiers[match_name(name, people).status] += 1
-    assert tiers == {EXACT: 4, CONFIDENT: 32, AMBIGUOUS: 0, UNMATCHED: 14}
-    assert tiers[EXACT] + tiers[CONFIDENT] == 36
+    assert tiers == {EXACT: 7, CONFIDENT: 36, AMBIGUOUS: 1, UNMATCHED: 6}
+    assert tiers[EXACT] + tiers[CONFIDENT] == 43
 
 
 # --------------------------------------------------------------------------

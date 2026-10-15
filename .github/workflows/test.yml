@@ -5,9 +5,10 @@ name: Test
 #   2. pytest with a hard 100% coverage gate, scoped to uc_phd_app (the
 #      narrowing and its reason live in pyproject.toml — read it before
 #      changing the --cov target here).
-#   3. `npm run build` leaves ui/dist byte-identical to what is committed.
+#   3. `npm test` (vitest) passes.
+#   4. `npm run build` leaves ui/dist byte-identical to what is committed.
 #
-# Gate 3 is not garnish. ui/dist IS committed, because the shared release
+# Gate 4 is not garnish. ui/dist IS committed, because the shared release
 # workflow ships the repo as-is and never builds the frontend — so a commit
 # that changes ui/src without rebuilding produces an app whose UI is silently
 # a version behind, with nothing anywhere reporting it.
@@ -81,11 +82,15 @@ jobs:
       - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v5
         with:
           node-version: "24"
+      - name: Install deps
+        working-directory: ui
+        run: npm ci --no-fund --no-audit
+      - name: Run frontend tests
+        working-directory: ui
+        run: npm test
       - name: Build the SPA
         working-directory: ui
-        run: |
-          npm ci --no-fund --no-audit
-          npm run build
+        run: npm run build
       - name: Fail if the committed ui/dist is stale
         run: |
           if ! git diff --quiet -- ui/dist; then

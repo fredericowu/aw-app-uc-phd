@@ -21,9 +21,11 @@ The four tiers, and why ``ambiguous`` is not a failure
 ``confident``  one answer, but a rule beyond token-set equality got there:
                the candidate's tokens are a strict *subset* of the thesis
                name's, a standard initial, a duplicate row in ``people``, a
-               reviewed person alias (``analysis/person_aliases.py`` — the one
-               input here that is a human's decision rather than a name rule),
-               or the primary-given-name tie-break below.
+               reviewed person alias (``analysis/person_aliases.py``), a
+               reviewed full legal name (``analysis/person_full_names.py`` —
+               those two are the only inputs here that are a human's decision
+               rather than a name rule), or the primary-given-name tie-break
+               below.
 ``ambiguous``  more than one person genuinely fits and no rule separates
                them. Surfaced with every candidate attached, never resolved
                by picking one.
@@ -47,6 +49,26 @@ The corpus is about to grow from 18 theses to 181, so the unmatched and
 ambiguous rates will rise. That is the honest outcome, and the reason
 ``thesis_people.person_slug`` is nullable and ``name_raw`` is the key: a name
 this module cannot resolve is preserved as a row, never dropped.
+
+The one direction that runs backwards, and why it is gated
+----------------------------------------------------------
+``_fits()`` is asymmetric on purpose: the CISUC form is the *shorter* one.
+CISUC sometimes publishes a person under a form that is not short but
+**wrong-ended** — "António Dourado" for António Dourado Pereira Correia,
+"Penousal Machado" for Fernando Jorge Penousal Martins Machado — and those
+share no token with the thesis's surname at all, so rule 1 rejects them before
+anything else gets a say. Relaxing rule 1 to fix that is measured-rejected
+relaxation B (docs/thesis-attribution.md): it also produced "Cruz, Luís Alberto
+da Silva" -> "Luís Silva", a confidently wrong person.
+
+``_fits_full()`` is the mirror comparison — thesis name ⊆ the person's full
+legal name — and it is safe *only* because of its gate: it never runs against
+``people.name``, only against a full name a human reviewed, sourced and
+recorded in ``data/person_full_names.json``. Luís Silva has no reviewed full
+name carrying "cruz", so relaxation B's false match is structurally
+unreachable rather than merely unlucky. A match that direction caps at
+``confident`` — never ``exact``, even on token-set equality, because what it
+agrees with is a reviewed declaration and not CISUC's published identity.
 
 What this deliberately does NOT do — carried verbatim from the hand method:
 no edit distance, no similarity threshold, no substring matching, no
@@ -88,13 +110,20 @@ class Person:
     ruled that CISUC lists this same human under another slug too, and
     ``None`` otherwise — which is every row by default, so nothing that
     constructs a ``Person`` from a name and a slug has to know this exists.
-    It is the only thing in this module that is not derived from the names:
-    see ``analysis/person_aliases.py`` for why that decision cannot be.
+    ``full_name`` is this person's full legal name when a human has reviewed
+    and sourced one (``person_full_names.full_name``), and ``None`` otherwise —
+    which is all but a handful of rows. It is NOT a second display name:
+    nothing renders it, and the only thing that reads it is ``_fits_full()``.
+
+    Those two fields are the only things in this module that are not derived
+    from the names: see ``analysis/person_aliases.py`` and
+    ``analysis/person_full_names.py`` for why those decisions cannot be.
     """
 
     slug: str
     name: str
     canonical: str | None = None
+    full_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -177,6 +206,40 @@ def _fits(
     return True, used_initial
 
 
+def _fits_full(
+    thesis_tokens: tuple[str, ...],
+    surname_tokens: tuple[str, ...],
+    full_tokens: tuple[str, ...],
+) -> bool:
+    """Does the thesis name fit this person's **reviewed full legal name**?
+
+    **This must be unreachable for a person with no ``person_full_names``
+    row.** The gate is the design, not a precaution: ``match_name`` only calls
+    this when ``Person.full_name`` is set, and ``full_name`` is only ever set
+    from a human-reviewed, evidence-carrying entry. Run against
+    ``people.name`` it would *be* measured-rejected relaxation B, with its
+    confidently wrong "Cruz, Luís Alberto da Silva" -> "Luís Silva".
+
+    The mirror of ``_fits()``, and asymmetric the other way for the same
+    reason that one is: a full legal name is a *complete* form, like the
+    thesis form and unlike CISUC's truncated display form, so here it is the
+    thesis name that must be the subset.
+
+    1. every surname token of the thesis name appears in the full name — the
+       same rejection rule 1 of ``_fits()`` makes, and what stops an empty or
+       surname-less name from sweeping up every reviewed person;
+    2. every thesis token appears in the full name — "Correia, António Maria"
+       is not António Dourado Pereira Correia, however much of him it carries.
+
+    No initial-abbreviation escape hatch, deliberately: a legal name is
+    recorded in full, so a single letter on either side is a typo in the entry
+    rather than a convention to excuse.
+    """
+    if not surname_tokens or not all(s in full_tokens for s in surname_tokens):
+        return False
+    return all(t in full_tokens for t in thesis_tokens)
+
+
 def _carries_primary_given(candidate_tokens: tuple[str, ...], primary: str) -> bool:
     """Does the candidate carry the thesis's *first* given name?
 
@@ -247,12 +310,22 @@ def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> Name
     surname_label = " ".join(surname_tokens).title()
 
     fitting: list[Person] = []
+    fitted_on_full_name: set[Person] = set()
     used_initial = False
     for person in people:
         fits, initial = _fits(tokenize(person.name), thesis_tokens, surname_tokens, given_tokens)
         if fits:
             fitting.append(person)
             used_initial = used_initial or initial
+            continue
+        # Only now, and only for a person a human has reviewed. The display
+        # name gets the first and ordinary say; the reviewed full name is the
+        # second chance CISUC's own truncation makes necessary.
+        if person.full_name and _fits_full(
+            thesis_tokens, surname_tokens, tokenize(person.full_name)
+        ):
+            fitting.append(person)
+            fitted_on_full_name.add(person)
 
     if not fitting:
         return NameMatch(
@@ -266,6 +339,20 @@ def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> Name
 
     candidates = tuple(fitting)
     if len(candidates) == 1:
+        if candidates[0] in fitted_on_full_name:
+            # Capped here, before the token-set-equality test below could call
+            # it `exact`: equality with a reviewed full name is agreement with
+            # a human's sourced declaration, not with what CISUC published.
+            return NameMatch(
+                name_raw,
+                CONFIDENT,
+                CONFIDENCE[CONFIDENT],
+                candidates,
+                f"{_quoted(candidates)} does not carry this surname, but "
+                f'data/person_full_names.json records their full name as '
+                f'"{candidates[0].full_name}" on reviewed evidence, and every '
+                "token of the thesis name appears in it.",
+            )
         if used_initial:
             return NameMatch(
                 name_raw,
@@ -317,7 +404,21 @@ def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> Name
             )
         return NameMatch(name_raw, CONFIDENT, CONFIDENCE[CONFIDENT], candidates, note)
 
-    preferred = tuple(p for p in candidates if _carries_primary_given(tokenize(p.name), primary_given))
+    # Tie-broken on the tokens the fit was actually made against, which for a
+    # reviewed full-name fit is the full name. Using the display name here
+    # would weigh a truncated form against a complete one and let the
+    # truncation win: "Machado, Fernando" would be tie-broken away from the
+    # reviewed Penousal Machado onto any plain "Fernando Machado", on nothing
+    # better than CISUC having dropped a given name. Two candidates that both
+    # carry the primary given name is what ambiguous is for.
+    preferred = tuple(
+        p
+        for p in candidates
+        if _carries_primary_given(
+            tokenize(p.full_name) if p in fitted_on_full_name else tokenize(p.name),
+            primary_given,
+        )
+    )
     if preferred and (len(preferred) == 1 or _same_person_twice(preferred)):
         rejected = tuple(p for p in candidates if p not in preferred)
         return NameMatch(

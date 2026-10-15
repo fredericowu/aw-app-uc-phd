@@ -88,6 +88,35 @@ CREATE TABLE IF NOT EXISTS person_aliases (
 );
 CREATE INDEX IF NOT EXISTS idx_person_aliases_to ON person_aliases(to_slug);
 
+-- A person's full legal name, where CISUC's published short form is not a
+-- truncation of it but drops the real surname ('António Dourado' for António
+-- Dourado Pereira Correia) or prefers a later given name ('Penousal Machado'
+-- for Fernando Jorge Penousal Martins Machado). The thesis form and the
+-- display form then share no surname token at all, and analysis/name_match.py's
+-- `_fits()` rejects them in both directions.
+--
+-- Written offline by `python -m analysis.build_thesis_facts` from the curated,
+-- human-reviewed data/person_full_names.json — see analysis/person_full_names.py
+-- for why this is a reviewed fact and not a rule, and why `_fits_full()` (the
+-- one matcher direction this table unlocks) must stay unreachable for a slug
+-- with no row here: the same comparison against an UNREVIEWED display name is
+-- exactly the relaxation this repo measured and rejected ("Cruz, Luís Alberto
+-- da Silva" -> "Luís Silva", docs/thesis-attribution.md "Two rejected
+-- relaxations", B).
+--
+-- What this must never become: a thesis-name lookup. The key is a slug — a
+-- row is a fact about a person, upstream of any thesis, exactly like the alias
+-- table above. A `name_raw` column here would be the hand-written attribution
+-- table the Product Owner rejected (option C in the same document).
+--
+-- Nothing renders this. `people.name` stays what the app displays, because
+-- that is what CISUC publishes; the only reader is name_match._fits_full().
+CREATE TABLE IF NOT EXISTS person_full_names (
+    slug      TEXT PRIMARY KEY REFERENCES people(slug),
+    full_name TEXT NOT NULL,
+    evidence  TEXT NOT NULL   -- the citable source a human read it off. Not optional.
+);
+
 -- One row per HUMAN, where `people` is one row per CISUC directory entry.
 --
 -- `people.slug` stopped meaning "one human" the moment the table above

@@ -37,7 +37,7 @@ from pathlib import Path
 
 import yaml
 
-from . import person_aliases
+from . import person_aliases, person_full_names
 from .name_match import (
     AMBIGUOUS,
     CONFIDENCE,
@@ -102,19 +102,21 @@ def reconcile(front_matters: list[dict], manifest_path: Path) -> None:
         )
 
 
-#: Every ``people`` row with its reviewed canonical identity attached, when it
-#: has one. A LEFT JOIN rather than two queries folded together in Python: the
-#: alias is a property of the row, and a row with no alias must come back
-#: carrying NULL rather than be absent.
+#: Every ``people`` row with its two reviewed facts attached, when it has
+#: them: the canonical identity of an alias group, and the person's full legal
+#: name. LEFT JOINs rather than queries folded together in Python — both are
+#: properties of the row, and a row carrying neither must come back with NULLs
+#: rather than be absent. Both join on a PRIMARY KEY, so neither fans out.
 _PEOPLE_SQL = """
-SELECT p.slug, p.name, a.to_slug
+SELECT p.slug, p.name, a.to_slug, f.full_name
 FROM people p
 LEFT JOIN person_aliases a ON a.from_slug = p.slug
+LEFT JOIN person_full_names f ON f.slug = p.slug
 """
 
 
 def load_people(conn: sqlite3.Connection) -> list[Person]:
-    return [Person(row[0], row[1], row[2]) for row in conn.execute(_PEOPLE_SQL)]
+    return [Person(row[0], row[1], row[2], row[3]) for row in conn.execute(_PEOPLE_SQL)]
 
 
 def thesis_row(front_matter: dict) -> tuple:
@@ -337,11 +339,17 @@ def keyword_rows(front_matter: dict) -> list[tuple]:
     ]
 
 
-def build(db_path: Path, estudo_geral_dir: Path, aliases_path: Path | None = None) -> dict:
+def build(
+    db_path: Path,
+    estudo_geral_dir: Path,
+    aliases_path: Path | None = None,
+    full_names_path: Path | None = None,
+) -> dict:
     """Rebuild the three tables from scratch. Returns what it wrote.
 
-    ``person_aliases`` is rebuilt in the same transaction, from
-    ``data/person_aliases.json`` — the identity map the matcher then reads.
+    ``person_aliases`` and ``person_full_names`` are rebuilt in the same
+    transaction, from their two curated files — the reviewed identity facts
+    the matcher then reads.
     """
     front_matters = load_front_matters(estudo_geral_dir)
     reconcile(front_matters, estudo_geral_dir / "manifest.json")
@@ -373,6 +381,7 @@ def build(db_path: Path, estudo_geral_dir: Path, aliases_path: Path | None = Non
         # against the live rows and raised on, never skipped — see
         # analysis/person_aliases.py on why a silent skip un-merges a person.
         aliases = person_aliases.load_and_write(conn, aliases_path)
+        full_names = person_full_names.load_and_write(conn, full_names_path)
         people = load_people(conn)
 
         cache: dict = {}
@@ -397,6 +406,7 @@ def build(db_path: Path, estudo_geral_dir: Path, aliases_path: Path | None = Non
     return {
         "theses": len(theses),
         "person_aliases": aliases,
+        "person_full_names": full_names,
         "thesis_people_rows": len(thesis_people),
         "thesis_keywords": len(thesis_keywords),
         "supervision_edges": sum(
@@ -422,9 +432,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
     parser.add_argument("--estudo-geral", type=Path, default=DEFAULT_ESTUDO_GERAL)
     parser.add_argument("--person-aliases", type=Path, default=None)
+    parser.add_argument("--person-full-names", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    report = build(args.db, args.estudo_geral, args.person_aliases)
+    report = build(args.db, args.estudo_geral, args.person_aliases, args.person_full_names)
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0
 

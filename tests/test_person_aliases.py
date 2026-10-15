@@ -340,7 +340,13 @@ def test_the_builder_writes_the_canonical_slug_once_not_both_rows(tmp_path, fixt
         },
     )
 
-    report = build_mod.build(fixture_db, corpus, aliases)
+    # An empty person_full_names.json, for the same reason ``aliases`` above
+    # is written here rather than taken from data/: the committed file names
+    # real CISUC slugs the fixture ``people`` table does not have.
+    full_names = tmp_path / "person_full_names.json"
+    full_names.write_text(json.dumps({"entries": []}), encoding="utf-8")
+
+    report = build_mod.build(fixture_db, corpus, aliases, full_names)
     assert report["person_aliases"] == {"pairs_reviewed": 1, "same": 1, "distinct": 0}
 
     conn = sqlite3.connect(fixture_db)

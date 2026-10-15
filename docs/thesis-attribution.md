@@ -531,6 +531,122 @@ bars -> 106; thesis facts unchanged (Teresa authors and supervises nothing in
 the corpus). The "standing tax on every new consumer" below is the general
 case; this was the first unpaid bill.
 
+### The fifth option: a reviewed full-legal-name table (2026-10-15)
+
+The alias table above fixes CISUC listing one human **twice**. A second,
+unrelated source defect went with it: CISUC sometimes lists a human **once,
+under a name that is not a truncation of theirs**.
+
+| CISUC publishes | the person's full legal name | Estudo Geral writes |
+|---|---|---|
+| António Dourado | António Dourado Pereira Correia | Correia, António [Dourado [Pereira]] |
+| Marilia Curado | Marília Pascoal Curado de Oliveira | Oliveira, Marília Pascoal Curado de |
+| Fernando Boavida | Fernando Pedro Lopes Boavida Fernandes | Fernandes, Fernando Pedro Lopes Boavida |
+| Penousal Machado | Fernando Jorge Penousal Martins Machado | Machado, Fernando |
+
+The two forms **share no surname token at all**, so `_fits()` rule 1 rejects
+them before any of its other logic runs. This is the largest single cluster in
+the unresolved tail — "Correia, António [Dourado [Pereira]]" is the 6-edge
+cluster the measurement above named as one of the only two slices with real
+leverage.
+
+**`data/person_full_names.json`** records, per `people` slug, that person's
+full legal name and the citable source it was read off.
+`analysis/person_full_names.py` validates it against the live roster and
+writes `person_full_names(slug, full_name, evidence)` into the seed.
+`name_match._fits_full()` is the one comparison allowed to read it: the
+**mirror** of `_fits()` — the thesis name must be a subset of the full name,
+rather than the other way round — which is correct here precisely because a
+legal name is a complete form like the thesis form, and unlike CISUC's
+truncated display form. The display name still gets the first say; the
+reviewed full name is a fallback, never an override.
+
+**Why this is not measured-rejected relaxation B.** It is the same comparison
+B made, and B produced `"Cruz, Luís Alberto da Silva"` -> **`Luís Silva`**.
+The load-bearing difference is the **gate**: `_fits_full()` runs only against
+a full name a human reviewed and sourced, never against `people.name`. Luís
+Silva has no reviewed full name carrying "cruz", so B's false match is
+structurally unreachable rather than merely unlucky. The boundary is the whole
+design, and `tests/test_person_full_names.py` replays that exact false
+positive to assert it stays unreachable. A match this way caps at
+`confident`, never `exact`, even on token-set equality: what it agrees with is
+a reviewed declaration, not the identity CISUC itself publishes.
+
+**Why the mechanism is a curated file and not a bio scrape.** 3 of these 4
+people were reported as having their legal name verbatim in CISUC's own bio
+("Full name: X (short: Y)"). Measured on the live pages on 2026-10-15: only
+`antonio-dourado`'s does. `marilia-curado`, `fernando-boavida` and
+`penousal-machado` all serve a Short Bio block that never states the legal
+name, and 3 more spot-checked pages likewise. A 740-page scrape plus a parser
+would recover 1 of the 4. Dourado's entry cites the bio URL as its *source*;
+nothing scrapes it.
+
+**Measured over all 181 theses, before and after** (distinct names, the
+matcher's own report card):
+
+| | before | after |
+|---|---|---|
+| `exact` | 85 | 85 |
+| `confident` | 147 | **153** |
+| `ambiguous` | 4 | 4 |
+| `unmatched` | 47 | **41** |
+| `thesis_people` rows | 426 | 426 |
+| `author_conflicts` | 0 | 0 |
+
+At the grains the views consume (`sql/thesis_attribution_coverage.sql`):
+
+| | before | after |
+|---|---|---|
+| **Supervision edges resolved** | **198 / 241 (82%)** | **211 / 241 (88%)** |
+| Supervisor names resolved | 93 / 126 | **99 / 126** |
+| Author names resolved | 162 / 181 | **163 / 181** |
+| Theses with ≥1 resolved supervisor | 146 / 157 | **152 / 157** |
+| Theses with *all* supervisors resolved | 118 / 157 | **131 / 157** |
+| Co-supervision pairs both-resolved | 56 / 91 | **63 / 91** |
+| Distinct supervisor people | 65 | **66** |
+
+**Every changed row was inspected by hand, and there are exactly 14.** All 14
+are `unmatched` -> `confident`: no row appeared, none disappeared, no slug
+changed from one slug to another, nothing was demoted, no name became
+ambiguous, and no new author conflict appeared. Six are António Dourado
+(10316/27608, /1764, /10153, /1758, /1760, /23583 — 2001-2015, all adaptive
+control, neuro-fuzzy systems or seizure prediction, each with a CISUC
+co-supervisor or author from his own circle); four are Marília Curado
+(10316/1748 as **author** — her own 2005 QoS-routing PhD, supervised by
+Edmundo Monteiro, matching the 2005 UC PhD her bio records — plus /22105,
+/95281, /95282 as supervisor, three of them co-supervised with Edmundo
+Monteiro); two are Fernando Boavida (10316/1757, whose author Jorge Miguel Sá
+Silva he supervised, and /24526, co-supervised with Paulo Simões); two are
+Penousal Machado (10316/31166 and /41880).
+
+The last of those is the one that needed evidence beyond a domain argument —
+10316/41880 is NLP/question-answering, not his usual area. Its own title page
+settles it: *"supervised by Professor Paulo Jorge de Sousa Gomes and Professor
+**Fernando Jorge Penousal Martins Machado**"*, the full name verbatim, for a
+thesis Estudo Geral files under the bare "Machado, Fernando".
+
+#### What this makes harder later
+
+- A **third** human-maintained identity artefact, after
+  `docs/thesis-attribution.json` and `data/person_aliases.json`. A wrong
+  `full_name` silently lands a wrong person at `confident`. The mitigations
+  are structural — mandatory evidence, a loud loader, the display-coverage
+  check, and the measured diff above — but the curation surface grows and
+  somebody owns it forever.
+- `confident` now includes matches grounded in a reviewed declaration rather
+  than purely in the published names. Anyone reading that tier as "derived
+  from CISUC's own display name" is slightly wrong from here on; the note on
+  each row carries the distinction, naming the file and the full name.
+- Deliberately does not scale: every future dropped-surname person costs a
+  human entry. That is consistent with the flat tail measured above (25 of 31
+  unresolved clusters are 1-2 edges) and with the standing no-forced-100%
+  ruling. The ceiling after this is ~92%, not 100% — roughly 19 of the 43
+  originally-unmatched edges are externals, departed staff, or genuinely
+  unresolvable from the name text.
+- `Person` now carries two names. Every consumer must keep rendering `.name`
+  (what CISUC publishes) and never `full_name`, which is evidence rather than
+  a label. `docs/graph-db-plan.md` has one more table to port.
+
 ### The golden fixture can no longer police rule changes
 
 **Both rejected rules left `tests/test_name_match.py` completely green.** This

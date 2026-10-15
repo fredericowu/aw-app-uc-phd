@@ -6,7 +6,8 @@
   "description": "Frontend for aw-app-uc-phd. A plain Vite+React SPA built to ui/dist/ and served by the app's own FastAPI sub-app — NOT a component-mode plugin bundle. This app is distributed privately, so it is not `signed` and every high-risk capability (ui:code included) would be silently refused; see docs/app-migration-plan.md §2.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "test": "vitest run"
   },
   "dependencies": {
     "d3-force": "^3.0.0",
@@ -17,7 +18,12 @@
     "recharts": "^2.13.3"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.11"
+    "jsdom": "^25.0.1",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
   }
 }

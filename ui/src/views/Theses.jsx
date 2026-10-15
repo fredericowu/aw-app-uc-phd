@@ -10,6 +10,7 @@
 // not resolve still stays visibly "(unattributed)" rather than being guessed,
 // the same treatment "UNGROUPED" gets for projects in Coordinators.jsx.
 
+import { useState } from 'react';
 import { api } from '../api';
 import {
   AsyncBoundary,
@@ -17,6 +18,7 @@ import {
   Caveat,
   CategoryBars,
   ChartWithTable,
+  DataTable,
   GroupLegend,
   ResolvedPersonName,
   Section,
@@ -126,9 +128,35 @@ function IdentitySentence({ identity }) {
   );
 }
 
+// The theses behind the "Resolved to a research group" tile's small
+// "unattributed" count — already loaded in `data.theses` (the `attributed`
+// computation this mirrors lives where the tile's own numbers are built),
+// so expanding costs no extra request.
+function UnattributedTheses({ theses, onOpenThesis }) {
+  const rows = theses.filter((t) => !t.attributed);
+  return (
+    <DataTable
+      columns={[
+        {
+          key: 'title',
+          label: 'Title',
+          render: (t) => (
+            <button type="button" className="link-button" onClick={() => onOpenThesis(t.handle)}>
+              {t.title}
+            </button>
+          ),
+        },
+      ]}
+      rows={rows}
+      getKey={(t) => t.handle}
+    />
+  );
+}
+
 export default function Theses({ onOpenThesis }) {
   const listState = useAsync(() => api.theses(), []);
   const groupsState = useAsync(() => api.thesesGroups(), []);
+  const [showUnattributed, setShowUnattributed] = useState(false);
 
   return (
     <Section
@@ -160,11 +188,23 @@ export default function Theses({ onOpenThesis }) {
                   label="Full text indexed"
                   note={total - fullText ? `${count(total - fullText)} metadata-only (embargoed)` : undefined}
                 />
-                <Tile
-                  value={count(attributed)}
-                  label="Resolved to a research group"
-                  note={total - attributed ? `${count(total - attributed)} unattributed` : undefined}
-                />
+                <div className="tile">
+                  <div className="tile-value">{count(attributed)}</div>
+                  <div className="tile-label">Resolved to a research group</div>
+                  {total - attributed ? (
+                    <>
+                      <div className="tile-note">{count(total - attributed)} unattributed</div>
+                      <button
+                        type="button"
+                        className="table-toggle"
+                        aria-expanded={showUnattributed}
+                        onClick={() => setShowUnattributed((v) => !v)}
+                      >
+                        {showUnattributed ? 'Show fewer' : `+ ${count(total - attributed)} more`}
+                      </button>
+                    </>
+                  ) : null}
+                </div>
                 <Tile
                   value={count(corroborated)}
                   label="Corroborated by both signals"
@@ -179,6 +219,10 @@ export default function Theses({ onOpenThesis }) {
                 />
                 {identity ? <IdentityTile identity={identity} /> : null}
               </div>
+
+              {showUnattributed ? (
+                <UnattributedTheses theses={data.theses} onOpenThesis={onOpenThesis} />
+              ) : null}
 
               <Search onOpenThesis={onOpenThesis} />
 

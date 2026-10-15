@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // base: './' is load-bearing, not a style choice. This bundle is served from
@@ -15,4 +15,5 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   build: { outDir: 'dist', emptyOutDir: true },
+  test: { environment: 'jsdom', setupFiles: ['./src/test/setup.js'] },
 });

@@ -229,15 +229,32 @@ def _fits_full(
        same rejection rule 1 of ``_fits()`` makes, and what stops an empty or
        surname-less name from sweeping up every reviewed person;
     2. every thesis token appears in the full name — "Correia, António Maria"
-       is not António Dourado Pereira Correia, however much of him it carries.
+       is not António Dourado Pereira Correia, however much of him it carries
+       — *or* is a single letter prefixing one of the full name's tokens, the
+       ordinary initial convention ("Pereira, Francisco B." for Francisco
+       **B**aptista Pereira).
 
-    No initial-abbreviation escape hatch, deliberately: a legal name is
-    recorded in full, so a single letter on either side is a typo in the entry
-    rather than a convention to excuse.
+    The initial escape hatch is **thesis-side only**, and that asymmetry is
+    the rule, not an oversight. An entry-side letter stays a typo: a reviewed
+    legal name is recorded in full by the human who sourced it, so "F." in a
+    ``full_name`` means the entry was copied off the published short form
+    instead of off a source, and excusing it would let this comparison run
+    against what is effectively ``people.name`` — measured-rejected relaxation
+    B. A letter in the *thesis* name is a different thing entirely: Estudo
+    Geral did not choose to abbreviate, the deposited record did, and
+    ``_fits()`` already excuses exactly that convention on the CISUC side
+    (``_is_initial_of``). Mirroring it here stays inside the reviewed-full-
+    names gate, so relaxation A's false match ("Fonseca, José Carlos" ->
+    Carlos M. Fonseca) remains unreachable: "josé" is a word, not a letter,
+    and it appears in no reviewed full name carrying "fonseca".
     """
     if not surname_tokens or not all(s in full_tokens for s in surname_tokens):
         return False
-    return all(t in full_tokens for t in thesis_tokens)
+    return all(
+        token in full_tokens
+        or (len(token) == 1 and any(f.startswith(token) for f in full_tokens))
+        for token in thesis_tokens
+    )
 
 
 def _carries_primary_given(candidate_tokens: tuple[str, ...], primary: str) -> bool:

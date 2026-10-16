@@ -231,6 +231,55 @@ CREATE INDEX IF NOT EXISTS idx_thesis_people_role ON thesis_people(role);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_one_thesis_per_resolved_author
     ON thesis_people(person_slug) WHERE role = 'author' AND person_slug IS NOT NULL;
 
+-- A researched identity for a thesis mention that will never get a slug.
+--
+-- The two reviewed-fact tables above correct a defect in CISUC's directory.
+-- This one is for the names where the directory is RIGHT to be silent: an
+-- ISEP professor who co-supervised one thesis, a CERN project leader, a
+-- Critical Software founder, a graduate who left in 2015. They stay
+-- `unmatched` forever, and the only thing that was wrong is that the app
+-- printed a bare "(unattributed)" next to a person whose name, affiliation
+-- and source are known.
+--
+-- Written offline by `python -m analysis.build_thesis_facts` from the
+-- curated, human-reviewed data/external_people.json — see
+-- analysis/external_people.py for why this is NOT the thesis-name lookup the
+-- Product Owner rejected (option C, docs/thesis-attribution.md).
+--
+-- What keeps it on the right side of that line, enforced by the loader and
+-- not merely intended:
+--
+--  * NO person_slug column, and no path to one. This table cannot override,
+--    shadow or second-guess a matcher verdict, and `identity_coverage` does
+--    not move when a row is added — an external person is correctly
+--    unresolved, not newly resolved.
+--  * The loader REFUSES an entry whose thesis_people row is anything other
+--    than match_status='unmatched'. A future matcher improvement that
+--    resolves one of these names breaks the build until the obsolete entry
+--    is removed, instead of leaving a stale external claim next to a real
+--    CISUC person.
+--  * The key is a MENTION — (handle, name_raw, role) — not a name. Option C
+--    mapped a name to a person and so applied to every thesis forever,
+--    which is this corpus's core trap ("Martins, Pedro" is two different
+--    people two years apart). A future thesis carrying the same string
+--    inherits nothing from here. The cost is duplication, and it is
+--    accepted: Torsten Braun supervises two theses, so he has two rows.
+--
+-- analysis/name_match.py must never import the loader. A name this table
+-- describes is still an unresolved name to every count, join and tier here.
+CREATE TABLE IF NOT EXISTS external_people (
+    handle       TEXT NOT NULL REFERENCES theses(handle),
+    name_raw     TEXT NOT NULL,
+    role         TEXT NOT NULL CHECK (role IN ('author', 'supervisor')),
+    display_name TEXT NOT NULL,   -- how the person is actually published
+    affiliation  TEXT NOT NULL,   -- where they work. Rendered, so not optional.
+    source_url   TEXT NOT NULL,   -- the citable page the above was read off.
+    note         TEXT,            -- a caveat on THIS identification, when there is one
+    evidence     TEXT NOT NULL,   -- why a human is satisfied this is the person. Not optional.
+    PRIMARY KEY (handle, name_raw, role)
+);
+CREATE INDEX IF NOT EXISTS idx_external_people_handle ON external_people(handle);
+
 -- Keyed on ordinal, not keyword, for the same reason project_partners is: a
 -- thesis legitimately repeats a keyword (9 of 18 do — case variants, and a
 -- literal '-' the source publishes as a separator). Kept verbatim, in

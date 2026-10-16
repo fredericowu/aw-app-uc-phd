@@ -19,6 +19,7 @@ import {
   CategoryBars,
   ChartWithTable,
   DataTable,
+  ExternalIdentity,
   GroupLegend,
   ResolvedPersonName,
   SearchMultiSelect,
@@ -72,8 +73,18 @@ function PersonList({ people }) {
         <span key={p.name}>
           {i > 0 ? ', ' : ''}
           <ResolvedPersonName person={p} title={p.note || undefined} />
+          {/* A researched external identity replaces the bare label rather
+              than joining it: "(unattributed) — Torsten Braun (external)"
+              would read as a defect beside the answer to it. The bare label
+              stays for every name nobody has looked up — the 4 ambiguous
+              ones and Álvaro Rocha, who is a real CISUC person missing from
+              the directory snapshot and therefore gets no external entry. */}
           {p.status !== 'matched' ? (
-            <span style={{ color: 'var(--text-muted)' }}> (unattributed)</span>
+            p.external ? (
+              <ExternalIdentity external={p.external} compact />
+            ) : (
+              <span style={{ color: 'var(--text-muted)' }}> (unattributed)</span>
+            )
           ) : null}
         </span>
       ))}

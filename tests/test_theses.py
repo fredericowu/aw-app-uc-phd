@@ -457,3 +457,125 @@ def test_get_thesis_with_body_true_is_still_the_default(live_db, tmp_path, monke
 
     t = theses.get_thesis("10316/000001", db_path=live_db)
     assert t["body"] == "no front matter here"
+
+
+# --------------------------------------------------------------------------
+# The external-identity display layer
+# --------------------------------------------------------------------------
+#
+# ``external`` is the one field on a person entry that is NOT about identity.
+# The invariants worth asserting are therefore negative ones: it never appears
+# on a resolved row, it never produces a slug, and it never moves a coverage
+# number. ``analysis/external_people.py`` holds the loader's half.
+
+
+def test_an_unattributed_name_with_a_researched_identity_carries_it(theses_list):
+    a = _by_handle(theses_list, "10316/000001")
+    author = a["authors"][0]
+    assert author["name"] == "Author, Ada Unresolved"
+    assert author["status"] == "unattributed"
+    assert author["external"] == {
+        "display_name": "Ada Unresolved",
+        "affiliation": "Somewhere Else University",
+        "source_url": "https://example.test/people/ada",
+        "note": None,
+    }
+
+
+def test_an_unattributed_name_nobody_researched_carries_no_external(theses_list):
+    """The bare "(unattributed)" has to survive for the names nobody looked
+    up — the ambiguous ones, and a real CISUC person missing from the
+    directory snapshot."""
+    c = _by_handle(theses_list, "10316/000003")
+    assert [p["status"] for p in c["authors"]] == ["unattributed"]
+    assert all("external" not in p for p in c["authors"] + c["supervisors"])
+
+
+def test_a_matched_name_never_carries_an_external_identity(theses_list):
+    """The boundary, checked at the payload as well as at the loader: an
+    external identity beside a resolved CISUC person would be two answers to
+    one question."""
+    for thesis in theses_list:
+        for person in thesis["authors"] + thesis["supervisors"]:
+            if person["status"] == "matched":
+                assert "external" not in person
+
+
+def test_an_external_identity_never_becomes_a_slug_or_moves_coverage(live_db):
+    """``identity_coverage`` must be blind to this layer — an external person
+    is correctly unresolved, not newly resolved."""
+    before = theses.identity_coverage(db_path=live_db)
+    author = _by_handle(theses.list_theses(db_path=live_db), "10316/000001")["authors"][0]
+    assert author["matched"] == []
+    assert author["match_status"] == "unmatched"
+    assert theses.identity_coverage(db_path=live_db) == before
+
+
+def test_supervisors_for_carries_an_external_identity_when_there_is_one(live_db, fixture_db):
+    """The Fit screen names supervisors and drops groups; an unresolved one
+    reads as a dead end unless it can say who the person is. The fixture's
+    externals are all authors, so this adds a supervisor one directly."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        conn.execute(
+            "INSERT INTO external_people (handle, name_raw, role, display_name, "
+            "affiliation, source_url, note, evidence) VALUES (?,?,?,?,?,?,?,?)",
+            ("10316/000003", "Ambiguous, Two People", "supervisor", "X", "Y", "https://z.test", None, "e"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    by_handle = theses.supervisors_for(["10316/000001", "10316/000003"], db_path=live_db)
+    # An ambiguous row is not 'matched', so the attachment reaches it — the
+    # loader refuses such an entry in the committed file, but the payload
+    # layer must not depend on that to stay correct.
+    ambiguous = by_handle["10316/000003"][0]
+    assert ambiguous["external"]["display_name"] == "X"
+    # ...and a resolved supervisor still carries no such key at all.
+    assert all("external" not in p for p in by_handle["10316/000001"])
+
+
+def test_a_seed_built_before_the_table_existed_still_renders(live_db):
+    """The older-seed path. Dropping the table is what an install that
+    predates this card actually has, and the route must degrade to the bare
+    label rather than 500."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        conn.execute("DROP TABLE external_people")
+        conn.commit()
+    finally:
+        conn.close()
+    assert theses.external_people(db_path=live_db) == {}
+    author = _by_handle(theses.list_theses(db_path=live_db), "10316/000001")["authors"][0]
+    assert author["status"] == "unattributed"
+    assert "external" not in author
+
+
+def test_resolve_person_rows_reads_the_table_itself_when_not_handed_one(live_db):
+    """``list_theses`` passes the map in so the lookup happens once per
+    request; a direct caller must still get the attachment."""
+    rows = [
+        {
+            "handle": "10316/000001",
+            "name_raw": "Author, Ada Unresolved",
+            "role": "author",
+            "person_slug": None,
+            "match_status": "unmatched",
+            "match_confidence": 0.0,
+            "match_note": "nobody fits",
+            "person_name": None,
+        }
+    ]
+    resolved = theses._resolve_person_rows(rows, live_db, with_groups=False)
+    assert resolved[0]["external"]["display_name"] == "Ada Unresolved"
+
+
+def test_the_identity_note_explains_that_externals_stay_unresolved():
+    """A reader shown a researched name next to an unresolved count will
+    assume one of the two is wrong unless the note says which."""
+    assert "external" in theses.IDENTITY_COVERAGE_NOTE
+    assert "still counted as" in theses.IDENTITY_COVERAGE_NOTE

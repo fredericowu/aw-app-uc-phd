@@ -57,8 +57,20 @@ def full_names(tmp_path):
     return path
 
 
-def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db, aliases, full_names):
-    report = build_mod.build(fixture_db, corpus, aliases, full_names)
+@pytest.fixture()
+def externals(tmp_path):
+    """An EMPTY external_people.json, for exactly the reason ``aliases`` and
+    ``full_names`` above are empty — and here the collision is sharper: the
+    committed ``data/external_people.json`` names real thesis mentions, and
+    this ``corpus`` fixture is one synthetic thesis, so its validator would
+    (correctly) refuse every entry. A test that wants an external identity
+    writes its own, as tests/test_external_people.py does."""
+    path = tmp_path / "external_people.json"
+    path.write_text(json.dumps({"entries": []}), encoding="utf-8")
+    return path
+
+def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db, aliases, full_names, externals):
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
     assert report["theses"] == 1
     assert report["supervision_edges"] == 2
@@ -82,10 +94,10 @@ def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db
     conn.close()
 
 
-def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db, aliases, full_names):
+def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db, aliases, full_names, externals):
     """The whole reason person_slug is nullable: dropping the 14 names nobody
     can resolve would be data loss dressed up as a clean join."""
-    build_mod.build(fixture_db, corpus, aliases, full_names)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
     conn = sqlite3.connect(fixture_db)
     conn.row_factory = sqlite3.Row
@@ -101,7 +113,7 @@ def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixtur
     assert rows["Curie, Marie Sklodowska"]["match_note"]
 
 
-def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db, aliases, full_names):
+def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db, aliases, full_names, externals):
     """The João Bicker case: the PK has to carry person_slug or one of the two
     rows silently overwrites the other."""
     conn = sqlite3.connect(fixture_db)
@@ -109,7 +121,7 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     conn.commit()
     conn.close()
 
-    build_mod.build(fixture_db, corpus, aliases, full_names)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
     conn = sqlite3.connect(fixture_db)
     slugs = [
@@ -122,14 +134,14 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     assert slugs == ["ada", "ada-1"]
 
 
-def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases, full_names):
+def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases, full_names, externals):
     """The tables are a pure function of the committed corpus. An upsert would
     leave a withdrawn thesis in the seed forever."""
-    build_mod.build(fixture_db, corpus, aliases, full_names)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
     (corpus / "10316-000001.md").unlink()
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
     assert report["theses"] == 0
     conn = sqlite3.connect(fixture_db)
@@ -138,7 +150,7 @@ def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases
     conn.close()
 
 
-def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db, aliases, full_names):
+def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db, aliases, full_names, externals):
     """The glob is not the inventory. A half-failed download leaves a manifest
     entry with no .md, and trusting the glob would report a smaller corpus
     with no error at all."""
@@ -146,21 +158,21 @@ def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixt
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/999999"}]), encoding="utf-8"
     )
     with pytest.raises(build_mod.ReconciliationError, match="10316/999999"):
-        build_mod.build(fixture_db, corpus, aliases, full_names)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
 
-def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db, aliases, full_names):
+def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db, aliases, full_names, externals):
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
     with pytest.raises(build_mod.ReconciliationError, match="unlisted"):
-        build_mod.build(fixture_db, corpus, aliases, full_names)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
 
-def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names):
+def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals):
     """source_url is NOT NULL in the schema; a bare sqlite3.IntegrityError
     would not say which thesis lost its provenance."""
     (corpus / "10316-000001.md").write_text(THESIS_NO_URL, encoding="utf-8")
     with pytest.raises(ValueError, match="10316/000001: no source_url"):
-        build_mod.build(fixture_db, corpus, aliases, full_names)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
 
 def test_front_matter_without_delimiters_raises(tmp_path):
@@ -179,11 +191,12 @@ def test_load_people_reads_the_people_table(fixture_db):
         conn.close()
 
 
-def test_the_cli_prints_its_report(corpus, fixture_db, aliases, full_names, capsys):
+def test_the_cli_prints_its_report(corpus, fixture_db, aliases, full_names, externals, capsys):
     assert build_mod.main(
         ["--db", str(fixture_db), "--estudo-geral", str(corpus),
          "--person-aliases", str(aliases),
-         "--person-full-names", str(full_names)]
+         "--person-full-names", str(full_names),
+         "--external-people", str(externals)]
     ) == 0
     assert json.loads(capsys.readouterr().out)["theses"] == 1
 
@@ -330,7 +343,7 @@ def test_minimal_evidence_lists_the_two_token_matches_for_human_review():
 
 
 def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
-    corpus, fixture_db, aliases, full_names
+    corpus, fixture_db, aliases, full_names, externals
 ):
     """End to end: a second thesis whose author's longer name also fits 'Ada
     Lovelace' must not merge the two into one student."""
@@ -342,7 +355,7 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/000002"}]), encoding="utf-8"
     )
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
     assert [c["person_slug"] for c in report["author_conflicts"]] == ["ada"]
     assert report["author_conflicts"][0]["kept"]["handle"] == "10316/000001"
 
@@ -361,7 +374,7 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         conn.close()
 
 
-def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db, aliases, full_names):
+def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db, aliases, full_names, externals):
     """The ordering trap: schema.sql's UNIQUE index is created by `build()`
     itself, so a rebuild had to clear the old rows BEFORE applying the schema
     or the fix could never be applied to the data it fixes."""
@@ -380,7 +393,7 @@ def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, 
     finally:
         conn.close()
 
-    assert build_mod.build(fixture_db, corpus, aliases, full_names)["theses"] == 1
+    assert build_mod.build(fixture_db, corpus, aliases, full_names, externals)["theses"] == 1
 
 
 def test_the_committed_seed_resolves_no_slug_to_two_authored_theses():

@@ -105,7 +105,65 @@ export function ResolvedPersonName({ person, title }) {
       </PersonLink>
     );
   }
-  return <span title={title}>{person.name}</span>;
+  // Additively: an unresolved name whose person has been researched carries
+  // who they are in its tooltip, wherever it is rendered. Six views use this
+  // component and only two of them render the full `ExternalIdentity` below,
+  // so without this the Fit screen's supervisor list would still read as a
+  // dead end. The visible text does NOT change — it stays `name_raw`, the
+  // form the thesis itself uses, because that is what the reader is looking
+  // at and substituting a different string would make the two disagree.
+  return <span title={externalTitle(person, title)}>{person.name}</span>;
+}
+
+function externalTitle(person, title) {
+  const external = person.external;
+  if (!external) return title || undefined;
+  const who = `${external.display_name} — ${external.affiliation}`;
+  return title ? `${who}\n\n${title}` : who;
+}
+
+/** Who an "(unattributed)" name actually is, when somebody has looked it up.
+ *
+ *  This renders a *researched external identity*, never a resolved person —
+ *  there is no slug behind it and there never will be (see
+ *  `analysis/external_people.py`). So it deliberately does not look like
+ *  `PersonLink`: no profile link, muted, and the word "external" in front of
+ *  the affiliation, because the one thing a reader must not conclude is that
+ *  this name is now attributed to a CISUC person. It is not, and
+ *  `identity_coverage` still counts it as unresolved.
+ *
+ *  Lives here rather than in the two `PersonList`s that call it for the same
+ *  reason `ExcludedNote` and `AttributionTier` do: the table view and the
+ *  detail view must not word this two ways. `compact` is the table's form —
+ *  the affiliation is long and a thesis row has one line, so it moves into
+ *  the tooltip and only the researched name is shown. */
+export function ExternalIdentity({ external, compact = false }) {
+  if (!external) return null;
+  const caveat = external.note ? `\n\nCaveat: ${external.note}` : '';
+  if (compact) {
+    return (
+      <span
+        style={{ color: 'var(--text-muted)' }}
+        title={`External to CISUC — ${external.affiliation}${caveat}\n\nSource: ${external.source_url}`}
+      >
+        {' '}
+        — {external.display_name} (external)
+      </span>
+    );
+  }
+  return (
+    <span style={{ color: 'var(--text-muted)' }}>
+      {' '}
+      — {external.display_name}{' '}
+      <span title={external.note || undefined}>
+        (external — {external.affiliation}
+        {external.note ? ' *' : ''})
+      </span>{' '}
+      <ExternalLink href={external.source_url} title={`Source for ${external.display_name}`}>
+        source
+      </ExternalLink>
+    </span>
+  );
 }
 
 export function Section({ title, note, children }) {

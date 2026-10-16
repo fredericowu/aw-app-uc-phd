@@ -1,0 +1,272 @@
+{
+  "note": "Human-reviewed EXTERNAL identities for thesis mentions that will never get a person_slug. Of the 45 unattributed authors/supervisors researched for the name sweep, these are the ones where CISUC's directory is RIGHT to be silent: an ISEP professor who co-supervised one thesis, a CERN project leader, a UFPB academic, a Critical Software founder, graduates who left. Nothing can match them and nothing should. What was wrong was only the DISPLAY — the app printed a bare \"(unattributed)\" beside a name whose person, affiliation and source are known. This file supplies that, and only that. It is display metadata for ONE SPECIFIC THESIS MENTION; it is NOT an identity table and it is NEVER matcher input. analysis/name_match.py must never import it, no entry carries or can carry a person_slug, and the key is a MENTION — (handle, name_raw, role) — not a name, so a future thesis repeating the same string inherits nothing: same-name-different-person is this corpus's core trap (\"Martins, Pedro\" is two different people two years apart). That is what separates it from option C, the thesis-name -> person lookup the Product Owner rejected, which forced the matcher's output and applied to every thesis forever. analysis/external_people.py refuses an entry whose thesis_people row is anything other than match_status='unmatched', so this file structurally cannot shadow a matched row, and a future matcher improvement breaks the build until the obsolete entry is removed rather than quietly contradicting it. identity_coverage does not move: an external person is correctly unresolved, not newly resolved. source_url and evidence are mandatory and are not decoration. See docs/thesis-attribution.md.",
+  "entries": [
+    {
+      "handle": "10316/24256",
+      "name_raw": "Almeida, Ana de",
+      "role": "supervisor",
+      "display_name": "Ana Maria Carvalho de Almeida",
+      "affiliation": "ISCTE – University Institute of Lisbon (CISUC Integrated Researcher 1991–2020, no longer in the directory)",
+      "source_url": "https://www.cienciavitae.pt/portal/661A-79E3-C67B",
+      "evidence": "Her CiênciaVitae record declares \"Nome completo: Ana Maria Carvalho de Almeida\" and her current post at ISCTE–IUL (661A-79E3-C67B, read 2026-10-16). She was a CISUC Integrated Researcher from 1991 to 2020 and is gone from the current 740-row directory, which is why no `people` row exists or should: she co-supervised Marisa Figueiredo's 2013 energy-disaggregation thesis from outside it. Corroborated by her DBLP record (https://dblp.org/pers/a/Almeida:Ana_de.html), which carries the same co-authorship."
+    },
+    {
+      "handle": "10316/24888",
+      "name_raw": "Alves, Gustavo",
+      "role": "supervisor",
+      "display_name": "Gustavo Ribeiro da Costa Alves",
+      "affiliation": "ISEP – School of Engineering, Polytechnic of Porto",
+      "source_url": "https://www.cienciavitae.pt/portal/4210-4DF2-5206",
+      "evidence": "His CiênciaVitae record declares \"Nome completo: Gustavo Ribeiro da Costa Alves\" and his post as Full Professor at ISEP/IPP, Porto (4210-4DF2-5206, read 2026-10-16). Remote laboratories are his own field, which is this thesis's subject (an IEEE1451.0-compliant FPGA weblab), and he co-supervised it with the Mário Zenha-Rela that data/person_full_names.json now resolves — an external co-supervisor from another institution, not a missing CISUC row."
+    },
+    {
+      "handle": "10316/31011",
+      "name_raw": "Assunção, Pedro António Amado de",
+      "role": "supervisor",
+      "display_name": "Pedro António Amado de Assunção",
+      "affiliation": "Polytechnic of Leiria (ESTG) and Instituto de Telecomunicações – Multimedia Signal Processing, Leiria",
+      "source_url": "https://www.cienciavitae.pt/portal/6811-3984-C17B",
+      "evidence": "His CiênciaVitae record declares \"Nome completo: Pedro António Amado de Assunção\" — token-for-token the Estudo Geral form — with his post as Coordinator Professor at the Polytechnic of Leiria and Senior Researcher heading IT's Multimedia Signal Processing-Leiria group (6811-3984-C17B, read 2026-10-16). Visual-information coding is his field and this thesis's subject. IT is a different research unit from CISUC, so there is no CISUC row to find."
+    },
+    {
+      "handle": "10316/27608",
+      "name_raw": "Bandarabadi, Mojtaba",
+      "role": "author",
+      "display_name": "Mojtaba Bandarabadi",
+      "affiliation": "University of Lausanne (doctorate CISUC/UC 2015)",
+      "source_url": "https://www.cisuc.uc.pt/en/cisuc-researcher-mojtaba-bandarabadi-completes-his-phd-thesis",
+      "evidence": "CISUC's own announcement of this very thesis names him: \"CISUC researcher Mojtaba Bandarabadi completes his PhD Thesis\", defended 2015-02-09 at the Sala dos Capelos, supervised by António Dourado with César Teixeira as co-supervisor (read 2026-10-16). The name needs no resolution — it is already his published form. He simply graduated in 2015 and left, and `people` holds current staff, so his absence is the designed answer rather than a gap; see IDENTITY_COVERAGE_NOTE on why an author name is the one most often correctly unresolved."
+    },
+    {
+      "handle": "10316/95279",
+      "name_raw": "Barmpatsalou, Konstantia",
+      "role": "author",
+      "display_name": "Konstantia Barmpatsalou",
+      "affiliation": "CISUC/DEI, University of Coimbra – Laboratory of Communications and Telematics (doctoral alumna)",
+      "source_url": "https://link.springer.com/chapter/10.1007/978-3-319-73697-6_8",
+      "note": "Not external to CISUC — a CISUC doctoral alumna with no directory row. The affiliation shown is her doctoral research home, not a current post.",
+      "evidence": "Her published work carries the affiliation verbatim: \"Fuzzy System-based Suspicious Pattern Detection in Mobile Forensic Evidence\" (Springer, 2018) lists Konstantia Barmpatsalou at CISUC/DEI, University of Coimbra, with Tiago Cruz, Edmundo Monteiro and Paulo Simões — the same Laboratory of Communications and Telematics circle that supervised this 2021 mobile-forensics/PPDR thesis (read 2026-10-16). Like Bandarabadi, this is a correctly-unresolved doctoral author rather than a name defect: the directory lists current staff, and she is not in it. This entry is the one case in this file where the person's own research home WAS CISUC, and it is kept here because there is no slug to attach and nothing to match against."
+    },
+    {
+      "handle": "10316/28311",
+      "name_raw": "Braun, Torsten",
+      "role": "supervisor",
+      "display_name": "Torsten Braun",
+      "affiliation": "University of Bern – Institute of Computer Science, Communication and Distributed Systems",
+      "source_url": "https://www.inf.unibe.ch/about_us/research_groups/communication_and_distributed_systems_cds/prof_dr_braun_torsten/index_eng.html",
+      "evidence": "The University of Bern's own institute page names him Professor of Computer Science, Communication and Distributed Systems since 1998, and head of the CDS research group (read 2026-10-16). Wireless and content-centric networking is his field and both theses' subject. Already tracked as a confirmed external supervisor before this sweep; he supervises two theses in this corpus and therefore has two entries, which is the accepted cost of keying this file on a mention rather than on a name."
+    },
+    {
+      "handle": "10316/33119",
+      "name_raw": "Braun, Torsten",
+      "role": "supervisor",
+      "display_name": "Torsten Braun",
+      "affiliation": "University of Bern – Institute of Computer Science, Communication and Distributed Systems",
+      "source_url": "https://www.inf.unibe.ch/about_us/research_groups/communication_and_distributed_systems_cds/prof_dr_braun_torsten/index_eng.html",
+      "evidence": "The University of Bern's own institute page names him Professor of Computer Science, Communication and Distributed Systems since 1998, and head of the CDS research group (read 2026-10-16). Wireless and content-centric networking is his field and both theses' subject. Already tracked as a confirmed external supervisor before this sweep; he supervises two theses in this corpus and therefore has two entries, which is the accepted cost of keying this file on a mention rather than on a name."
+    },
+    {
+      "handle": "10316/1753",
+      "name_raw": "Carreira, João Fernando Viegas",
+      "role": "author",
+      "display_name": "João Viegas Carreira",
+      "affiliation": "Critical Software S.A., Coimbra – co-founder (1998), CEO to 2006, then Chairman",
+      "source_url": "https://en.wikipedia.org/wiki/Critical_Software",
+      "note": "Identified from the company's founding record and the matching 1999 UC doctorate rather than from a personal institutional page, which does not exist.",
+      "evidence": "The article on Critical Software names João Carreira as a 1998 co-founder of the company, spun out of the University of Coimbra's Instituto Pedro Nunes incubator, alongside Gonçalo Quadros and Diamantino Costa (read 2026-10-16). His UC doctorate is this corpus's own 10316/1753 (tuple-space parallel programming, 1999) and his dependability work — the Xception fault-injection tool — is from the same years; he left academia for industry and so never had a CISUC directory row."
+    },
+    {
+      "handle": "10316/84807",
+      "name_raw": "Cerejeira, Joaquim",
+      "role": "supervisor",
+      "display_name": "Joaquim Manuel Soares Cerejeira",
+      "affiliation": "Faculty of Medicine, University of Coimbra – psychiatry; CIBB",
+      "source_url": "https://www.cienciavitae.pt/portal/111E-C45C-3DDA",
+      "evidence": "His CiênciaVitae record declares \"Nome completo: JOAQUIM MANUEL SOARES CEREJEIRA\", Associate Professor at UC's Faculty of Medicine, specialist in old-age psychiatry, researcher at the Center for Innovation in Biomedicine and Biotechnology, and Clinical Director of the private psychiatric units of Coimbra and Aveiro (111E-C45C-3DDA, read 2026-10-16). He co-supervised a serious-games cognitive-assessment thesis for older adults from medicine, not informatics — a different UC faculty, so no CISUC row applies."
+    },
+    {
+      "handle": "10316/31011",
+      "name_raw": "Cruz, Luís Alberto da Silva",
+      "role": "supervisor",
+      "display_name": "Luís Alberto da Silva Cruz",
+      "affiliation": "University of Coimbra – DEEC, and Instituto de Telecomunicações (a different UC research unit from CISUC)",
+      "source_url": "https://www.cienciavitae.pt/portal/7E1F-6BAD-07EA",
+      "note": "This is one of the two names measured-rejected relaxation B resolved WRONGLY, to \"Luís Silva\" (docs/thesis-attribution.md). Luís Cruz is not Luís Silva, and this entry must never be read as licence to resolve him: it attaches a display name and carries no person_slug.",
+      "evidence": "His CiênciaVitae record declares \"Nome completo: Luis Alberto da Silva Cruz\" — token-for-token the Estudo Geral form — at UC's Department of Electrical and Computer Engineering since 1990 and a researcher at Instituto de Telecomunicações de Coimbra since 1994, working on image and video processing and coding (7E1F-6BAD-07EA, read 2026-10-16). He is internal to UC and external to CISUC, which is why no `people` row exists."
+    },
+    {
+      "handle": "10316/20004",
+      "name_raw": "Domingo-Pascual, Jordi",
+      "role": "supervisor",
+      "display_name": "Jordi Domingo-Pascual",
+      "affiliation": "Universitat Politècnica de Catalunya – BarcelonaTech, Computer Architecture Department",
+      "source_url": "https://futur.upc.edu/JordiDomingoPascual",
+      "evidence": "UPC's own researcher portal lists him as Full Professor in the Computer Architecture Department, founder and head of the Broadband Communications and Services group, and Department Director 2005-2011 (read 2026-10-16). Inter-domain routing is his field and this thesis's subject. Already tracked as a confirmed external supervisor before this sweep."
+    },
+    {
+      "handle": "10316/100411",
+      "name_raw": "Faria, Sérgio Manuel Maciel",
+      "role": "supervisor",
+      "display_name": "Sérgio Manuel Maciel de Faria",
+      "affiliation": "Polytechnic of Leiria (ESTG) and Instituto de Telecomunicações – Multimedia Signal Processing, Leiria",
+      "source_url": "https://www.it.pt/Members/Index/399",
+      "evidence": "Instituto de Telecomunicações' own member page is titled \"Sérgio Manuel Maciel de Faria\" and records him as a Senior Researcher with Agregação, Principal Coordinator Professor at the Polytechnic of Leiria since 1990, in the Multimedia Signal Processing group at the Leiria branch (read 2026-10-16). Light-field and 3D image coding is his field and this thesis's subject (plenoptic imaging for melanoma classification). IT is not CISUC."
+    },
+    {
+      "handle": "10316/31011",
+      "name_raw": "Ferreira, Lino Miguel Moreira",
+      "role": "author",
+      "display_name": "Lino Miguel Moreira Ferreira",
+      "affiliation": "Instituto de Telecomunicações – Leiria branch, and Polytechnic of Leiria",
+      "source_url": "https://www.it.pt/Members/Index/1280",
+      "note": "Distinct from Luis Lino Ferreira of ISEP/CISTER, a different researcher with a similar name who works on real-time systems.",
+      "evidence": "Instituto de Telecomunicações' own member page is titled \"Lino Miguel Moreira Ferreira\" — token-for-token the Estudo Geral form — in the Multimedia Signal Processing group at the Leiria branch, with his UC doctorate dated 2016-05-25, which is this corpus's own 10316/31011 (read 2026-10-16). His research home is IT Leiria, not CISUC."
+    },
+    {
+      "handle": "10316/100340",
+      "name_raw": "Fonseca, José Carlos",
+      "role": "supervisor",
+      "display_name": "José Carlos Coelho Martins da Fonseca",
+      "affiliation": "Polytechnic of Guarda (IPG) – Coordinator Professor; collaborator, CISUC Software and Systems Engineering",
+      "source_url": "https://www.cisuc.uc.pt/en/people/jose-fonseca-1",
+      "note": "The matcher leaves this name unmatched on purpose and it must stay that way through this card: \"Fonseca, José Carlos\" resolving to Carlos M. Fonseca is the confidently-wrong person measured-rejected relaxation A produced (docs/thesis-attribution.md). He does, separately, have a CISUC row whose display name is a SUPERSET of the thesis form — the same shape as antonio-mendes — so a future card could resolve him to jose-fonseca-1 through a reviewed full name. That was outside this card's scope and is deliberately not done here.",
+      "evidence": "He is a real, separate human from the Carlos M. Fonseca that data/person_full_names.json now resolves, and this entry exists partly to say so in the one place a reader will be looking. CISUC publishes him under the slug jose-fonseca-1 with the display name \"José Carlos Coelho Martins da Fonseca\"; his primary post is Coordinator Professor in Computer Science at the Polytechnic of Guarda, and web-application security (vulnerability and attack injection, phpSAFE) is his field and this thesis's subject, supervised with Marco Vieira (read 2026-10-16)."
+    },
+    {
+      "handle": "10316/118764",
+      "name_raw": "Frerichs, Inéz",
+      "role": "supervisor",
+      "display_name": "Inéz Frerichs",
+      "affiliation": "Kiel University / UKSH – Department of Anaesthesiology and Intensive Care Medicine",
+      "source_url": "https://www.uni-kiel.de/anaesthesie/mitarbeiter.htm",
+      "evidence": "The Kiel department's own staff list carries her, and she heads its Electrical Impedance Tomography research group at the University Medical Centre Schleswig-Holstein, Campus Kiel, as Professor of Physiology at Christian-Albrechts-Universität (read 2026-10-16). EIT is precisely this thesis's subject (respiratory function analysis from respiratory sound and electrical impedance tomography). Already tracked as a confirmed external supervisor before this sweep."
+    },
+    {
+      "handle": "10316/29634",
+      "name_raw": "Macedo, Joaquim",
+      "role": "supervisor",
+      "display_name": "Joaquim Melo Henriques de Macedo",
+      "affiliation": "University of Minho – Department of Informatics, Centro ALGORITMI",
+      "source_url": "https://algoritmi.uminho.pt/user/joaquim-melo-henriques-macedo/",
+      "evidence": "Centro ALGORITMI's own member page is titled \"Joaquim Melo Henriques Macedo\" and records him as an Assistant Professor in the Informatics Department of the University of Minho's School of Engineering since 1998, with a 2002 doctorate in information retrieval (read 2026-10-16). Information retrieval is his field and this thesis's subject (segment-based temporal information retrieval). Minho is a different university, so no CISUC row applies."
+    },
+    {
+      "handle": "10316/20280",
+      "name_raw": "Matos, Fernando Menezes",
+      "role": "author",
+      "display_name": "Fernando Menezes Matos",
+      "affiliation": "Federal University of Paraíba (UFPB), Brazil – Department of Computing Systems",
+      "source_url": "https://sigaa.ufpb.br/sigaa/public/docente/portal.jsf?siape=1887274",
+      "evidence": "UFPB's own SIGAA faculty portal carries \"fernando menezes matos\" in the Departamento de Sistemas de Computação, with a 2012 doctorate in Informatics Engineering from the University of Coimbra — which is this corpus's own 10316/20280, supervised by Edmundo Monteiro and Paulo Simões (read 2026-10-16). A Brazilian academic who took his doctorate here and went home; `people` holds current CISUC staff, so his absence is the designed answer."
+    },
+    {
+      "handle": "10316/9904",
+      "name_raw": "Menezes, Telmo de Lucena Torres de",
+      "role": "author",
+      "display_name": "Telmo Menezes",
+      "affiliation": "CNRS / EHESS – Centre d'Analyse et de Mathématiques Sociales, Paris",
+      "source_url": "https://cams.ehess.fr/membres/telmo-menezes",
+      "evidence": "CAMS's own member page lists him as a researcher there, working in computational social science with a background in computer science — co-developer of the Semantic Hypergraphs representation (read 2026-10-16). His doctorate is this corpus's own 10316/9904 (evolutionary computational intelligence for multi-agent simulations, 2009, supervised by Ernesto Costa), after which he left for CNRS, so he never acquired a CISUC directory row. He publishes as \"Telmo Menezes\", dropping the three middle names Estudo Geral records."
+    },
+    {
+      "handle": "10316/118766",
+      "name_raw": "Morais, Antônio Higor Freire de",
+      "role": "supervisor",
+      "display_name": "Antônio Higor Freire de Morais",
+      "affiliation": "Instituto Federal do Rio Grande do Norte (IFRN), Brazil – Information Systems; NAVI/IFRN and LAIS/UFRN",
+      "source_url": "https://sigeventos.ufrn.br/evento/ENAPS2022/palestrante/1448",
+      "evidence": "UFRN's own event system carries his full name verbatim — \"ANTÔNIO HIGOR FREIRE DE MORAIS\", token-for-token the Estudo Geral form — with the bio: 2015 doctorate in Electrical and Computer Engineering from UFRN, Professor of Information Systems at IFRN, adjunct coordinator of NAVI/IFRN and leader of the Digital Health research base at LAIS/UFRN (read 2026-10-16). Digital health is his field and this 2025 thesis's subject (a privacy-aware architecture for electronic health records); he co-supervised it as an external Brazilian advisor alongside CISUC's Naghmeh Ivaki."
+    },
+    {
+      "handle": "10316/23787",
+      "name_raw": "Pentikousis, Kostas",
+      "role": "supervisor",
+      "display_name": "Konstantinos (Kostas) Pentikousis",
+      "affiliation": "Detecon International GmbH, Berlin",
+      "source_url": "https://www.detecon.com/en/expert/kostas-pentikousis",
+      "evidence": "Detecon's own expert page lists him as Senior Manager for Mobile and Campus Networks in Berlin, with a doctorate in computer science from Stony Brook and prior senior roles at VTT Finland and Huawei (read 2026-10-16). Multihoming and mobile networking is his field and this thesis's subject. Already tracked as a confirmed external supervisor before this sweep — an industry researcher, never CISUC faculty."
+    },
+    {
+      "handle": "10316/100411",
+      "name_raw": "Pereira, Pedro Miguel Marques",
+      "role": "author",
+      "display_name": "Pedro Miguel Marques Pereira",
+      "affiliation": "Instituto de Telecomunicações – Multimedia Signal Processing, Leiria (doctoral alumnus, 2022)",
+      "source_url": "https://www.it.pt/Members/Index/22065",
+      "evidence": "Instituto de Telecomunicações' own member page is titled \"Pedro Miguel Marques Pereira\" — token-for-token the Estudo Geral form — recording him as a PhD student in the Multimedia Signal Processing group at the Leiria branch, FCT scholarship from 2017, thesis on plenoptic imaging for skin-lesion assessment defended 2022 (read 2026-10-16). That is this corpus's own 10316/100411. His research home was IT Leiria, not CISUC."
+    },
+    {
+      "handle": "10316/30677",
+      "name_raw": "Phithakkitnukoon, Santi",
+      "role": "supervisor",
+      "display_name": "Santi Phithakkitnukoon",
+      "affiliation": "Chiang Mai University, Thailand – Head, Department of Computer Engineering",
+      "source_url": "https://www.cpe.eng.cmu.ac.th/lecturer-viewenglish.php?view_id=Santi",
+      "evidence": "Chiang Mai University's own departmental page lists him as Professor and Head of the Computer Engineering Department, with a doctorate from the University of North Texas and a prior postdoc at MIT's SENSEable City Lab (read 2026-10-16). Urban informatics is his field and this thesis's subject (analysis of taxi data for understanding urban dynamics). Already tracked as a confirmed external supervisor before this sweep."
+    },
+    {
+      "handle": "10316/100411",
+      "name_raw": "Pinto, Rui Fonseca",
+      "role": "supervisor",
+      "display_name": "Rui Manuel da Fonseca Pinto",
+      "affiliation": "Polytechnic of Leiria – ciTechCare and School of Health Sciences; Instituto de Telecomunicações, Leiria",
+      "source_url": "https://www.cienciavitae.pt/portal/681D-C547-B184",
+      "evidence": "His CiênciaVitae record declares \"Nome completo: RUI MANUEL DA FONSECA PINTO\" with the citation name \"Fonseca-Pinto R\" — which is the hyphenated form he publishes under and the reason the Estudo Geral form reads \"Pinto, Rui Fonseca\" (681D-C547-B184, read 2026-10-16). Professor at the Polytechnic of Leiria, integrated member of ciTechCare, Director of its School of Health Sciences, and a collaborating researcher at IT's Multimedia Signal Processing group in Leiria; biomedical signal and image processing is his field and this thesis's subject. IPLeiria is not UC, so no CISUC row applies."
+    },
+    {
+      "handle": "10316/1761",
+      "name_raw": "Quadros, Manuel Gonçalo Lopes Almeida",
+      "role": "author",
+      "display_name": "Gonçalo Quadros",
+      "affiliation": "Critical Software S.A., Coimbra – co-founder (1998) and Chairman",
+      "source_url": "https://en.wikipedia.org/wiki/Critical_Software",
+      "note": "The three middle names Estudo Geral records — \"Manuel … Lopes Almeida\" — were NOT verified against a primary identity record; every public bio gives only \"Gonçalo Quadros\". The identification rests on the company's founding record plus the matching 2002 UC doctorate, subject and era, not on the full name string.",
+      "evidence": "The article on Critical Software names Gonçalo Quadros as a 1998 co-founder and Chairman of the company, spun out of UC's Instituto Pedro Nunes incubator with João Carreira — the author of 10316/1753 in this same corpus (read 2026-10-16). His UC doctorate in computer science and networks, 2002, matches this thesis exactly in subject (support for traffic classes in IP networks) and era. He left academia for industry and never had a CISUC directory row."
+    },
+    {
+      "handle": "10316/8544",
+      "name_raw": "Rabadão, Carlos Manuel da Silva",
+      "role": "author",
+      "display_name": "Carlos Manuel da Silva Rabadão",
+      "affiliation": "Polytechnic of Leiria – ESTG and CIIC; President of the institution since 2022",
+      "source_url": "https://www.ipleiria.pt/ulo/institucional/reitoria/carlos-manuel-da-silva-rabadao/",
+      "evidence": "The institution's own governance pages carry him under exactly this name — token-for-token the Estudo Geral form — as its President since 22 September 2022, Coordinating Professor with Agregação in the Computer Engineering Department of ESTG, and founder and former director of its Research Centre for Informatics and Communications, CIIC (read 2026-10-16). Network security and QoS is his field and this thesis's subject; his 2007 UC doctorate is this corpus's own 10316/8544. IPLeiria is not UC, so no CISUC row applies."
+    },
+    {
+      "handle": "10316/118274",
+      "name_raw": "Ramos, Isabel Maria Pinto",
+      "role": "supervisor",
+      "display_name": "Isabel Maria Pinto Ramos",
+      "affiliation": "University of Minho – Department of Information Systems, Centro ALGORITMI",
+      "source_url": "https://www.cienciavitae.pt/portal/D913-F5B3-B3CF",
+      "evidence": "Her CiênciaVitae record declares \"Nome completo: ISABEL MARIA PINTO RAMOS\" — token-for-token the Estudo Geral form (D913-F5B3-B3CF, read 2026-10-16) — and Centro ALGORITMI's member page records her as Associate Professor with Habilitation and Head of Minho's Department of Information Systems, senior researcher at ALGORITMI (https://algoritmi.uminho.pt/user/isabel-maria-pinto-ramos/). Digital workplaces and organisational information systems are her field and this thesis's subject. Minho is a different university."
+    },
+    {
+      "handle": "10316/116663",
+      "name_raw": "Simões, João Miguel Moreira de Carvalho Brás",
+      "role": "author",
+      "display_name": "João Braz Simões",
+      "affiliation": "CFisUC and Department of Physics, University of Coimbra (doctoral alumnus); now Kaizen Gaming",
+      "source_url": "https://link.springer.com/chapter/10.1007/978-3-031-25891-6_11",
+      "evidence": "His published work carries the affiliation: \"Generating Vascular Networks: A Reinforcement Learning Approach\" (Springer, 2023) is by João Braz Simões with Rui Travasso's soft-and-biological-matter group, Department of Physics, University of Coimbra (read 2026-10-16). That is the same vascular-network line as this thesis (10316/116663, deep learning for spatial graph optimization) and the same three supervisors. He publishes as \"João Braz Simões\", dropping three of the names Estudo Geral records — the second of the two deliberate near-misses name_match.py's docstring names, since \"Brás\" and \"Braz\" differ and this repo does no transliteration. CFisUC is a physics research unit, not CISUC, so there is no `people` row to find."
+    },
+    {
+      "handle": "10316/116663",
+      "name_raw": "Travasso, Rui Davide Martins",
+      "role": "supervisor",
+      "display_name": "Rui D. M. Travasso",
+      "affiliation": "CFisUC – Centre for Physics of the University of Coimbra, Department of Physics",
+      "source_url": "https://cfisuc.fis.uc.pt/people.php?oid=144244",
+      "evidence": "CFisUC's own people page for him records an Associate Professor in UC's Department of Physics working on angiogenesis, vascular remodelling and phase-field modelling of biological matter (read 2026-10-16). That is this thesis's subject directly (deep learning for spatial graph optimization in vascular networks), and he supervised its author, the João Braz Simões also in this file. Internal to UC, external to CISUC — a different research unit, so no CISUC row applies."
+    },
+    {
+      "handle": "10316/90651",
+      "name_raw": "Zerlauth, Markus",
+      "role": "supervisor",
+      "display_name": "Markus Zerlauth",
+      "affiliation": "CERN – High-Luminosity LHC Project Leader",
+      "source_url": "https://hilumilhc.web.cern.ch/passing-the-baton-markus-zerlauth-is-the-new-hl-lhc-project-leader/",
+      "evidence": "CERN's own HL-LHC project site announces him as the project's Leader from 1 October 2025, Deputy Project Leader from 2020 and involved since 2012, with a doctorate in electrical engineering from TU Graz taken on CERN's Doctoral Student Programme (read 2026-10-16). This thesis is distributed analysis of heterogeneous data in high-energy-physics environments — CERN's domain, not CISUC's. Already tracked as a confirmed external supervisor before this sweep."
+    }
+  ]
+}

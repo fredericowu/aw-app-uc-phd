@@ -37,7 +37,7 @@ from pathlib import Path
 
 import yaml
 
-from . import person_aliases, person_full_names
+from . import external_people, person_aliases, person_full_names
 from .name_match import (
     AMBIGUOUS,
     CONFIDENCE,
@@ -344,12 +344,16 @@ def build(
     estudo_geral_dir: Path,
     aliases_path: Path | None = None,
     full_names_path: Path | None = None,
+    external_people_path: Path | None = None,
 ) -> dict:
     """Rebuild the three tables from scratch. Returns what it wrote.
 
     ``person_aliases`` and ``person_full_names`` are rebuilt in the same
     transaction, from their two curated files — the reviewed identity facts
-    the matcher then reads.
+    the matcher then reads. ``external_people`` is rebuilt in that same
+    transaction too but on the far side of the matching, because what it is
+    validated against is this build's *output*: an entry has to name a row
+    that exists and is still ``unmatched``.
     """
     front_matters = load_front_matters(estudo_geral_dir)
     reconcile(front_matters, estudo_geral_dir / "manifest.json")
@@ -398,6 +402,14 @@ def build(
         conn.executemany("INSERT INTO theses VALUES (?,?,?,?,?,?,?,?,?,?)", theses)
         conn.executemany("INSERT INTO thesis_people VALUES (?,?,?,?,?,?,?,?)", thesis_people)
         conn.executemany("INSERT INTO thesis_keywords VALUES (?,?,?)", thesis_keywords)
+
+        # After the rows, not before: this is the one curated file whose
+        # validator reads `thesis_people` rather than `people`, because an
+        # external identity is attached to a MENTION and is only legitimate
+        # while that mention is still unmatched. Same transaction, so a
+        # refusal here rolls the whole rebuild back instead of leaving the
+        # seed holding thesis rows with a half-applied display layer.
+        externals = external_people.load_and_write(conn, external_people_path)
         conn.commit()
     finally:
         conn.close()
@@ -407,6 +419,7 @@ def build(
         "theses": len(theses),
         "person_aliases": aliases,
         "person_full_names": full_names,
+        "external_people": externals,
         "thesis_people_rows": len(thesis_people),
         "thesis_keywords": len(thesis_keywords),
         "supervision_edges": sum(
@@ -433,9 +446,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--estudo-geral", type=Path, default=DEFAULT_ESTUDO_GERAL)
     parser.add_argument("--person-aliases", type=Path, default=None)
     parser.add_argument("--person-full-names", type=Path, default=None)
+    parser.add_argument("--external-people", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    report = build(args.db, args.estudo_geral, args.person_aliases, args.person_full_names)
+    report = build(
+        args.db,
+        args.estudo_geral,
+        args.person_aliases,
+        args.person_full_names,
+        args.external_people,
+    )
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0
 

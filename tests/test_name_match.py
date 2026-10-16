@@ -329,6 +329,74 @@ def test_two_people_the_tie_break_cannot_separate_stay_ambiguous():
     assert "not resolved" in result.note
 
 
+# --------------------------------------------------------------------------
+# The reviewed-full-name direction, and its thesis-side initial
+# --------------------------------------------------------------------------
+#
+# `_fits_full` is the only comparison allowed to read `person_full_names`, and
+# the gate is the whole design (analysis/person_full_names.py). These tests are
+# about the one rule that changed at the 45-name sweep: rule 2 now accounts for
+# a single-letter THESIS token that prefixes a full-name token. The synthetic
+# table is deliberate for the same reason PEOPLE is — a rule test must not
+# depend on which people CISUC published this week.
+
+# "Grace Murray" is the published short form and "Hopper" the surname it
+# drops — the António Dourado shape, so `_fits` rejects every name below on
+# its rule 1 and only `_fits_full` can say anything at all.
+REVIEWED = [Person("hopper", "Grace Murray", full_name="Grace Brewster Murray Hopper")]
+
+
+def test_a_reviewed_full_name_resolves_a_thesis_form_the_display_name_cannot():
+    """The shape the whole file exists for: the thesis name is a subset of the
+    reviewed legal name and shares no surname with CISUC's published form."""
+    result = match_name("Hopper, Grace Brewster", REVIEWED)
+    assert result.status == CONFIDENT
+    assert "person_full_names.json" in result.note
+
+
+def test_a_single_letter_thesis_token_counts_as_an_initial_of_the_full_name():
+    """"Pereira, Francisco B." for Francisco **B**aptista Pereira. Capped at
+    ``confident`` like every other full-name fit, never ``exact``."""
+    result = match_name("Hopper, Grace B.", REVIEWED)
+    assert result.status == CONFIDENT
+    assert result.confidence == 0.8
+    assert [p.slug for p in result.people] == ["hopper"]
+
+
+def test_a_thesis_initial_that_prefixes_nothing_in_the_full_name_is_refused():
+    """The escape hatch is a convention, not a wildcard: a letter still has to
+    stand for a name the reviewed entry actually carries."""
+    assert match_name("Hopper, Grace Z.", REVIEWED).status == UNMATCHED
+
+
+def test_the_initial_escape_hatch_is_thesis_side_only():
+    """An entry-side letter stays a typo. A ``full_name`` that abbreviates is
+    an entry copied off the published short form rather than off a source, and
+    excusing it would run this comparison against `people.name` — which IS
+    measured-rejected relaxation B."""
+    typo = [Person("hopper", "Grace Murray", full_name="G. Murray Hopper")]
+    assert match_name("Hopper, Grace Brewster", typo).status == UNMATCHED
+
+
+def test_a_reviewed_full_name_still_cannot_absorb_an_unrelated_given_name():
+    """Rule 2's word-level half is untouched, and this is the measured false
+    positive it keeps out: relaxation A resolved "Fonseca, José Carlos" to
+    Carlos M. Fonseca, and `people` separately holds the real José Carlos
+    Coelho Martins da Fonseca. "josé" is a word, not a letter, so no initial
+    convention reaches it — carlos-fonseca's reviewed full name rejects that
+    name however much of him it carries."""
+    carlos = [Person("carlos-fonseca", "Carlos M. Fonseca", full_name="Carlos Manuel Mira da Fonseca")]
+    assert match_name("Fonseca, Carlos", carlos).status == CONFIDENT
+    assert match_name("Fonseca, José Carlos", carlos).status == UNMATCHED
+
+
+def test_the_thesis_surname_must_still_appear_in_the_full_name_in_full():
+    """Rule 1 is not relaxed: a single-letter *surname* token cannot be an
+    initial of anything, or a one-letter name would sweep up every reviewed
+    person in the roster."""
+    assert match_name("H., Grace Brewster", REVIEWED).status == UNMATCHED
+
+
 @pytest.mark.parametrize("name", ["Unknown, Nobody At All", "Nobody"])
 def test_nobody_matching_is_unmatched_not_an_error(name):
     result = match_name(name, PEOPLE)

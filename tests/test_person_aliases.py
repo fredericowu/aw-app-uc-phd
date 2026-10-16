@@ -346,7 +346,12 @@ def test_the_builder_writes_the_canonical_slug_once_not_both_rows(tmp_path, fixt
     full_names = tmp_path / "person_full_names.json"
     full_names.write_text(json.dumps({"entries": []}), encoding="utf-8")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names)
+    # ...and an empty external_people.json, for the third time for the third
+    # reason: its entries name real thesis mentions, not this fixture's.
+    externals = tmp_path / "external_people.json"
+    externals.write_text(json.dumps({"entries": []}), encoding="utf-8")
+
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
     assert report["person_aliases"] == {"pairs_reviewed": 1, "same": 1, "distinct": 0}
 
     conn = sqlite3.connect(fixture_db)

@@ -184,6 +184,21 @@ def build_fixture_db(path: Path) -> Path:
             ('10316/000001', 'graphs', 0),
             ('10316/000001', 'graphs', 1);
 
+        -- One researched external identity, on ONE of the two unmatched
+        -- author rows. Both halves matter: the row that has one proves the
+        -- payload and the views render it, and 'Nobody, At All' having none
+        -- proves the bare "(unattributed)" survives for a name nobody has
+        -- looked up. Attached to an unmatched row only — the loader refuses
+        -- anything else (analysis/external_people.py).
+        INSERT INTO external_people
+            (handle, name_raw, role, display_name, affiliation, source_url,
+             note, evidence)
+        VALUES
+            ('10316/000001', 'Author, Ada Unresolved', 'author',
+             'Ada Unresolved', 'Somewhere Else University',
+             'https://example.test/people/ada', NULL,
+             'Her own institutional page names her and gives the affiliation.');
+
         -- The bibliography the offline builder writes (analysis/
         -- build_bibliography.py). Five works covering every shape the query
         -- layer has to stay honest about: a work above the default floor and

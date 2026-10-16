@@ -625,6 +625,153 @@ settles it: *"supervised by Professor Paulo Jorge de Sousa Gomes and Professor
 **Fernando Jorge Penousal Martins Machado**"*, the full name verbatim, for a
 thesis Estudo Geral files under the bare "Machado, Fernando".
 
+#### Amendment (2026-10-16): eleven more entries, and a thesis-side initial
+
+The 45-name sweep (every unattributed author/supervisor researched one per
+name) produced a second, larger batch of this same shape and one narrow rule
+change. **Eleven entries added**, taking the file from 4 to 15: `f-cardoso`,
+`carlos-fonseca`, `maria-marcelino`, `antonio-mendes`, `karima-velasquez`,
+`bruno-direito`, `mario-zenha-rela`, `jorge-silva`, `r-silva`,
+`fernando-barros`, `francisco-pereira-1`. No `person_aliases.json` change was
+needed — the `j-silva`/`jorge-silva` pair the sweep flagged as a possible
+CISUC duplicate was already in it.
+
+Six of the eleven are **not** the Dourado shape. They are the opposite
+defect, and they are what closes the Backlog card
+`matching:uc-phd-fits-extra-cisuc-initial`: CISUC publishes a form that is
+*longer* than the Estudo Geral one, so `_fits()` rejects the directory row
+because the thesis name cannot account for a middle name or an initial the
+thesis never mentions ("Cardoso, Amílcar" vs `F. Amilcar Cardoso`;
+"Fonseca, Carlos" vs `Carlos M. Fonseca`; "Mendes, António" vs
+`Antonio Jose Mendes`). Relaxing `_fits()` for that is measured-rejected
+relaxation A. Recording the person's **complete** name is not: the thesis
+form is then a subset of it and `_fits_full` resolves it inside the existing
+gate. For Cardoso and Fonseca the complete name is strictly longer than the
+display form and had to be sourced — CiênciaVitae declares "FERNANDO AMÍLCAR
+BANDEIRA CARDOSO", and White Rose eTheses files Fonseca's 1995 Sheffield
+doctorate under "Fonseca, Carlos Manuel Mira da". For Mendes, Marcelino,
+Zenha-Rela and Francisco Pereira the complete name is what UC's own faculty
+directory and their own CiênciaVitae records publish, which the entries say
+explicitly rather than implying a longer form nobody verified.
+
+**The one rule change: `_fits_full` rule 2 now accounts for a single-letter
+THESIS token that prefixes a full-name token** — "Pereira, Francisco B." for
+Francisco **B**aptista Pereira. One entry (`francisco-pereira-1`) resolves
+both of the corpus's unmatched Francisco Pereira rows, and that row is the
+only one that needs this. The asymmetry is deliberate and is now in
+`_fits_full`'s docstring: an **entry-side** letter stays a typo, because a
+reviewed legal name is recorded in full by the human who sourced it, and
+excusing one would let this comparison run against what is effectively
+`people.name` — relaxation B. A letter in the *thesis* name is a different
+thing: the deposited record abbreviated, not the curator, and `_fits()`
+already excuses exactly that convention on the CISUC side
+(`_is_initial_of`). Relaxation A's false match stays unreachable for the
+reason it already was — "josé" is a word, not a letter, and it appears in no
+reviewed full name carrying "fonseca" —
+and `tests/test_name_match.py` asserts "Fonseca, José Carlos" does not fit
+`carlos-fonseca`'s new entry.
+
+**Measured over all 181 theses, before and after** (distinct names):
+
+| | before | after |
+|---|---|---|
+| `exact` | 85 | 85 |
+| `confident` | 153 | **165** |
+| `ambiguous` | 4 | 4 |
+| `unmatched` | 41 | **29** |
+| `thesis_people` rows | 426 | 426 |
+| `author_conflicts` | 0 | 0 |
+
+At the grains the views consume: supervision edges resolved **211 → 221 of
+241** (88% → 92%), supervisor names 99 → 107 of 126, author names 163 → 167
+of 181.
+
+**Every changed row was inspected by hand, and there are exactly 14** — all
+`unmatched` -> `confident`, no row added or removed, no slug changed from one
+slug to another, nothing demoted, nothing newly ambiguous, no new author
+conflict: Cardoso ×2 (10316/1747, /9599), Zenha-Rela ×2 (/24888, /29594),
+and one each for Fonseca-Carlos (/32725), Marcelino and Mendes (both /79528),
+Velasquez-Castro (/95282), Direito-Leitão (/23583), Silva-Jorge (/28862),
+Silva-Rodrigo-Tertulino (/118766), Silva-Fernando-Barros (/1901), and the two
+Francisco Pereira rows (/87416 and /29450). The golden fixture's tier
+distribution is untouched at {exact 7, confident 36, ambiguous 1, unmatched
+6} — none of the 50 hand-verified names is affected, and display-name fits
+are still tried before full-name fits.
+
+**Both known false positives stay dead**, re-checked by name rather than by
+count: "Fonseca, José Carlos" and "Cruz, Luís Alberto da Silva" remain
+`unmatched`. Note for whoever picks this up next — `people` *does* hold
+`jose-fonseca-1`, "José Carlos Coelho Martins da Fonseca", whose display name
+is a superset of the thesis form exactly like `antonio-mendes`'s, so a
+reviewed full name could legitimately resolve him. That was outside this
+card's scope and deliberately not done; he is a genuinely different human
+from `carlos-fonseca`, which is the thing the relaxation got wrong.
+
+**`alvaro-rocha` still cannot be done at all.** His CISUC page is live
+(https://www.cisuc.uc.pt/en/people/alvaro-rocha, 200 on 2026-10-16) but he is
+absent from the 740-row People directory the scraper reads — re-fetched
+directly from `scraper/people.py`'s own endpoint on 2026-10-16 and confirmed:
+zero rows for him. There is therefore no slug to attach a full name to, and
+a `person_full_names` entry would be refused by its own validator. He stays
+`unmatched`, blocked on the directory-source card, and gets no
+`external_people` entry either: he is a real CISUC person, not an external
+one, and recording him as external would be wrong the moment the sync is
+fixed.
+
+### The sixth option: researched external identities, for display only (2026-10-16)
+
+The 45-name sweep's other 29 mentions are the ones no identity table can
+help, because the directory is **right** to be silent: an ISEP professor who
+co-supervised one thesis, a CERN project leader, a UFPB academic, two
+Critical Software founders, graduates who left. They stay `unmatched`
+forever and nothing should match them. What was still wrong was the
+*display* — the app printed a bare "(unattributed)" next to a person whose
+name, affiliation and source are now known.
+
+**`data/external_people.json`** records, per thesis **mention**, that
+person's published name, affiliation, the citable page it was read off, an
+optional caveat, and the evidence. `analysis/external_people.py` validates it
+against the `thesis_people` rows the same build just wrote and writes
+`external_people(handle, name_raw, role, display_name, affiliation,
+source_url, note, evidence)` into the seed. `uc_phd_app/theses.py` attaches
+it as `external` on an unattributed person entry, and the two `PersonList`
+components render it in place of the bare label.
+
+**Why this is not option C.** C mapped a thesis *name* to a person and forced
+the matcher's output. This maps one thesis *mention* to display metadata:
+
+- **No `person_slug`, and no column for one.** The table structurally cannot
+  override, shadow or second-guess a matcher verdict, and `identity_coverage`
+  does not move — an external person is correctly unresolved, not newly
+  resolved. `IDENTITY_COVERAGE_NOTE` now says so on the page itself.
+- **The loader refuses an entry whose row is not `unmatched`.** A future
+  matcher improvement that resolves one of these names breaks the build until
+  the obsolete entry is removed, instead of leaving a stale external claim
+  beside a real CISUC person. That is the mechanism that keeps the two layers
+  from ever disagreeing silently.
+- **`analysis/name_match.py` never imports it**, asserted at the import graph
+  in `tests/test_external_people.py`.
+- **The key is a mention, not a name**, so a future thesis carrying the same
+  string inherits nothing. Same-name-different-person is this corpus's core
+  trap: "Martins, Pedro" is two different people two years apart. The
+  accepted cost is duplication — Torsten Braun supervises two theses and so
+  has two entries, which is why the file holds 29 entries for 28 people.
+
+Rejected alternatives: **overloading `match_note`**, which is machine-written
+and replaced on every rebuild, so a human sentence in it would be destroyed
+by the next build; and **an external-person registry with invented slugs**,
+which is option C with a parallel identity space and no directory to validate
+against.
+
+Three entries carry a `note` rather than a clean claim, and that is the field
+doing its job: Gonçalo Quadros's three middle names are not verified against
+any primary record (only "Gonçalo Quadros" appears in public bios, so the
+identification rests on the company's founding record plus the matching 2002
+UC doctorate); João Carreira has no personal institutional page at all;
+and Konstantia Barmpatsalou is not external to CISUC at all — she is a CISUC
+doctoral alumna with no directory row, kept in this file because there is no
+slug to attach and nothing to match against.
+
 #### What this makes harder later
 
 - A **third** human-maintained identity artefact, after

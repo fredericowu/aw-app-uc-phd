@@ -40,6 +40,7 @@ near-misses, and the two rule relaxations that were measured and rejected.
 """
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from . import db, paths
@@ -94,7 +95,14 @@ IDENTITY_COVERAGE_NOTE = (
     "left: nothing can match its way past that. The matcher never guesses — "
     "it tiers every decision and leaves a name unresolved rather than picking "
     "a plausible person; two attempts to relax it were measured and rejected "
-    "for producing confidently wrong people (docs/thesis-attribution.md)."
+    "for producing confidently wrong people (docs/thesis-attribution.md). "
+    "Some unresolved names now show who the person is and where they work, "
+    "marked 'external' with the source behind it. Those are still counted as "
+    "unresolved here, and that is correct rather than a rounding choice: they "
+    "are real people with no CISUC person row and no reason to have one — a "
+    "CERN project leader, an ISEP professor who co-supervised one thesis, a "
+    "graduate who left — so the name is identified without becoming a CISUC "
+    "identity. Nothing in these numbers moved when they were added."
 )
 
 #: Tiers that mean "this is a person". ``ambiguous`` is deliberately not one
@@ -149,8 +157,47 @@ def _top(scores: dict[str, float]) -> str | None:
     return min(scores, key=lambda code: (-scores[code], code))
 
 
+def external_people(db_path: Path | None = None) -> dict[tuple[str, str, str], dict]:
+    """``{(handle, name_raw, role): {display_name, affiliation, source_url, note}}``
+
+    The researched identity of a name the matcher will never resolve — an
+    ISEP professor who co-supervised one thesis, a CERN project leader, a
+    graduate who left in 2015. ``analysis/external_people.py`` has the whole
+    rationale; what matters here is that this is **display metadata, not
+    identity**: it never produces a ``person_slug``, the row it describes
+    stays ``unattributed``, and ``identity_coverage`` does not move. An
+    external person is correctly unresolved, not newly resolved.
+
+    Keyed on the mention rather than the name on purpose, all the way out to
+    the payload: "Martins, Pedro" is two different people two years apart, so
+    a name-keyed lookup is this corpus's core trap (see
+    ``docs/thesis-attribution.md``, option C).
+
+    Tolerates a seed built before the table existed, same as the frontend
+    tolerates a payload built before the field did: an older seed renders the
+    bare "(unattributed)" it always did rather than failing the whole route.
+    """
+    try:
+        rows = db.rows(db.load_query("external_people"), (), db_path)
+    except sqlite3.OperationalError:
+        # "no such table: external_people" — a pre-sweep seed. Nothing else
+        # this query can raise is recoverable, and db.connect() already
+        # raises DatabaseUnavailable for a missing file.
+        return {}
+    return {
+        (row["handle"], row["name_raw"], row["role"]): {
+            "display_name": row["display_name"],
+            "affiliation": row["affiliation"],
+            "source_url": row["source_url"],
+            "note": row["note"],
+        }
+        for row in rows
+    }
+
+
 def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
-                          with_groups: bool = True) -> list[dict]:
+                          with_groups: bool = True,
+                          externals: dict[tuple[str, str, str], dict] | None = None) -> list[dict]:
     """Collapse the ``thesis_people`` rows for one (name, role) into the shape
     the dashboard renders.
 
@@ -172,7 +219,18 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
     ``joao-bicker-1``), so a name resolving to both would otherwise contribute
     twice as much weight to the thesis as a name resolving to one — the exact
     double-count this function already avoids for identity.
+
+    ``external`` is attached to an **unattributed** entry when
+    ``external_people`` has a researched identity for that mention, and is
+    absent otherwise. It changes nothing about the entry's ``status``,
+    ``match_status`` or ``confidence``: it is what the name's person is
+    called and where they work, for a row that is correctly not a CISUC
+    person. ``externals`` is passed in by ``list_theses`` so the lookup
+    happens once per request rather than once per thesis; a caller that omits
+    it gets its own read.
     """
+    if externals is None:
+        externals = external_people(db_path)
     by_name: dict[str, dict] = {}
     slug_cache: dict[str, dict[str, float]] = {}
     raw_weights: dict[str, dict[str, float]] = {}
@@ -190,6 +248,10 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
                 "groups": [],
                 "group_shares": {},
             }
+            if not resolved:
+                external = externals.get((row["handle"], row["name_raw"], row["role"]))
+                if external is not None:
+                    entry["external"] = external
             raw_weights[row["name_raw"]] = {}
         if entry["status"] != "matched" or row["person_slug"] is None:
             continue
@@ -298,11 +360,17 @@ def list_theses(db_path: Path | None = None) -> list[dict]:
     for row in db.rows(db.load_query("thesis_group_affinity"), (), db_path):
         content.setdefault(row["handle"], {})[row["group_code"]] = row["score"]
 
+    # Once, not once per thesis: the whole table is 29 rows against 181
+    # theses, so the round trip costs more than the rows do.
+    externals = external_people(db_path)
+
     theses = []
     for thesis in db.rows(db.load_query("theses"), (), db_path):
         roles = by_handle.get(thesis["handle"], {})
-        authors = _resolve_person_rows(roles.get("author", []), db_path)
-        supervisors = _resolve_person_rows(roles.get("supervisor", []), db_path)
+        authors = _resolve_person_rows(roles.get("author", []), db_path, externals=externals)
+        supervisors = _resolve_person_rows(
+            roles.get("supervisor", []), db_path, externals=externals
+        )
         attribution = _attribution(
             _people_signal([("author", authors), ("supervisor", supervisors)]),
             content.get(thesis["handle"], {}),
@@ -358,6 +426,7 @@ def supervisors_for(handles: list[str], db_path: Path | None = None) -> dict[str
     wanted = set(handles)
     by_handle: dict[str, list[dict]] = {h: [] for h in wanted}
     rows = db.rows(db.load_query("thesis_people"), (), db_path)
+    externals = external_people(db_path)
     grouped: dict[str, list[dict]] = {}
     for row in rows:
         if row["handle"] in wanted and row["role"] == "supervisor":
@@ -369,8 +438,14 @@ def supervisors_for(handles: list[str], db_path: Path | None = None) -> dict[str
                 "status": person["status"],
                 "match_status": person["match_status"],
                 "matched": person["matched"],
+                # Carried here too, and only when there is one: the Fit
+                # screen names supervisors, and an unresolved one reads as a
+                # dead end unless it can say who the person actually is.
+                **({"external": person["external"]} if "external" in person else {}),
             }
-            for person in _resolve_person_rows(person_rows, db_path, with_groups=False)
+            for person in _resolve_person_rows(
+                person_rows, db_path, with_groups=False, externals=externals
+            )
         ]
     return by_handle
 

@@ -20,6 +20,7 @@ import {
   AsyncBoundary,
   AttributionTier,
   Caveat,
+  ExternalIdentity,
   ExternalLink,
   ResolvedPersonName,
   useAsync,
@@ -39,8 +40,17 @@ function PersonList({ people }) {
               link only when it resolves to exactly one person; see
               ResolvedPersonName for why matched[0] is never picked. */}
           <ResolvedPersonName person={p} title={p.note || p.match_status || undefined} />
+          {/* The detail view has the room the table row does not, so the
+              affiliation and the source link are rendered rather than
+              tooltipped. Still not a profile link: there is no person behind
+              it to link to, which is the whole point — see
+              ExternalIdentity. */}
           {p.status !== 'matched' ? (
-            <span style={{ color: 'var(--text-muted)' }}> (unattributed)</span>
+            p.external ? (
+              <ExternalIdentity external={p.external} />
+            ) : (
+              <span style={{ color: 'var(--text-muted)' }}> (unattributed)</span>
+            )
           ) : null}
         </span>
       ))}

@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "id": "aw-app-uc-phd",
   "name": "UC PhD Projects",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Explore every research project at CISUC / UC DEI \u2014 400 of them \u2014 as interactive charts and a searchable catalogue. See which research groups run what, where the money comes from and goes, how project starts are spread over the years, who coordinates the most, and the biggest projects in each group. Open any project for its synopsis, budgets, partners, keywords, people and every field the site publishes about it.",
   "tier": "inprocess",
   "requires_ui_refresh": true,
@@ -56,7 +56,7 @@
         {
           "slug": "uc-phd-research-config",
           "name": "UC PhD Research",
-          "description": "Workspace MCP gateway plus workspace file access — researchers read datasets and write analysis files under .tmp/. Declared by reference (mcp_servers) so the live gateway URL and token are resolved from this workspace's own .mcp.json on every activation; nothing credential-bearing is committed here.",
+          "description": "Workspace MCP gateway plus workspace file access \u2014 researchers read datasets and write analysis files under .tmp/. Declared by reference (mcp_servers) so the live gateway URL and token are resolved from this workspace's own .mcp.json on every activation; nothing credential-bearing is committed here.",
           "mcp_servers": [
             "aw-gateway"
           ],
@@ -70,7 +70,7 @@
         {
           "slug": "uc-phd-researchers",
           "name": "UC PhD Researchers",
-          "description": "Qualitative-research assistants for Frederico's UC DEI PhD — thematic analysis per Braun & Clarke, grounded in the course's own framing.",
+          "description": "Qualitative-research assistants for Frederico's UC DEI PhD \u2014 thematic analysis per Braun & Clarke, grounded in the course's own framing.",
           "instructions_file": "prompts/agents/researchers-group.md",
           "capabilities": "Thematic coding and analysis of qualitative data (forum threads, transcripts, documents) following Braun & Clarke's six stages; multi-analyst reconciliation."
         }
@@ -78,13 +78,13 @@
       "agents": [
         {
           "slug": "phd-fable",
-          "name": "PhD Researcher — Fable",
+          "name": "PhD Researcher \u2014 Fable",
           "description": "The cheap, fast analyst. Reach for this for a first coding pass, a broad sweep over a lot of material, or one of several independent readings you intend to reconcile.",
           "system_prompt_file": "prompts/agents/researcher.md",
           "model_slug": "claude-runner-fable",
           "agent_config_slug": "uc-phd-research-config",
           "group_slug": "uc-phd-researchers",
-          "capabilities": "Codes qualitative data independently per Braun & Clarke — candidate codes, a justified selected set of 8–12, and a rejected set with stated weaknesses — and revises it when shown other analysts' work.",
+          "capabilities": "Codes qualitative data independently per Braun & Clarke \u2014 candidate codes, a justified selected set of 8\u201312, and a rejected set with stated weaknesses \u2014 and revises it when shown other analysts' work.",
           "use_cases": [
             "code a set of forum threads or transcripts",
             "produce one independent reading for a multi-analyst comparison",
@@ -96,13 +96,13 @@
         },
         {
           "slug": "phd-sonnet",
-          "name": "PhD Researcher — Sonnet",
+          "name": "PhD Researcher \u2014 Sonnet",
           "description": "The default analyst. Reach for this unless the material specifically wants a cheaper pass or a deeper reading.",
           "system_prompt_file": "prompts/agents/researcher.md",
           "model_slug": "claude-runner-sonnet",
           "agent_config_slug": "uc-phd-research-config",
           "group_slug": "uc-phd-researchers",
-          "capabilities": "Codes qualitative data independently per Braun & Clarke — candidate codes, a justified selected set of 8–12, and a rejected set with stated weaknesses — and revises it when shown other analysts' work.",
+          "capabilities": "Codes qualitative data independently per Braun & Clarke \u2014 candidate codes, a justified selected set of 8\u201312, and a rejected set with stated weaknesses \u2014 and revises it when shown other analysts' work.",
           "use_cases": [
             "code a set of forum threads or transcripts",
             "produce one independent reading for a multi-analyst comparison",
@@ -114,13 +114,13 @@
         },
         {
           "slug": "phd-opus",
-          "name": "PhD Researcher — Opus",
-          "description": "The deep analyst, for material where the interpretation is the hard part — dense transcripts, contested readings, a coding pass that has to hold up in a write-up.",
+          "name": "PhD Researcher \u2014 Opus",
+          "description": "The deep analyst, for material where the interpretation is the hard part \u2014 dense transcripts, contested readings, a coding pass that has to hold up in a write-up.",
           "system_prompt_file": "prompts/agents/researcher.md",
           "model_slug": "claude-runner-opus",
           "agent_config_slug": "uc-phd-research-config",
           "group_slug": "uc-phd-researchers",
-          "capabilities": "Codes qualitative data independently per Braun & Clarke — candidate codes, a justified selected set of 8–12, and a rejected set with stated weaknesses — and revises it when shown other analysts' work.",
+          "capabilities": "Codes qualitative data independently per Braun & Clarke \u2014 candidate codes, a justified selected set of 8\u201312, and a rejected set with stated weaknesses \u2014 and revises it when shown other analysts' work.",
           "use_cases": [
             "code a set of forum threads or transcripts",
             "produce one independent reading for a multi-analyst comparison",
@@ -138,7 +138,7 @@
           "model_slug": "claude-runner-opus",
           "agent_config_slug": "uc-phd-research-config",
           "group_slug": "uc-phd-researchers",
-          "capabilities": "Reconciles several independent thematic analyses of the same data into one agreed set — concept mapping, a stated decision rule and threshold, bounded refinement rounds, recorded dissent and a synthesized final definition per code. Reviews analyses; never silently rewrites them.",
+          "capabilities": "Reconciles several independent thematic analyses of the same data into one agreed set \u2014 concept mapping, a stated decision rule and threshold, bounded refinement rounds, recorded dissent and a synthesized final definition per code. Reviews analyses; never silently rewrites them.",
           "use_cases": [
             "reconcile several analysts' coding of the same dataset",
             "dispatch and judge a refinement round",
@@ -156,7 +156,7 @@
       {
         "id": "agents-platform-runners",
         "required": false,
-        "reason": "Provides both halves of this app's contributes.agents: the seeding surface itself (it is the provider core hands every app's declaration to) and the claude-runner-fable/-sonnet/-opus model slugs these four agents reference. Not required — without it nothing seeds at all, so the references can never dangle, and the rest of this app (dashboard, catalogue, MCP tools) works unchanged."
+        "reason": "Provides both halves of this app's contributes.agents: the seeding surface itself (it is the provider core hands every app's declaration to) and the claude-runner-fable/-sonnet/-opus model slugs these four agents reference. Not required \u2014 without it nothing seeds at all, so the references can never dangle, and the rest of this app (dashboard, catalogue, MCP tools) works unchanged."
       }
     ]
   },

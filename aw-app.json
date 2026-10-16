@@ -27,7 +27,8 @@
     "fs:workspace-data",
     "routes:register",
     "net:outbound",
-    "db:own-tables"
+    "db:own-tables",
+    "agents:contribute"
   ],
   "contributes": {
     "routes": [
@@ -49,9 +50,116 @@
     ],
     "knowledge": {
       "path": "docs"
+    },
+    "agents": {
+      "agent_configs": [
+        {
+          "slug": "uc-phd-research-config",
+          "name": "UC PhD Research",
+          "description": "Workspace MCP gateway plus workspace file access — researchers read datasets and write analysis files under .tmp/. Declared by reference (mcp_servers) so the live gateway URL and token are resolved from this workspace's own .mcp.json on every activation; nothing credential-bearing is committed here.",
+          "mcp_servers": [
+            "aw-gateway"
+          ],
+          "permissions": {
+            "workspace_access": true,
+            "tmp_access": true
+          }
+        }
+      ],
+      "groups": [
+        {
+          "slug": "uc-phd-researchers",
+          "name": "UC PhD Researchers",
+          "description": "Qualitative-research assistants for Frederico's UC DEI PhD — thematic analysis per Braun & Clarke, grounded in the course's own framing.",
+          "instructions_file": "prompts/agents/researchers-group.md",
+          "capabilities": "Thematic coding and analysis of qualitative data (forum threads, transcripts, documents) following Braun & Clarke's six stages; multi-analyst reconciliation."
+        }
+      ],
+      "agents": [
+        {
+          "slug": "phd-fable",
+          "name": "PhD Researcher — Fable",
+          "description": "The cheap, fast analyst. Reach for this for a first coding pass, a broad sweep over a lot of material, or one of several independent readings you intend to reconcile.",
+          "system_prompt_file": "prompts/agents/researcher.md",
+          "model_slug": "claude-runner-fable",
+          "agent_config_slug": "uc-phd-research-config",
+          "group_slug": "uc-phd-researchers",
+          "capabilities": "Codes qualitative data independently per Braun & Clarke — candidate codes, a justified selected set of 8–12, and a rejected set with stated weaknesses — and revises it when shown other analysts' work.",
+          "use_cases": [
+            "code a set of forum threads or transcripts",
+            "produce one independent reading for a multi-analyst comparison",
+            "run a refinement round over your own earlier coding"
+          ],
+          "disable_harness_tools": true,
+          "icon": "microscope",
+          "color": "#f6ad55"
+        },
+        {
+          "slug": "phd-sonnet",
+          "name": "PhD Researcher — Sonnet",
+          "description": "The default analyst. Reach for this unless the material specifically wants a cheaper pass or a deeper reading.",
+          "system_prompt_file": "prompts/agents/researcher.md",
+          "model_slug": "claude-runner-sonnet",
+          "agent_config_slug": "uc-phd-research-config",
+          "group_slug": "uc-phd-researchers",
+          "capabilities": "Codes qualitative data independently per Braun & Clarke — candidate codes, a justified selected set of 8–12, and a rejected set with stated weaknesses — and revises it when shown other analysts' work.",
+          "use_cases": [
+            "code a set of forum threads or transcripts",
+            "produce one independent reading for a multi-analyst comparison",
+            "run a refinement round over your own earlier coding"
+          ],
+          "disable_harness_tools": true,
+          "icon": "microscope",
+          "color": "#58a6ff"
+        },
+        {
+          "slug": "phd-opus",
+          "name": "PhD Researcher — Opus",
+          "description": "The deep analyst, for material where the interpretation is the hard part — dense transcripts, contested readings, a coding pass that has to hold up in a write-up.",
+          "system_prompt_file": "prompts/agents/researcher.md",
+          "model_slug": "claude-runner-opus",
+          "agent_config_slug": "uc-phd-research-config",
+          "group_slug": "uc-phd-researchers",
+          "capabilities": "Codes qualitative data independently per Braun & Clarke — candidate codes, a justified selected set of 8–12, and a rejected set with stated weaknesses — and revises it when shown other analysts' work.",
+          "use_cases": [
+            "code a set of forum threads or transcripts",
+            "produce one independent reading for a multi-analyst comparison",
+            "run a refinement round over your own earlier coding"
+          ],
+          "disable_harness_tools": true,
+          "icon": "microscope",
+          "color": "#b794f4"
+        },
+        {
+          "slug": "phd-quality-researcher",
+          "name": "Quality Researcher",
+          "description": "The arbiter. Reconciles independent coding runs on concept agreement rather than wording, runs bounded refinement rounds, records dissent instead of overruling it, and synthesizes the final set. Also reviews a single analysis against the course's coding rules.",
+          "system_prompt_file": "prompts/agents/quality-researcher.md",
+          "model_slug": "claude-runner-opus",
+          "agent_config_slug": "uc-phd-research-config",
+          "group_slug": "uc-phd-researchers",
+          "capabilities": "Reconciles several independent thematic analyses of the same data into one agreed set — concept mapping, a stated decision rule and threshold, bounded refinement rounds, recorded dissent and a synthesized final definition per code. Reviews analyses; never silently rewrites them.",
+          "use_cases": [
+            "reconcile several analysts' coding of the same dataset",
+            "dispatch and judge a refinement round",
+            "review one coding pass against Braun & Clarke's rules"
+          ],
+          "disable_harness_tools": true,
+          "icon": "scale",
+          "color": "#f472b6"
+        }
+      ]
     }
   },
-  "dependencies": {},
+  "dependencies": {
+    "apps": [
+      {
+        "id": "agents-platform-runners",
+        "required": false,
+        "reason": "Provides both halves of this app's contributes.agents: the seeding surface itself (it is the provider core hands every app's declaration to) and the claude-runner-fable/-sonnet/-opus model slugs these four agents reference. Not required — without it nothing seeds at all, so the references can never dangle, and the rest of this app (dashboard, catalogue, MCP tools) works unchanged."
+      }
+    ]
+  },
   "migrations": {
     "dir": "migrations"
   }

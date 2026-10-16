@@ -103,10 +103,12 @@ def test_manifest_requests_only_low_risk_permissions():
     the capability set stays free of any high-risk entry regardless — that
     is what keeps `filter_grants`'s unsigned-app leniency irrelevant here.
     `db:own-tables` (added for S3's pgvector store) is `risk: low` too — no
-    signing gate, same invariant holds.
+    signing gate, same invariant holds. So is `agents:contribute` (added for
+    the four contributed research agents, `src/apps/capabilities.py:40`).
     """
     assert sorted(MANIFEST["permissions"]) == [
-        "db:own-tables", "fs:workspace-data", "net:outbound", "routes:register",
+        "agents:contribute", "db:own-tables", "fs:workspace-data",
+        "net:outbound", "routes:register",
     ]
 
 

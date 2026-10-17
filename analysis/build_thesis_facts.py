@@ -5,7 +5,7 @@
 Reads ``estudo_geral/*.md`` (S1's committed front matter), reconciles it
 against ``estudo_geral/manifest.json``, resolves every author and supervisor
 name against the ``people`` table with ``analysis.name_match``, and writes
-``theses`` / ``thesis_people`` / ``thesis_keywords`` into
+``theses`` / ``thesis_people`` / ``thesis_keywords`` / ``thesis_sets`` into
 ``data/cisuc.sqlite3``.
 
 Why the seed and not Postgres. Every join partner — people, project_people,
@@ -37,6 +37,13 @@ from pathlib import Path
 
 import yaml
 
+# The one cross-package import here, and deliberately not a copy: the set ->
+# label map is the harvester's definition of corpus scope, and a second copy
+# of it in this file would let the report label a community the harvest no
+# longer reads. The module is pure stdlib XML parsing — importing it costs
+# nothing and opens no socket.
+from estudo_geral_extractor.oai import HARVEST_SETS
+
 from . import external_people, person_aliases, person_full_names
 from .name_match import (
     AMBIGUOUS,
@@ -58,7 +65,7 @@ DEFAULT_ESTUDO_GERAL = ROOT / "estudo_geral"
 
 ROLE_FIELDS = (("author", "authors"), ("supervisor", "supervisors"))
 TIERS = (EXACT, CONFIDENT, AMBIGUOUS, UNMATCHED)
-THESIS_TABLES = ("thesis_keywords", "thesis_people", "theses")
+THESIS_TABLES = ("thesis_sets", "thesis_keywords", "thesis_people", "theses")
 
 #: Column positions in a ``thesis_people`` row tuple, so the passes below read
 #: as names rather than as ``row[3]``.
@@ -332,6 +339,29 @@ def minimal_evidence_matches(rows: list[tuple], people: list[Person]) -> list[di
     return [out[key] for key in sorted(out)]
 
 
+def set_rows(front_matter: dict) -> list[tuple]:
+    """``thesis_sets`` rows — the OAI communities and collections this thesis
+    is listed under, as the harvest recorded them.
+
+    Strict for the same reason ``thesis_row`` is strict about ``source_url``:
+    every OAI record header carries its set membership, so a front matter
+    without ``oai_sets`` is a file that predates the harvest, not a thesis
+    that genuinely belongs to no set. Writing zero rows for it would hide
+    that from every grouping query instead of stopping the rebuild — and
+    naming the handle is what a quietly short table would not.
+
+    Deduped: the primary key is (handle, set_spec), and a header repeating a
+    spec must not turn a provenance detail into an IntegrityError.
+    """
+    oai_sets = front_matter.get("oai_sets")
+    if not oai_sets:
+        raise ValueError(
+            f"{front_matter['handle']}: no oai_sets — OAI origin is required; "
+            "re-run `python -m estudo_geral_extractor.run` to record it"
+        )
+    return [(front_matter["handle"], spec) for spec in dict.fromkeys(oai_sets)]
+
+
 def keyword_rows(front_matter: dict) -> list[tuple]:
     return [
         (front_matter["handle"], keyword, ordinal)
@@ -392,9 +422,11 @@ def build(
         theses = [thesis_row(fm) for fm in front_matters]
         thesis_people: list[tuple] = []
         thesis_keywords: list[tuple] = []
+        thesis_sets: list[tuple] = []
         for fm in front_matters:
             thesis_people += people_rows(fm, people, cache)
             thesis_keywords += keyword_rows(fm)
+            thesis_sets += set_rows(fm)
 
         thesis_people, author_conflicts = resolve_author_conflicts(thesis_people, people)
         minimal_evidence = minimal_evidence_matches(thesis_people, people)
@@ -402,6 +434,7 @@ def build(
         conn.executemany("INSERT INTO theses VALUES (?,?,?,?,?,?,?,?,?,?)", theses)
         conn.executemany("INSERT INTO thesis_people VALUES (?,?,?,?,?,?,?,?)", thesis_people)
         conn.executemany("INSERT INTO thesis_keywords VALUES (?,?,?)", thesis_keywords)
+        conn.executemany("INSERT INTO thesis_sets VALUES (?,?)", thesis_sets)
 
         # After the rows, not before: this is the one curated file whose
         # validator reads `thesis_people` rather than `people`, because an
@@ -422,6 +455,14 @@ def build(
         "external_people": externals,
         "thesis_people_rows": len(thesis_people),
         "thesis_keywords": len(thesis_keywords),
+        "thesis_sets": len(thesis_sets),
+        # Per-community counts over the sets the harvest actually targets, so
+        # "how many theses came from ISR" is a measurement in the build report
+        # rather than a query someone has to remember to run.
+        "theses_per_harvest_set": {
+            label: sum(1 for _, spec in thesis_sets if spec == set_spec)
+            for set_spec, label in HARVEST_SETS.items()
+        },
         "supervision_edges": sum(
             1 for fm in front_matters for _ in (fm.get("supervisors") or [])
         ),

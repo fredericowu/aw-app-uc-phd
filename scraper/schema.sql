@@ -292,6 +292,29 @@ CREATE TABLE IF NOT EXISTS thesis_keywords (
 );
 CREATE INDEX IF NOT EXISTS idx_thesis_keywords_keyword ON thesis_keywords(keyword);
 
+-- Which OAI sets Estudo Geral lists each thesis under — communities AND
+-- collections, exactly as the harvest's record headers carried them.
+--
+-- Many-to-many because membership genuinely is: one thesis here sits in three
+-- communities at once, so a single "origin" column would have had to pick
+-- one, and which one it picked would be an artifact of harvest order rather
+-- than a fact about the thesis. Grouping by category is therefore a join plus
+-- `WHERE set_spec IN (...)`, the same shape thesis_keywords already uses.
+--
+-- The RAW spec is stored, never a label: membership we did not plan for (the
+-- UC-wide `col_10316_15519`, say) stays queryable without re-harvesting, and
+-- the community -> label map lives next to the harvester that defines the
+-- scope, in estudo_geral_extractor/oai.py's HARVEST_SETS.
+--
+-- Snapshot-at-harvest, like every other column here: if UC re-maps an item's
+-- communities, these rows are stale until the next harvest run.
+CREATE TABLE IF NOT EXISTS thesis_sets (
+    handle   TEXT NOT NULL REFERENCES theses(handle),
+    set_spec TEXT NOT NULL,
+    PRIMARY KEY (handle, set_spec)
+);
+CREATE INDEX IF NOT EXISTS idx_thesis_sets_set_spec ON thesis_sets(set_spec);
+
 -- How much each thesis's own text looks like each research group's project
 -- text — TF-IDF cosine, built offline by `python -m
 -- analysis.build_group_affinity`.

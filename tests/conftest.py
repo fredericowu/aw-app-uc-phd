@@ -276,7 +276,9 @@ def live_db(isolated_data_dir):
 #: fixture `people` rows above: "Lovelace, Ada" resolves, the other two do
 #: not — so one run covers both the matched and the preserved-unmatched path.
 #: `graphs` appears twice on purpose: 9 of the 18 real theses repeat a
-#: keyword, which is why thesis_keywords is keyed on ordinal.
+#: keyword, which is why thesis_keywords is keyed on ordinal. `oai_sets`
+#: carries one harvested community and one UC-wide collection, because that
+#: is what a real header looks like and thesis_sets stores both.
 THESIS_MD = """---
 handle: 10316/000001
 title: Fixture Thesis
@@ -294,6 +296,9 @@ abstract_en: An abstract in English.
 rights: openAccess
 full_text: true
 source_url: https://estudogeral.uc.pt/handle/10316/000001
+oai_sets:
+- com_10316_255
+- col_10316_15519
 ---
 
 # Fixture Thesis

@@ -9,7 +9,14 @@
       "Silva, Luís Alexandre Serras de Moura e"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_254",
+      "com_10316_2",
+      "com_10316_255",
+      "col_10316_95",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1901",
@@ -21,7 +28,14 @@
       "Silva, Fernando José Barros Rodrigues da"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_254",
+      "com_10316_2",
+      "com_10316_255",
+      "col_10316_95",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/5868",
@@ -33,7 +47,12 @@
       "Macedo, Luís Miguel Machado Lopes"
     ],
     "pdf_bytes": 2296674,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1764",
@@ -45,7 +64,12 @@
       "Carvalho, Paulo Fernando Pereira de"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1753",
@@ -57,7 +81,12 @@
       "Carreira, João Fernando Viegas"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1749",
@@ -69,7 +98,12 @@
       "Pereira, António Manuel de Jesus"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1756",
@@ -81,7 +115,12 @@
       "Bernardino, Jorge Fernandes Rodrigues"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1763",
@@ -93,7 +132,12 @@
       "Mendes, Paulo Jorge Milheiro"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1750",
@@ -105,7 +149,12 @@
       "Orvalho, João Gilberto de Matos"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1755",
@@ -117,7 +166,12 @@
       "Furtado, Pedro Nuno San-Bento"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1761",
@@ -129,7 +183,12 @@
       "Quadros, Manuel Gonçalo Lopes Almeida"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1766",
@@ -141,7 +200,12 @@
       "Neto, Edgard Dias de Medeiros"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1751",
@@ -153,7 +217,12 @@
       "Marcelino, Maria José Patrício"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1754",
@@ -165,7 +234,12 @@
       "Ferreira, José Luís da Silva"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1765",
@@ -177,7 +251,12 @@
       "Gomes, Paulo Jorge de Sousa"
     ],
     "pdf_bytes": 1445652,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1743",
@@ -189,7 +268,12 @@
       "Roque, Licínio Gomes"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1748",
@@ -201,7 +285,12 @@
       "Oliveira, Marília Pascoal Curado de"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1760",
@@ -213,7 +302,12 @@
       "Pereira, Carlos Manuel Jorge da Silva"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1752",
@@ -225,7 +319,12 @@
       "Gomes, Rui Manuel da Silva"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1745",
@@ -237,7 +336,12 @@
       "Cunha, Paulo José Osório Rupino da"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1767",
@@ -249,7 +353,12 @@
       "Vieira, Marco Paulo Amorim"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1762",
@@ -261,7 +370,12 @@
       "Marques, Paulo Jorge Pimenta"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1768",
@@ -273,7 +387,12 @@
       "Durães, João António Pereira Almeida"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1757",
@@ -285,7 +404,12 @@
       "Silva, Jorge Miguel Sá"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1746",
@@ -297,7 +421,12 @@
       "Gomes, Maria Cristina Coelho de Carvalho de Azevedo"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1744",
@@ -309,7 +438,12 @@
       "Pereira, Francisco José Baptista"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1747",
@@ -321,7 +455,12 @@
       "Pereira, Francisco Colunas Pereira da Câmara"
     ],
     "pdf_bytes": 2640556,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1758",
@@ -333,7 +472,12 @@
       "Henriques, Jorge Manuel Oliveira"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/1759",
@@ -345,7 +489,12 @@
       "Simões, Paulo Alexandre Ferreira"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/7557",
@@ -357,7 +506,12 @@
       "Ferreira, Pedro Miguel da Fonseca Marques"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/8543",
@@ -369,7 +523,12 @@
       "Neto, Augusto José Venâncio"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/7554",
@@ -381,7 +540,12 @@
       "Tavares, Jorge Alexandre Silva"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/7556",
@@ -393,7 +557,12 @@
       "Cerqueira, Eduardo Coelho"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/9689",
@@ -405,7 +574,12 @@
       "Silva, Catarina Helena Branco Simões da"
     ],
     "pdf_bytes": 1763790,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/8542",
@@ -417,7 +591,12 @@
       "Silva, Sara Guilherme Oliveira da"
     ],
     "pdf_bytes": 2641732,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/7555",
@@ -429,7 +608,12 @@
       "Camilo, Tiago André Dias do Nascimento Pereira"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/9599",
@@ -441,7 +625,12 @@
       "Machado, Fernando Jorge Penousal Martins"
     ],
     "pdf_bytes": 356877350,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/8544",
@@ -453,7 +642,12 @@
       "Rabadão, Carlos Manuel da Silva"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/9904",
@@ -465,7 +659,12 @@
       "Menezes, Telmo de Lucena Torres de"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/10153",
@@ -477,7 +676,12 @@
       "Cardoso, Alberto Jorge Lebre"
     ],
     "pdf_bytes": 2143726,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/10159",
@@ -489,7 +693,12 @@
       "Paiva, Rui Pedro Pinto de Carvalho e"
     ],
     "pdf_bytes": 3464820,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/10194",
@@ -501,7 +710,12 @@
       "Domingues, Patrício Rodrigues"
     ],
     "pdf_bytes": 4183341,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/10200",
@@ -513,7 +727,12 @@
       "Araújo, Filipe João Boavida de Mendonça Machado de"
     ],
     "pdf_bytes": 2325103,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/10430",
@@ -525,7 +744,12 @@
       "Veloso, Luís Alberto Morais"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/10429",
@@ -537,7 +761,12 @@
       "Farraposo, Sílvia dos Santos"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/12083",
@@ -549,7 +778,12 @@
       "Loureiro, Paulo Jorge Gonçalves"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/12181",
@@ -561,7 +795,12 @@
       "Cabral, Bruno Miguel Brás"
     ],
     "pdf_bytes": 6004030,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/14225",
@@ -573,7 +812,12 @@
       "Cação, Maria do Rosário Santos Cruz Andrade"
     ],
     "pdf_bytes": 8816822,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/14198",
@@ -585,7 +829,12 @@
       "Simões, Anabela Borges"
     ],
     "pdf_bytes": 4080313,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/14586",
@@ -597,7 +846,12 @@
       "Gomes, Anabela de Jesus"
     ],
     "pdf_bytes": 7386672,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/17780",
@@ -609,7 +863,12 @@
       "Costa, Rogério Luís de Carvalho"
     ],
     "pdf_bytes": 9729235,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/18218",
@@ -621,7 +880,12 @@
       "Pereira, Maria Isabel Alves Rodrigues"
     ],
     "pdf_bytes": 3103528,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/20004",
@@ -633,7 +897,12 @@
       "Fonte, Alexandre José Pereira Duro da"
     ],
     "pdf_bytes": 6931623,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/20037",
@@ -645,7 +914,12 @@
       "Martins, Luiz Mauricio Fraga"
     ],
     "pdf_bytes": 4190164,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/20280",
@@ -657,7 +931,12 @@
       "Matos, Fernando Menezes"
     ],
     "pdf_bytes": 7532131,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/20314",
@@ -669,7 +948,12 @@
       "Martins, Scheila Wesley"
     ],
     "pdf_bytes": 5216813,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/20316",
@@ -681,7 +965,12 @@
       "Brigas, Carlos Jorge Gonçalves"
     ],
     "pdf_bytes": 16078633,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/20536",
@@ -693,7 +982,12 @@
       "Alves, Ana Cristina da Costa Oliveira"
     ],
     "pdf_bytes": 5877468,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/21129",
@@ -705,7 +999,12 @@
       "Laranjeiro, Carlos Nuno Bizarro e Silva"
     ],
     "pdf_bytes": 5427339,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/21225",
@@ -717,7 +1016,12 @@
       "Paredes, Simão Pedro Mendes Cruz Reis"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/22105",
@@ -729,7 +1033,12 @@
       "Palma, David Fonseca"
     ],
     "pdf_bytes": 7129473,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23225",
@@ -741,7 +1050,12 @@
       "Stork, Sven"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23346",
@@ -753,7 +1067,12 @@
       "Oliveira, António Pedro Simões Pesqueira de"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23364",
@@ -765,7 +1084,12 @@
       "Antunes, Bruno Emanuel Machado"
     ],
     "pdf_bytes": 4032726,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23366",
@@ -777,7 +1101,12 @@
       "Pires, Paulo Sérgio Dias dos Santos"
     ],
     "download_error": "no download link found on item page",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23380",
@@ -789,7 +1118,12 @@
       "Rocha, Teresa Raquel Corga Teixeira da"
     ],
     "pdf_bytes": 4011724,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23448",
@@ -801,7 +1135,12 @@
       "Alves, Valter Nelson Noronha"
     ],
     "pdf_bytes": 13382556,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23583",
@@ -813,7 +1152,12 @@
       "Leitão, Bruno Miguel Direito Pereira"
     ],
     "pdf_bytes": 13233964,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24163",
@@ -825,7 +1169,12 @@
       "Costa, Cristina Margarida Chuva"
     ],
     "pdf_bytes": 5901556,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24350",
@@ -839,7 +1188,12 @@
     "pdf_bytes": 17634048,
     "extract_error": "PdfReadError: LimitReachedError('Read stream length of 8176 exceeds maximum allowed length of 4096.')",
     "pdf_kept": true,
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24404",
@@ -851,7 +1205,12 @@
       "Cecílio, José Manuel da Silva"
     ],
     "pdf_bytes": 6796298,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24429",
@@ -863,7 +1222,12 @@
       "Pinheiro, Pedro Alexandre Vale"
     ],
     "pdf_bytes": 16789813,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24526",
@@ -875,7 +1239,12 @@
       "Fiorese, Adriano"
     ],
     "pdf_bytes": 1501388,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24528",
@@ -887,7 +1256,12 @@
       "Rodrigues, André Miguel de Almeida Marrão"
     ],
     "download_error": "HTTP 200: 200 but content-type='text/html;charset=UTF-8' (likely login/embargo page)",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24794",
@@ -899,7 +1273,12 @@
       "Baptista, Tiago Rodrigues"
     ],
     "pdf_bytes": 5054293,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24220",
@@ -911,7 +1290,12 @@
       "Costa, Pedro Miguel Lopes Nunes da"
     ],
     "pdf_bytes": 7247933,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23787",
@@ -923,7 +1307,12 @@
       "Sousa, Bruno"
     ],
     "pdf_bytes": 8008493,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23773",
@@ -935,7 +1324,12 @@
       "Lopes, Noel"
     ],
     "pdf_bytes": 10586604,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23751",
@@ -947,7 +1341,12 @@
       "Martins, Pedro"
     ],
     "pdf_bytes": 50977368,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24256",
@@ -959,7 +1358,12 @@
       "Figueiredo, Marisa"
     ],
     "pdf_bytes": 5756820,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24110",
@@ -971,7 +1375,12 @@
       "Magalhães, João Paulo"
     ],
     "pdf_bytes": 8489633,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24888",
@@ -983,7 +1392,12 @@
       "Costa, Ricardo"
     ],
     "pdf_bytes": 4355857,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24296",
@@ -995,7 +1409,12 @@
       "Mendes, Marcelo Rodrigues Nunes"
     ],
     "pdf_bytes": 4064615,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24532",
@@ -1007,7 +1426,12 @@
       "Tran, Thanh-Dien"
     ],
     "pdf_bytes": 5919510,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/25230",
@@ -1019,7 +1443,12 @@
       "Santos, Ricardo"
     ],
     "pdf_bytes": 5000147,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/25599",
@@ -1031,7 +1460,12 @@
       "Lopes, Rui Miguel Lourenço"
     ],
     "pdf_bytes": 6002143,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/27097",
@@ -1043,7 +1477,12 @@
       "Costa, João Pedro Matos da"
     ],
     "pdf_bytes": 4841641,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/27200",
@@ -1055,7 +1494,12 @@
       "Rolla, Vitor Guerra"
     ],
     "pdf_bytes": 2734406,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/26987",
@@ -1067,7 +1511,12 @@
       "Couceiro, Ricardo Jorge dos Santos"
     ],
     "pdf_bytes": 38779525,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/27151",
@@ -1079,7 +1528,12 @@
       "Patrão, Carla Susana Ribeiro"
     ],
     "pdf_bytes": 5286429,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/27015",
@@ -1091,7 +1545,12 @@
       "Kumar, Dinesh"
     ],
     "pdf_bytes": 3929502,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/25654",
@@ -1103,7 +1562,12 @@
       "Granjal, António Jorge da Costa"
     ],
     "pdf_bytes": 10298314,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/28384",
@@ -1115,7 +1579,12 @@
       "Barata, João Nuno Lopes"
     ],
     "pdf_bytes": 4509712,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/23765",
@@ -1127,7 +1596,12 @@
       "Caldeira, Filipe Manuel Simões"
     ],
     "pdf_bytes": 11893882,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/27608",
@@ -1139,7 +1613,12 @@
       "Bandarabadi, Mojtaba"
     ],
     "pdf_bytes": 4863237,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/24333",
@@ -1151,7 +1630,12 @@
       "Antunes, Nuno Manuel dos Santos"
     ],
     "pdf_bytes": 8373290,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/28311",
@@ -1163,7 +1647,12 @@
       "Bernardo, Vitor Manuel Henriques"
     ],
     "pdf_bytes": 7678486,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29182",
@@ -1175,7 +1664,12 @@
       "Irrera, Ivano"
     ],
     "pdf_bytes": 4849224,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/28862",
@@ -1187,7 +1681,12 @@
       "Pereira, Vasco Nuno Simões"
     ],
     "pdf_bytes": 13210260,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/28986",
@@ -1199,7 +1698,12 @@
       "Marinho, José Manuel Meireles"
     ],
     "pdf_bytes": 5110143,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29090",
@@ -1211,7 +1715,12 @@
       "Martins, Pedro Miguel de Oliveira"
     ],
     "pdf_bytes": 5480578,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29450",
@@ -1223,7 +1732,12 @@
       "Lourenço, Nuno António Marques"
     ],
     "pdf_bytes": 10134123,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29454",
@@ -1235,7 +1749,12 @@
       "Rodrigues, Filipe Manuel Pereira Duarte"
     ],
     "pdf_bytes": 7854367,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29628",
@@ -1247,7 +1766,12 @@
       "Cunha, Carlos Augusto da Silva"
     ],
     "pdf_bytes": 7183721,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29634",
@@ -1259,7 +1783,12 @@
       "Craveiro, Olga Marina Freitas"
     ],
     "pdf_bytes": 2961802,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/31011",
@@ -1271,7 +1800,12 @@
       "Ferreira, Lino Miguel Moreira"
     ],
     "pdf_bytes": 7492074,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29620",
@@ -1283,7 +1817,12 @@
       "Mendes, Naaliel Vicente"
     ],
     "pdf_bytes": 2230429,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29594",
@@ -1295,7 +1834,12 @@
       "Franco, João Miguel da Costa Sousa"
     ],
     "pdf_bytes": 4819840,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/31166",
@@ -1307,7 +1851,12 @@
       "Cruz, Pedro Miguel Amaral Melo da"
     ],
     "pdf_bytes": 32094837,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/30677",
@@ -1319,7 +1868,12 @@
       "Veloso, Marco"
     ],
     "pdf_bytes": 11856597,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/31075",
@@ -1331,7 +1885,12 @@
       "Ivaki, Naghmeh Ramezani"
     ],
     "pdf_bytes": 5713942,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/31249",
@@ -1343,7 +1902,12 @@
       "Conceição, Luís Alexandre Morais da"
     ],
     "pdf_bytes": 5317111,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/33119",
@@ -1355,7 +1919,12 @@
       "Gomes, André Sérgio Nobre"
     ],
     "pdf_bytes": 12978322,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/32725",
@@ -1367,7 +1936,12 @@
       "Gonçalves, Ivo Carlos Pereira"
     ],
     "pdf_bytes": 11032441,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/32304",
@@ -1379,7 +1953,12 @@
       "Fonseca, Alcides Miguel Cachulo Aguiar"
     ],
     "pdf_bytes": 2541446,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/29632",
@@ -1391,7 +1970,12 @@
       "Anjos, Eudisley Gomes dos"
     ],
     "pdf_bytes": 3217913,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/31955",
@@ -1403,7 +1987,12 @@
       "Malheiro, Ricardo Manuel da Silva"
     ],
     "pdf_bytes": 3396036,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/32348",
@@ -1415,7 +2004,12 @@
       "Baccan, Davi D'Andréa"
     ],
     "pdf_bytes": 10215838,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/41911",
@@ -1427,7 +2021,12 @@
       "Nunes, David Sousa"
     ],
     "pdf_bytes": 53955485,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/41880",
@@ -1439,7 +2038,12 @@
       "Rodrigues, Ricardo Manuel da Conceição"
     ],
     "pdf_bytes": 2197452,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/36880",
@@ -1451,7 +2055,12 @@
       "Immich, Roger Kreutz"
     ],
     "pdf_bytes": 20031087,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/79528",
@@ -1463,7 +2072,12 @@
       "Vahldick, Adilson"
     ],
     "pdf_bytes": 9720475,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/79577",
@@ -1475,7 +2089,12 @@
       "Craveirinha, Rui Alexandre Neves"
     ],
     "pdf_bytes": 3148263,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/79733",
@@ -1487,7 +2106,12 @@
       "Oliveira, Rui André Correia de"
     ],
     "pdf_bytes": 3494682,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/79833",
@@ -1499,7 +2123,12 @@
       "Silva, Nuno Pedro de Jesus"
     ],
     "pdf_bytes": 6164908,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/81235",
@@ -1511,7 +2140,12 @@
       "Dalmazo, Bruno Lopes"
     ],
     "pdf_bytes": 3085923,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/81287",
@@ -1523,7 +2157,12 @@
       "Correia, João Nuno Gonçalves Costa Cavaleiro"
     ],
     "pdf_bytes": 95060555,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/83813",
@@ -1535,7 +2174,14 @@
       "Riker, André Figueira"
     ],
     "pdf_bytes": 7608808,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/84807",
@@ -1547,7 +2193,14 @@
       "Neto, Helio Cavalcante Silva"
     ],
     "pdf_bytes": 5652453,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/87398",
@@ -1559,7 +2212,12 @@
       "Guerreiro, Andreia Próspero"
     ],
     "pdf_bytes": 44740407,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/87416",
@@ -1571,7 +2229,12 @@
       "Melo, Leonor Isabel de Albuquerque"
     ],
     "pdf_bytes": 27158152,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/87604",
@@ -1583,7 +2246,12 @@
       "Abbasi, Maryam"
     ],
     "pdf_bytes": 19331795,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/87618",
@@ -1595,7 +2263,12 @@
       "Panda, Renato Eduardo Silva"
     ],
     "pdf_bytes": 9201340,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/88841",
@@ -1607,7 +2280,14 @@
       "Raposo, Duarte Miguel Garcia"
     ],
     "pdf_bytes": 6631809,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/90540",
@@ -1619,7 +2299,14 @@
       "Costa, Joana Madeira Martins"
     ],
     "pdf_bytes": 3905247,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/90651",
@@ -1631,7 +2318,14 @@
       "Boychenko, Serhiy"
     ],
     "pdf_bytes": 3958309,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/91092",
@@ -1643,7 +2337,14 @@
       "Barreto, Nuno Vicente Borges Correia Malaquias"
     ],
     "pdf_bytes": 22135011,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/91095",
@@ -1655,7 +2356,14 @@
       "Maita, Soraya Lucia Sinche"
     ],
     "pdf_bytes": 19345488,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/91181",
@@ -1667,7 +2375,12 @@
       "Filipe, Ricardo Ângelo Santos"
     ],
     "pdf_bytes": 3855392,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/94987",
@@ -1679,7 +2392,14 @@
       "Leitão, António Pedro de Albuquerque"
     ],
     "pdf_bytes": 65506614,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/94990",
@@ -1691,7 +2411,14 @@
       "Sharma, Rahul"
     ],
     "pdf_bytes": 8004668,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95269",
@@ -1703,7 +2430,14 @@
       "Evgheni Polisciuc"
     ],
     "pdf_bytes": 100610649,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95271",
@@ -1715,7 +2449,14 @@
       "Assunção, Filipe Guerreiro"
     ],
     "pdf_bytes": 13377857,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95279",
@@ -1727,7 +2468,14 @@
       "Barmpatsalou, Konstantia"
     ],
     "pdf_bytes": 1360202,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95281",
@@ -1739,7 +2487,14 @@
       "Abreu, David Alejandro Perez"
     ],
     "pdf_bytes": 5000575,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95282",
@@ -1751,7 +2506,14 @@
       "Castro, Karima Daniela Velasquez"
     ],
     "pdf_bytes": 4295429,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95291",
@@ -1763,7 +2525,14 @@
       "Silva, Paulo Miguel Guimarães da"
     ],
     "pdf_bytes": 4368038,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95318",
@@ -1775,7 +2544,14 @@
       "Simões, Marco António Machado"
     ],
     "pdf_bytes": 10006616,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/95440",
@@ -1787,7 +2563,14 @@
       "Lino, Adriano Del Pino"
     ],
     "pdf_bytes": 10558839,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/96430",
@@ -1799,7 +2582,14 @@
       "Cerveira, Frederico Manuel Duarte"
     ],
     "pdf_bytes": 1974279,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/96431",
@@ -1811,7 +2601,14 @@
       "Martins, Tiago Filipe dos Santos"
     ],
     "pdf_bytes": 55847604,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/96432",
@@ -1823,7 +2620,14 @@
       "Maçãs, Catarina Sofia Henriques"
     ],
     "pdf_bytes": 96931106,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/98610",
@@ -1835,7 +2639,14 @@
       "Queiroz, Saulo Jorge Beltrão de"
     ],
     "pdf_bytes": 2299777,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/100062",
@@ -1847,7 +2658,14 @@
       "Armando, Ngombo"
     ],
     "pdf_bytes": 6708145,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/100339",
@@ -1859,7 +2677,14 @@
       "Fonseca, Nuno Miguel Gil"
     ],
     "pdf_bytes": 27085104,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/100340",
@@ -1871,7 +2696,14 @@
       "Nunes, Paulo Jorge Costa"
     ],
     "pdf_bytes": 3333864,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/100411",
@@ -1883,7 +2715,14 @@
       "Pereira, Pedro Miguel Marques"
     ],
     "pdf_bytes": 39446222,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/100419",
@@ -1895,7 +2734,14 @@
       "Leitão, Joaquim Pedro Bento Gonçalves Pratas"
     ],
     "pdf_bytes": 31715662,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/100421",
@@ -1907,7 +2753,14 @@
       "Campos, João Rodrigues de"
     ],
     "pdf_bytes": 7942412,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/101685",
@@ -1919,7 +2772,14 @@
       "Rosa, Luís Miguel Batista"
     ],
     "pdf_bytes": 9467738,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/101709",
@@ -1931,7 +2791,14 @@
       "Pereira, Luís Manuel Santos Lucas Bento"
     ],
     "pdf_bytes": 15593253,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/106627",
@@ -1943,7 +2810,14 @@
       "Mendes, Ricardo da Silva Carvalho"
     ],
     "pdf_bytes": 5232934,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_15517",
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_15519",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/108717",
@@ -1955,7 +2829,12 @@
       "Cruz, Tiago"
     ],
     "pdf_bytes": 11580501,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "col_10316_103"
+    ]
   },
   {
     "handle": "10316/116663",
@@ -1967,7 +2846,14 @@
       "Simões, João Miguel Moreira de Carvalho Brás"
     ],
     "pdf_bytes": 39142495,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/117181",
@@ -1979,7 +2865,14 @@
       "Hijazi, Haytham Wael Ismail"
     ],
     "pdf_bytes": 48675328,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/117187",
@@ -1991,7 +2884,14 @@
       "Silva, Leonardo Soares e"
     ],
     "pdf_bytes": 7708756,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/117373",
@@ -2003,7 +2903,14 @@
       "Dib, Mário Alberto da Silveira"
     ],
     "pdf_bytes": 2904237,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/117599",
@@ -2015,7 +2922,14 @@
       "Rodrigues, Ana Cláudia Leitão Teixeira"
     ],
     "pdf_bytes": 59312887,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/118274",
@@ -2027,7 +2941,14 @@
       "Moraes, Caroline Relva de"
     ],
     "pdf_bytes": 5633898,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/118279",
@@ -2039,7 +2960,14 @@
       "Flora, José Eduardo Ferreira"
     ],
     "pdf_bytes": 15539622,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/118328",
@@ -2051,7 +2979,14 @@
       "Godinho, Noé Paulo Lopes"
     ],
     "pdf_bytes": 2276002,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/118421",
@@ -2063,7 +2998,14 @@
       "Proença, Jorge Diogo Gomes"
     ],
     "pdf_bytes": 8934609,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/118700",
@@ -2075,7 +3017,14 @@
       "Júnior, Ivanilson França Vieira"
     ],
     "pdf_bytes": 2936888,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/118764",
@@ -2087,7 +3036,14 @@
       "Pessoa, Diogo Rafael Mendes"
     ],
     "pdf_bytes": 32244125,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/118766",
@@ -2099,7 +3055,14 @@
       "Silva, Rodrigo Ronner Tertulino da"
     ],
     "pdf_bytes": 3033735,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/119251",
@@ -2111,7 +3074,14 @@
       "Pereira, Tiago Oliveira"
     ],
     "download_error": "HTTP 200: 200 but content-type='text/html;charset=UTF-8' (likely login/embargo page)",
-    "full_text": false
+    "full_text": false,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/119257",
@@ -2123,7 +3093,14 @@
       "Rosero, Raúl Homero Llasag"
     ],
     "pdf_bytes": 49200765,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/119336",
@@ -2135,7 +3112,14 @@
       "Santos, Joana Cristo dos"
     ],
     "pdf_bytes": 7303825,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/119444",
@@ -2147,7 +3131,14 @@
       "Medeiros, Júlio Cordeiro"
     ],
     "pdf_bytes": 41954775,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/119468",
@@ -2159,7 +3150,14 @@
       "Rebelo, Sérgio Miguel Martins"
     ],
     "pdf_bytes": 167722003,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   },
   {
     "handle": "10316/119520",
@@ -2171,6 +3169,13 @@
       "Gonçalves, Charles Ferreira"
     ],
     "pdf_bytes": 8072034,
-    "full_text": true
+    "full_text": true,
+    "oai_sets": [
+      "com_10316_255",
+      "com_10316_2",
+      "com_10316_15517",
+      "col_10316_103",
+      "col_10316_15519"
+    ]
   }
 ]

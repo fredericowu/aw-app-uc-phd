@@ -18,6 +18,9 @@ from tests.conftest import THESIS_MD
 THESIS_NO_URL = THESIS_MD.replace(
     "source_url: https://estudogeral.uc.pt/handle/10316/000001\n", ""
 )
+THESIS_NO_SETS = THESIS_MD.replace(
+    "oai_sets:\n- com_10316_255\n- col_10316_15519\n", ""
+)
 
 
 @pytest.fixture()
@@ -172,6 +175,52 @@ def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixtur
     would not say which thesis lost its provenance."""
     (corpus / "10316-000001.md").write_text(THESIS_NO_URL, encoding="utf-8")
     with pytest.raises(ValueError, match="10316/000001: no source_url"):
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+
+
+def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, aliases, full_names, externals):
+    """Origin is many-to-many: the umbrella collection is stored next to the
+    harvested community, raw, so a membership nobody planned for stays
+    queryable without re-harvesting."""
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    assert report["thesis_sets"] == 2
+    assert report["theses_per_harvest_set"] == {"DEI": 1, "INESCC": 0, "ISR": 0, "IT": 0}
+
+    conn = sqlite3.connect(fixture_db)
+    try:
+        rows = conn.execute("SELECT handle, set_spec FROM thesis_sets ORDER BY set_spec").fetchall()
+    finally:
+        conn.close()
+    assert rows == [("10316/000001", "col_10316_15519"), ("10316/000001", "com_10316_255")]
+
+
+def test_a_rebuild_replaces_thesis_sets_rather_than_appending(corpus, fixture_db, aliases, full_names, externals):
+    """thesis_sets is in THESIS_TABLES, so the full-replace delete covers it —
+    without that, a second run would hit the (handle, set_spec) primary key."""
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    assert report["thesis_sets"] == 2
+
+
+def test_a_duplicated_set_spec_is_stored_once(corpus, fixture_db, aliases, full_names, externals):
+    """The primary key is (handle, set_spec); a header repeating a spec must
+    not turn a provenance detail into an IntegrityError."""
+    (corpus / "10316-000001.md").write_text(
+        THESIS_MD.replace(
+            "oai_sets:\n- com_10316_255\n", "oai_sets:\n- com_10316_255\n- com_10316_255\n"
+        ),
+        encoding="utf-8",
+    )
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    assert report["thesis_sets"] == 2
+
+
+def test_a_thesis_without_oai_sets_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals):
+    """Same strictness as source_url, for the same reason: every OAI header
+    carries set membership, so a front matter without it is a stale file —
+    and writing zero rows would hide that from every grouping query."""
+    (corpus / "10316-000001.md").write_text(THESIS_NO_SETS, encoding="utf-8")
+    with pytest.raises(ValueError, match="10316/000001: no oai_sets"):
         build_mod.build(fixture_db, corpus, aliases, full_names, externals)
 
 

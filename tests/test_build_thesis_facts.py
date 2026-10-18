@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -72,8 +73,24 @@ def externals(tmp_path):
     path.write_text(json.dumps({"entries": []}), encoding="utf-8")
     return path
 
-def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db, aliases, full_names, externals):
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+
+@pytest.fixture()
+def multi_authors(tmp_path):
+    """An EMPTY multi_thesis_authors.json, for exactly the reason the three
+    fixtures above are empty, and here the refusal is the sharpest of the
+    four: the committed ``data/multi_thesis_authors.json`` names a real CISUC
+    slug AND two real thesis handles AND asserts the matcher resolves both of
+    them, none of which is true of this one synthetic thesis — so its
+    validator would (correctly) refuse the entry three times over. A test that
+    wants an exemption writes its own, as ``test_a_reviewed_multi_thesis_*``
+    below does."""
+    path = tmp_path / "multi_thesis_authors.json"
+    path.write_text(json.dumps({"entries": []}), encoding="utf-8")
+    return path
+
+
+def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
     assert report["theses"] == 1
     assert report["supervision_edges"] == 2
@@ -97,10 +114,10 @@ def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db
     conn.close()
 
 
-def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db, aliases, full_names, externals):
+def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """The whole reason person_slug is nullable: dropping the 14 names nobody
     can resolve would be data loss dressed up as a clean join."""
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
     conn = sqlite3.connect(fixture_db)
     conn.row_factory = sqlite3.Row
@@ -116,7 +133,7 @@ def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixtur
     assert rows["Curie, Marie Sklodowska"]["match_note"]
 
 
-def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db, aliases, full_names, externals):
+def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """The João Bicker case: the PK has to carry person_slug or one of the two
     rows silently overwrites the other."""
     conn = sqlite3.connect(fixture_db)
@@ -124,7 +141,7 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     conn.commit()
     conn.close()
 
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
     conn = sqlite3.connect(fixture_db)
     slugs = [
@@ -137,14 +154,14 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     assert slugs == ["ada", "ada-1"]
 
 
-def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases, full_names, externals):
+def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """The tables are a pure function of the committed corpus. An upsert would
     leave a withdrawn thesis in the seed forever."""
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
     (corpus / "10316-000001.md").unlink()
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
     assert report["theses"] == 0
     conn = sqlite3.connect(fixture_db)
@@ -153,7 +170,7 @@ def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases
     conn.close()
 
 
-def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db, aliases, full_names, externals):
+def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """The glob is not the inventory. A half-failed download leaves a manifest
     entry with no .md, and trusting the glob would report a smaller corpus
     with no error at all."""
@@ -161,30 +178,44 @@ def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixt
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/999999"}]), encoding="utf-8"
     )
     with pytest.raises(build_mod.ReconciliationError, match="10316/999999"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
 
-def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db, aliases, full_names, externals):
+def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
     with pytest.raises(build_mod.ReconciliationError, match="unlisted"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
 
-def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals):
+def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """source_url is NOT NULL in the schema; a bare sqlite3.IntegrityError
     would not say which thesis lost its provenance."""
     (corpus / "10316-000001.md").write_text(THESIS_NO_URL, encoding="utf-8")
     with pytest.raises(ValueError, match="10316/000001: no source_url"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
 
-def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, aliases, full_names, externals):
+def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """Origin is many-to-many: the umbrella collection is stored next to the
     harvested community, raw, so a membership nobody planned for stays
-    queryable without re-harvesting."""
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    queryable without re-harvesting.
+
+    The fixture thesis is listed under both ``com_10316_255`` (DEI) and
+    ``col_10316_15519``, and the latter is now a harvested set in its own
+    right ("UC" — the university-wide doctoral collection), so the per-set
+    report counts this one thesis under *two* labels. That double count is
+    the many-to-many the first paragraph describes, not a defect: the report
+    answers "how many theses came from ISR", and a thesis cross-listed in
+    two communities genuinely came from both."""
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
     assert report["thesis_sets"] == 2
-    assert report["theses_per_harvest_set"] == {"DEI": 1, "INESCC": 0, "ISR": 0, "IT": 0}
+    assert report["theses_per_harvest_set"] == {
+        "DEI": 1,
+        "INESCC": 0,
+        "ISR": 0,
+        "IT": 0,
+        "UC": 1,
+    }
 
     conn = sqlite3.connect(fixture_db)
     try:
@@ -194,15 +225,15 @@ def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, alias
     assert rows == [("10316/000001", "col_10316_15519"), ("10316/000001", "com_10316_255")]
 
 
-def test_a_rebuild_replaces_thesis_sets_rather_than_appending(corpus, fixture_db, aliases, full_names, externals):
+def test_a_rebuild_replaces_thesis_sets_rather_than_appending(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """thesis_sets is in THESIS_TABLES, so the full-replace delete covers it —
     without that, a second run would hit the (handle, set_spec) primary key."""
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals)
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
     assert report["thesis_sets"] == 2
 
 
-def test_a_duplicated_set_spec_is_stored_once(corpus, fixture_db, aliases, full_names, externals):
+def test_a_duplicated_set_spec_is_stored_once(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """The primary key is (handle, set_spec); a header repeating a spec must
     not turn a provenance detail into an IntegrityError."""
     (corpus / "10316-000001.md").write_text(
@@ -211,17 +242,17 @@ def test_a_duplicated_set_spec_is_stored_once(corpus, fixture_db, aliases, full_
         ),
         encoding="utf-8",
     )
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
     assert report["thesis_sets"] == 2
 
 
-def test_a_thesis_without_oai_sets_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals):
+def test_a_thesis_without_oai_sets_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """Same strictness as source_url, for the same reason: every OAI header
     carries set membership, so a front matter without it is a stale file —
     and writing zero rows would hide that from every grouping query."""
     (corpus / "10316-000001.md").write_text(THESIS_NO_SETS, encoding="utf-8")
     with pytest.raises(ValueError, match="10316/000001: no oai_sets"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
 
 
 def test_front_matter_without_delimiters_raises(tmp_path):
@@ -240,37 +271,49 @@ def test_load_people_reads_the_people_table(fixture_db):
         conn.close()
 
 
-def test_the_cli_prints_its_report(corpus, fixture_db, aliases, full_names, externals, capsys):
+def test_the_cli_prints_its_report(corpus, fixture_db, aliases, full_names, externals, multi_authors, capsys):
     assert build_mod.main(
         ["--db", str(fixture_db), "--estudo-geral", str(corpus),
          "--person-aliases", str(aliases),
          "--person-full-names", str(full_names),
-         "--external-people", str(externals)]
+         "--external-people", str(externals),
+         "--multi-thesis-authors", str(multi_authors)]
     ) == 0
     assert json.loads(capsys.readouterr().out)["theses"] == 1
 
 
 def test_the_committed_seed_holds_the_real_corpus():
     """The seed that actually ships. Asserts the measured shape of the real
-    data — 181 theses (widened from an original 18), 242 supervisor rows, 283
-    distinct names — so a rebuild that silently loses rows fails here rather
-    than in the dashboard.
+    data — 2690 theses, 4574 supervisor rows, 4988 distinct names — so a
+    rebuild that silently loses rows fails here rather than in the dashboard.
 
-    The supervisor-row floor was 244 until ``person_aliases`` landed. Two of
-    those rows were the SAME supervisor twice: "Araújo, Filipe" resolved to
-    both ``filipe-araujo`` and ``filipius-1``, which CISUC lists separately
-    and a human has since ruled one person. Collapsing them is the feature,
-    so the floor moved with it — the count of distinct supervision EDGES
-    (``build()``'s ``supervision_edges``, 241) did not change at all."""
+    The numbers were 181 / 242 / 283 while the harvest was DEI-only. They are
+    what they are now because the harvest added ``col_10316_15519``, the
+    university-wide "UC — Teses de Doutoramento" collection
+    (``estudo_geral_extractor.oai.HARVEST_SETS``): 181 DEI theses plus 2556
+    reached only through the UC umbrella, which is every doctoral thesis at
+    Coimbra rather than every doctoral thesis at the department. All three
+    figures are re-derived from a ``python -m analysis.build_thesis_facts``
+    run against this file, not carried over from a report.
+
+    The supervisor-row floor is a floor, not an equality, for the reason it
+    was one at 242: it moves when ``person_aliases`` collapses two rows that
+    are the same human (that is how 244 became 242 — "Araújo, Filipe"
+    resolving to both ``filipe-araujo`` and ``filipius-1``), and a verdict
+    like that is a feature landing, not a row silently lost. It moved again,
+    4580 -> 4574, when four more such pairs were reviewed (joao-bicker,
+    jcfgonc, cristina-costa, luis-rodrigues-3). The count of distinct
+    supervision EDGES (``build()``'s ``supervision_edges``, 4570) is the
+    figure aliasing cannot move, and it did not."""
     conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
     try:
-        assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 181
+        assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 2690
         assert conn.execute(
             "SELECT COUNT(*) FROM thesis_people WHERE role = 'supervisor'"
-        ).fetchone()[0] >= 242
+        ).fetchone()[0] >= 4574
         assert conn.execute(
             "SELECT COUNT(DISTINCT name_raw) FROM thesis_people"
-        ).fetchone()[0] == 283
+        ).fetchone()[0] == 4988
         # Every thesis carries its provenance, and nothing lost its rights flag.
         assert conn.execute("SELECT COUNT(*) FROM theses WHERE source_url IS NULL").fetchone()[0] == 0
     finally:
@@ -392,7 +435,7 @@ def test_minimal_evidence_lists_the_two_token_matches_for_human_review():
 
 
 def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
-    corpus, fixture_db, aliases, full_names, externals
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
 ):
     """End to end: a second thesis whose author's longer name also fits 'Ada
     Lovelace' must not merge the two into one student."""
@@ -404,7 +447,7 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/000002"}]), encoding="utf-8"
     )
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
     assert [c["person_slug"] for c in report["author_conflicts"]] == ["ada"]
     assert report["author_conflicts"][0]["kept"]["handle"] == "10316/000001"
 
@@ -423,14 +466,19 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         conn.close()
 
 
-def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db, aliases, full_names, externals):
-    """The ordering trap: schema.sql's UNIQUE index is created by `build()`
-    itself, so a rebuild had to clear the old rows BEFORE applying the schema
-    or the fix could never be applied to the data it fixes."""
+def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+    """The ordering trap: schema.sql's author backstop is created by `build()`
+    itself, so a rebuild has to clear the old rows BEFORE applying the schema
+    or the fix could never be applied to the data it fixes.
+
+    The seed this simulates is one from before the backstop existed at all, so
+    the setup drops both of its forms — hence dropping the trigger as well as
+    the index that preceded it."""
     conn = sqlite3.connect(fixture_db)
     try:
         conn.executescript(
             "DROP INDEX IF EXISTS idx_one_thesis_per_resolved_author;"
+            "DROP TRIGGER IF EXISTS trg_one_thesis_per_resolved_author;"
             "INSERT INTO theses (handle, slug, title, source_url) VALUES"
             " ('old/1', 'old-1', 'Old One', 'https://example.test/1'),"
             " ('old/2', 'old-2', 'Old Two', 'https://example.test/2');"
@@ -442,17 +490,387 @@ def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, 
     finally:
         conn.close()
 
-    assert build_mod.build(fixture_db, corpus, aliases, full_names, externals)["theses"] == 1
+    assert build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)["theses"] == 1
+
+
+def test_a_rebuild_in_place_drops_the_index_the_trigger_replaced(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The trap one step past the one above, and the reason schema.sql carries
+    a DROP INDEX rather than just not creating one.
+
+    Every statement in schema.sql is IF NOT EXISTS, and `build()` applies it
+    over the seed file that already exists — so a seed built before the
+    exemption landed would keep `idx_one_thesis_per_resolved_author` forever,
+    and a reviewed multi-thesis author would fail at INSERT on an index no
+    source file mentions any more. A gate-only fix passes every other test in
+    this module and dies exactly here."""
+    conn = sqlite3.connect(fixture_db)
+    try:
+        conn.executescript(
+            "DROP TRIGGER IF EXISTS trg_one_thesis_per_resolved_author;"
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_one_thesis_per_resolved_author"
+            " ON thesis_people(person_slug)"
+            " WHERE role = 'author' AND person_slug IS NOT NULL;"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+
+    conn = sqlite3.connect(fixture_db)
+    try:
+        assert conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' "
+            "AND name = 'idx_one_thesis_per_resolved_author'"
+        ).fetchall() == []
+        assert conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger' "
+            "AND name = 'trg_one_thesis_per_resolved_author'"
+        ).fetchall() == [("trg_one_thesis_per_resolved_author",)]
+    finally:
+        conn.close()
 
 
 def test_the_committed_seed_resolves_no_slug_to_two_authored_theses():
-    """The invariant, asserted on the file that actually ships."""
+    """The invariant, asserted on the file that actually ships — and on the
+    only exception to it, which is reviewed rather than merely tolerated.
+
+    A slug on two authored theses is either a false merge or a graduate whose
+    MSc dissertation and doctoral thesis are both deposited here. The
+    difference is not visible in ``thesis_people``, so this reads the seed's
+    own ``multi_thesis_authors`` table: every such slug must have a reviewed
+    entry covering *exactly* the theses it actually authors. An exemption
+    somebody widened by hand fails here, and so does a real false merge."""
+    conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
+    try:
+        multiple = {
+            slug: set(handles.split(","))
+            for slug, handles in conn.execute(
+                "SELECT person_slug, GROUP_CONCAT(DISTINCT handle) FROM thesis_people "
+                "WHERE role = 'author' AND person_slug IS NOT NULL GROUP BY person_slug "
+                "HAVING COUNT(DISTINCT handle) > 1"
+            )
+        }
+        reviewed: dict[str, set[str]] = {}
+        for slug, handle in conn.execute(
+            "SELECT person_slug, handle FROM multi_thesis_authors"
+        ):
+            reviewed.setdefault(slug, set()).add(handle)
+        assert multiple == reviewed
+    finally:
+        conn.close()
+
+
+def test_the_committed_seed_carries_the_backstop_as_a_trigger_not_a_stale_index():
+    """The shipped file, not just the source: the seed is rebuilt in place over
+    itself, so "schema.sql says so" is not evidence that the file a user
+    installs agrees."""
     conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
     try:
         assert conn.execute(
-            "SELECT person_slug FROM thesis_people WHERE role = 'author' "
-            "AND person_slug IS NOT NULL GROUP BY person_slug "
-            "HAVING COUNT(DISTINCT handle) > 1"
+            "SELECT name FROM sqlite_master WHERE name = "
+            "'idx_one_thesis_per_resolved_author'"
         ).fetchall() == []
+        assert conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = "
+            "'trg_one_thesis_per_resolved_author'"
+        ).fetchall() == [("trg_one_thesis_per_resolved_author",)]
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------
+# The reviewed exception — one graduate, an MSc and a PhD, both deposited
+#
+# The João Campos case. Both of his claims carry the IDENTICAL raw name
+# "Campos, João Rodrigues de", and both are token-set-equal to the CISUC row
+# "João Rodrigues Campos", so the gate found two set-equality claimants, could
+# prefer neither, and withdrew both. What makes the exemption safe is that it
+# is a reviewed fact about one person, not a rule about identical strings —
+# see analysis/multi_thesis_authors.py.
+# --------------------------------------------------------------------------
+
+
+def _two_theses(corpus, *handles, author="Lovelace, Ada"):
+    """The ``corpus`` fixture's one thesis, re-filed under several handles with
+    one author name — the shape a graduate's MSc and PhD have here."""
+    (corpus / "10316-000001.md").unlink()
+    for handle in handles:
+        slug = handle.replace("/", "-")
+        (corpus / f"{slug}.md").write_text(
+            THESIS_MD.replace("10316/000001", handle).replace(
+                "- Lovelace, Ada\n", f"- {author}\n"
+            ),
+            encoding="utf-8",
+        )
+    (corpus / "manifest.json").write_text(
+        json.dumps([{"handle": handle} for handle in handles]), encoding="utf-8"
+    )
+
+
+def _exemption(path, slug, *handles):
+    path.write_text(
+        json.dumps(
+            {
+                "entries": [
+                    {
+                        "slug": slug,
+                        "handles": list(handles),
+                        "source_url": "https://www.cisuc.uc.pt/en/people/ada",
+                        "evidence": "Reviewed against both OAI records: a masterThesis "
+                        "and a doctoralThesis by one graduate.",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_a_reviewed_multi_thesis_author_keeps_the_slug_on_every_listed_thesis(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """D2's whole point. Without the entry both rows are ``ambiguous`` with a
+    NULL slug (``test_with_several_set_equal_claimants_the_note_says_so``
+    below is that same input); with it, both resolve."""
+    _two_theses(corpus, "10316/000001", "10316/000002")
+    _exemption(multi_authors, "ada", "10316/000001", "10316/000002")
+
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+
+    assert report["author_conflicts"] == []
+    assert report["multi_thesis_authors"] == {"people": 1, "exempted_claims": 2}
+    conn = sqlite3.connect(fixture_db)
+    try:
+        assert sorted(
+            conn.execute(
+                "SELECT handle, person_slug, match_status FROM thesis_people "
+                "WHERE role = 'author'"
+            )
+        ) == [
+            ("10316/000001", "ada", "exact"),
+            ("10316/000002", "ada", "exact"),
+        ]
+    finally:
+        conn.close()
+
+
+def test_a_claim_the_reviewed_entry_does_not_list_is_still_demoted(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The handle list is exhaustive, and that is what keeps this a fact about
+    one person rather than a blanket licence on a slug: a third thesis the
+    review never saw is, by that review, somebody else."""
+    _two_theses(corpus, "10316/000001", "10316/000002", "10316/000003")
+    _exemption(multi_authors, "ada", "10316/000001", "10316/000002")
+
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+
+    assert [c["person_slug"] for c in report["author_conflicts"]] == ["ada"]
+    assert report["author_conflicts"][0]["demoted"] == [
+        {"handle": "10316/000003", "name_raw": "Lovelace, Ada"}
+    ]
+    assert report["author_conflicts"][0]["decision"] == (
+        "kept the 2 claims reviewed in data/multi_thesis_authors.json, demoted the rest"
+    )
+
+    conn = sqlite3.connect(fixture_db)
+    try:
+        rows = dict(
+            conn.execute(
+                "SELECT handle, person_slug FROM thesis_people WHERE role = 'author'"
+            )
+        )
+        note = conn.execute(
+            "SELECT match_note FROM thesis_people WHERE handle = '10316/000003' "
+            "AND role = 'author'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert rows == {
+        "10316/000001": "ada",
+        "10316/000002": "ada",
+        "10316/000003": None,
+    }
+    assert "data/multi_thesis_authors.json" in note
+    assert "this claim is not among them" in note
+
+
+def test_an_exemption_whose_claim_the_matcher_does_not_resolve_is_refused(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The staleness guard, and the boundary that keeps this file off the
+    matcher's side of the line: an entry may only prevent a withdrawal, never
+    create a match. An author name that changed upstream breaks the build
+    instead of leaving an exemption standing over nothing."""
+    _two_theses(corpus, "10316/000001", "10316/000002")
+    (corpus / "10316-000002.md").write_text(
+        THESIS_MD.replace("10316/000001", "10316/000002").replace(
+            "- Lovelace, Ada\n", "- Nobody, At All\n"
+        ),
+        encoding="utf-8",
+    )
+    _exemption(multi_authors, "ada", "10316/000001", "10316/000002")
+
+    with pytest.raises(
+        build_mod.multi_thesis_authors.MultiThesisAuthorError,
+        match="does not resolve the author of thesis '10316/000002'",
+    ):
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+
+
+def test_an_exemption_naming_a_thesis_outside_the_corpus_is_refused(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """A thesis withdrawn upstream leaves an exemption over a handle that is
+    gone — an unreviewed hole in the one-person-one-thesis check."""
+    _exemption(multi_authors, "ada", "10316/000001", "10316/999999")
+    with pytest.raises(
+        build_mod.multi_thesis_authors.MultiThesisAuthorError,
+        match="thesis '10316/999999' is not in this corpus",
+    ):
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+
+
+def test_with_several_set_equal_claimants_the_note_says_so(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The lying note, fixed. This is the same input as the first test in this
+    section with the exemption removed, and it used to print the no-keeper
+    text "none of them equals the CISUC row exactly" when in fact BOTH do —
+    which is what sent the original investigation of João Campos looking for a
+    matcher bug that was not there."""
+    _two_theses(corpus, "10316/000001", "10316/000002")
+
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+
+    assert report["author_conflicts"][0]["kept"] is None
+    conn = sqlite3.connect(fixture_db)
+    try:
+        notes = {
+            handle: note
+            for handle, note in conn.execute(
+                "SELECT handle, match_note FROM thesis_people WHERE role = 'author'"
+            )
+        }
+    finally:
+        conn.close()
+    for note in notes.values():
+        assert "none of them equals the CISUC row" not in note
+        assert '2 of which equal the CISUC row "Ada Lovelace" exactly' in note
+        assert "data/multi_thesis_authors.json" in note
+
+
+def test_an_exemption_listing_one_thesis_is_refused_as_a_no_op():
+    """One claim on a slug is never a conflict, so a one-handle entry exempts
+    nothing — it is a typo or the leftover of a thesis that went away, and a
+    file of no-ops is a file nobody reads."""
+    import json as _json
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        _json.dump(
+            {
+                "entries": [
+                    {
+                        "slug": "ada",
+                        "handles": ["t1"],
+                        "source_url": "https://example.test/ada",
+                        "evidence": "reviewed",
+                    }
+                ]
+            },
+            handle,
+        )
+        path = handle.name
+    with pytest.raises(
+        build_mod.multi_thesis_authors.MultiThesisAuthorError, match="at least 2"
+    ):
+        build_mod.multi_thesis_authors.load_entries(Path(path))
+
+
+def test_the_exemption_is_read_per_claim_not_per_slug():
+    """``resolve_author_conflicts`` on its own, with no build around it: the
+    exemption is keyed on (slug, handle), so listing one of two claims keeps
+    that one and demotes the other."""
+    rows = [
+        _author_row("t1", "Lovelace, Ada", "ada", status="exact", confidence=1.0),
+        _author_row("t2", "Lovelace, Ada", "ada", status="exact", confidence=1.0),
+    ]
+    out, conflicts = build_mod.resolve_author_conflicts(
+        rows, [ADA], frozenset({("ada", "t1")})
+    )
+
+    assert out[0] == rows[0]
+    assert out[1][build_mod.SLUG] is None
+    assert conflicts[0]["demoted"] == [{"handle": "t2", "name_raw": "Lovelace, Ada"}]
+
+
+def test_an_exemption_on_a_different_slug_changes_nothing():
+    """The exemption is not a global switch. A reviewed entry for somebody
+    else leaves this slug's conflict exactly as it was."""
+    rows = [
+        _author_row("t1", "Lovelace, Ada", "ada", status="exact", confidence=1.0),
+        _author_row("t2", "Lovelace, Ada Augusta Byron", "ada"),
+    ]
+    without = build_mod.resolve_author_conflicts(rows, [ADA])
+    with_other = build_mod.resolve_author_conflicts(
+        rows, [ADA], frozenset({("grace", "t1"), ("grace", "t2")})
+    )
+    assert without == with_other
+
+
+def test_the_trigger_refuses_a_second_resolved_author_row_for_an_unreviewed_slug(
+    fixture_db,
+):
+    """The backstop, at the strength the UNIQUE index had: a re-merge is
+    impossible to COMMIT even when the build pass is bypassed entirely. This
+    inserts straight into the table, as a hand-written migration or a future
+    pipeline that skipped ``resolve_author_conflicts`` would."""
+    conn = sqlite3.connect(fixture_db)
+    try:
+        conn.executescript(
+            "INSERT INTO theses (handle, slug, title, source_url) VALUES"
+            " ('t/1', 't-1', 'One', 'https://example.test/1'),"
+            " ('t/2', 't-2', 'Two', 'https://example.test/2');"
+            "INSERT INTO thesis_people VALUES"
+            " ('t/1', 'Lovelace, Ada', 'author', 'ada', 'exact', 1.0, 'ok', 0);"
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="one person authors at most one"):
+            conn.execute(
+                "INSERT INTO thesis_people VALUES "
+                "('t/2', 'Lovelace, Ada Byron', 'author', 'ada', 'exact', 1.0, 'ok', 0)"
+            )
+
+        # Reviewed, and now the same insert is allowed — the trigger reads the
+        # table rather than hard-coding the invariant.
+        conn.execute(
+            "INSERT INTO multi_thesis_authors VALUES "
+            "('ada', 't/1', 'https://example.test/ada', 'reviewed'), "
+            "('ada', 't/2', 'https://example.test/ada', 'reviewed')"
+        )
+        conn.execute(
+            "INSERT INTO thesis_people VALUES "
+            "('t/2', 'Lovelace, Ada Byron', 'author', 'ada', 'exact', 1.0, 'ok', 0)"
+        )
+
+        # Still refused on the SAME thesis, which the index also refused: two
+        # author names on one thesis resolving to one person is a double-counted
+        # student, not a multi-thesis author.
+        with pytest.raises(sqlite3.IntegrityError, match="one person authors at most one"):
+            conn.execute(
+                "INSERT INTO thesis_people VALUES "
+                "('t/2', 'Lovelace, Ada A.', 'author', 'ada', 'exact', 1.0, 'ok', 0)"
+            )
+
+        # And supervisors are exempt, exactly as the partial index was.
+        conn.execute(
+            "INSERT INTO thesis_people VALUES "
+            "('t/1', 'Hopper, Grace', 'supervisor', 'grace', 'exact', 1.0, 'ok', 0), "
+            "('t/2', 'Hopper, Grace', 'supervisor', 'grace', 'exact', 1.0, 'ok', 0)"
+        )
     finally:
         conn.close()

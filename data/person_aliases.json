@@ -44,6 +44,34 @@
       "evidence": "One CiênciaVitae CV accounts for everything BOTH slugs carry: Maria Teresa Pessoa, Ciência ID A013-8BAE-FF03, ORCID 0000-0002-5252-3618, Associate Professor at FPCE-UC, citation name 'Pessoa, Teresa'. It lists all four projects that are split across the two slugs — 'Investigador responsável' on TKCOM (586415-EPP-1-2017-1-ES-EPPKA2-CBHE-JP, teresa-pessoa's coordinator row) AND on STAR (573777-EPP-1-2016-1-CZ-EPPKA2-CBHE-JP, teresa-pessoa-1's), plus 'Investigador' on HiEdTech (598092-EPP-1-2018-1-BG-EPPKA2-CBHE-SP) and LeAGUe (543839-TEMPUS-1-2013-1-SE-TEMPUS-SMHES) — and both of the two DISJOINT publication sets CISUC files under the pages' two internal user ids (1313: 'Learning Computational Thinking and scratch at distance', Computers in Human Behavior 80; 'Ensinar a distância na Universidade de Coimbra', Cadernos de Pedagogia no Ensino Superior 23. 2335: 'iProg: Experiência Pedagógica com Scratch', SIIE 2016; 'All in Scratch', Scratch 2017; 'Using Scratch to teach and learn english as a foreign language', IJELS 1). The CV's own summary says she coordinated the Portuguese team of exactly 'dois projetos Erasmus+ | Capacity Building Projects' — the two coordinator rows, one per slug. The differing mailbox is CISUC's typo and not a second human: teresa-pessoa-1 publishes tpessoa@fpce.uc.pt, the address printed under her name in Comunicar 38 (2012, 'De lo sólido a lo líquido', Area & Pessoa — 'Facultad de Psicología y Ciencias de la Educación de la Universidad de Coimbra (Portugal) (tpessoa@fpce.uc.pt)'), while teresa-pessoa's tpeassoa@fpce.uc.pt occurs nowhere on the web except that one CISUC page. Neither slug is in CISUC's current 740-row directory and neither page publishes a category, a research group or an ORCID, so the two pages alone could not settle this — the CV is what does. Canonical teresa-pessoa for the project history (3 of the 4 projects, 14 of the 22 publications). First pair here where BOTH slugs carry coordinator rows, which is why sql/top_coordinators.sql resolves through this table."
     },
     {
+      "a": "c-costa",
+      "b": "cristina-costa",
+      "verdict": "same",
+      "canonical": "cristina-costa",
+      "evidence": "Both CISUC pages publish the byte-identical four-token display name \"Cristina Margarida Chuva Costa\", and the two addresses are the same human at her two institutions, the s-paredes shape: cristina-costa publishes chuva@isec.pt ('chuva', her Coimbra Institute of Engineering staff mailbox) and c-costa publishes cris@dei.uc.pt (her UC Informatics Engineering mailbox, where she took the 2014 doctorate this corpus holds as 10316/24163). cristina-costa is the live directory profile — Collaborator, Information Systems, with six published research interests (Actor-Network Theory, e-commerce, information systems design, inter-organizational business models, structuration theory, workflow requirements); c-costa is a stub carrying only the name, the mailbox and ORCID 0000-0003-1681-0078. Neither slug has project history, so canonical cristina-costa for the richer profile — it is the one with the category, the research group and the interests, and the ORCID on the alias row is unioned into the profile by uc_phd_app/api/people.py. These are the only two Cristina Chuva Costa rows in the 905-row roster. Pages re-fetched 2026-10-18."
+    },
+    {
+      "a": "jcfgonc",
+      "b": "joao-goncalves",
+      "verdict": "same",
+      "canonical": "jcfgonc",
+      "evidence": "The decisive evidence is that one page publishes the other page's slug as its email: joao-goncalves publishes jcfgonc@gmail.com, and `jcfgonc` is literally the slug CISUC filed the second entry under — the filipe-araujo/filipius-1 pattern exactly. Both pages publish the display name \"João Gonçalves\", both are in Cognitive and Media Systems, both are student records, and the research interests overlap almost completely (jcfgonc: computational creativity, cognitive sciences, AI, machine learning, high-performance computing, computer graphics; joao-goncalves: cognitive modelling, computational creativity, high-performance computing, machine learning). jcfgonc is the full profile — Ph.D. student, DEI/CISUC, jcgonc@dei.uc.pt, ORCID 0000-0002-0981-2625, with a biography, academic background and professional experience; joao-goncalves is a stub with the gmail address and one project (SmartDispenser). Canonical jcfgonc for the ORCID, the institutional mailbox and the category: the project row on the alias is unioned into the profile by uc_phd_app/api/people.py and resolved by sql/top_coordinators.sql, so the canonical choice does not cost it. Pages re-fetched 2026-10-18."
+    },
+    {
+      "a": "joao-bicker",
+      "b": "joao-bicker-1",
+      "verdict": "same",
+      "canonical": "joao-bicker",
+      "evidence": "Two mailboxes at the SAME UC department, both spelling the same name: joao-bicker publishes bicker@dei.uc.pt and joao-bicker-1 publishes jbicker@dei.uc.pt. Both pages publish the byte-identical display name \"João Bicker\" and there is no second Bicker anywhere in the 905-row roster — the surname occurs twice, on these two rows. The project history is DISJOINT and entirely one person's subject, which is the teresa-pessoa pattern (one career split across two directory entries rather than two careers): joao-bicker carries CERAMORFOSE, A Coin designed by AI, NEXUS Innovation Pact, LEXIA and MomentumZai; joao-bicker-1 carries Web infrastructure for CAPC and Ano Zero, and Visualyzart — all seven are Coimbra design-computing and visual-culture projects, and both rows are 'researcher'. joao-bicker is the live profile (Integrated Researcher, Cognitive and Media Systems); joao-bicker-1 publishes no category and no group. Canonical joao-bicker for the category, the group and five of the seven projects. Pages re-fetched 2026-10-18."
+    },
+    {
+      "a": "luis-rodrigues",
+      "b": "luis-rodrigues-3",
+      "verdict": "same",
+      "canonical": "luis-rodrigues-3",
+      "evidence": "Same mailbox LOCAL PART at the two Lisbon institutions this man held in sequence, and the local part is his initials: luis-rodrigues publishes ler@di.fc.ul.pt (Department of Informatics, Faculty of Sciences, University of Lisbon) and luis-rodrigues-3 publishes ler@ist.utl.pt (Instituto Superior Tecnico) — 'ler' for Luis Eduardo Rodrigues, which is how Estudo Geral names him on the thesis this pair resolves: \"Rodrigues, Luis Eduardo Teixeira\", supervisor of 10316/10200. The one project on each row is his own field on both sides: HPCoLSI (High Performance Computing over the Large-Scale Internet) on luis-rodrigues and ADAAS (Assuring Dependability in Architecture-based Adaptive Systems) on luis-rodrigues-3 — distributed systems and dependability. Both pages are 'Former member, Student' stubs with no ORCID, so the project history (one each, unioned by uc_phd_app/api/people.py) cannot decide the canonical; luis-rodrigues-3 is canonical because its published form, \"Luis Rodrigues\" with the accent and correct capitalisation, is the string this app renders, while luis-rodrigues publishes the mis-cased \"Luis rodrigues\". Pages re-fetched 2026-10-18."
+    },
+    {
       "a": "nuno-silva",
       "b": "nuno-silva-1",
       "verdict": "distinct",
@@ -84,6 +112,20 @@
       "verdict": "distinct",
       "canonical": null,
       "evidence": "Different humans. nuno-silva-2 is 'Nuno Silva', nunofilipecruzsilva@gmail.com (Nuno Filipe Cruz Silva), Adaptive Computation; nuno-silva-4 is 'Nuno Pedro de Jesus Silva', npsilva@dei.uc.pt, Software and Systems Engineering. Different mailboxes, different groups — the middle names the two addresses spell out ('filipe cruz' vs 'pedro de jesus') are incompatible."
+    },
+    {
+      "a": "luis-rodrigues",
+      "b": "luis-rodrigues-2",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "Different humans whose names fold to one string, the nuno-silva shape. luis-rodrigues is the Lisbon distributed-systems academic — ler@di.fc.ul.pt, the HPCoLSI project, and the same mailbox local part as luis-rodrigues-3, with whom he IS one person. luis-rodrigues-2 publishes luisr@student.dei.uc.pt, a University of Coimbra Informatics Engineering STUDENT address, is in Cognitive and Media Systems, and his two projects are e-learning personalisation (PEGECEL, PERSONA) — a different institution, a different group and a different field. Recorded so scraper/people.py stops re-flagging the pair. Pages re-fetched 2026-10-18."
+    },
+    {
+      "a": "luis-rodrigues-2",
+      "b": "luis-rodrigues-3",
+      "verdict": "distinct",
+      "canonical": null,
+      "evidence": "The same decision as luis-rodrigues/luis-rodrigues-2, stated for the second half of that merged pair so the detection pass has a verdict on every edge of this three-row family: luis-rodrigues-3 is ler@ist.utl.pt (Instituto Superior Tecnico, dependability, the ADAAS project), luis-rodrigues-2 is luisr@student.dei.uc.pt (a UC Informatics Engineering student in Cognitive and Media Systems, e-learning personalisation). Different institutions, different groups, different fields. Pages re-fetched 2026-10-18."
     }
   ]
 }

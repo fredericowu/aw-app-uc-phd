@@ -226,10 +226,80 @@ CREATE INDEX IF NOT EXISTS idx_thesis_people_role ON thesis_people(role);
 -- with a NULL slug and there are many of them, and one supervisor on many
 -- theses is the normal case, not a conflict. The invariant is enforced at
 -- build time by analysis/build_thesis_facts.py, which demotes the losing
--- claimant with a note; this index is the backstop that makes a re-merge
+-- claimant with a note; what follows is the backstop that makes a re-merge
 -- impossible to commit even if that pass is ever bypassed.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_one_thesis_per_resolved_author
-    ON thesis_people(person_slug) WHERE role = 'author' AND person_slug IS NOT NULL;
+--
+-- It used to be a partial UNIQUE index, `idx_one_thesis_per_resolved_author`
+-- ON thesis_people(person_slug) WHERE role = 'author' AND person_slug IS NOT
+-- NULL. It stopped being able to be one when the invariant acquired a
+-- reviewed exception: a graduate whose MSc dissertation AND doctoral thesis
+-- are both deposited here is one person with two authored theses
+-- (data/multi_thesis_authors.json, analysis/multi_thesis_authors.py), and
+-- SQLite's partial-index predicate cannot subquery, so it cannot ask whether
+-- a pair has been reviewed. A BEFORE INSERT trigger can, and it keeps the
+-- guarantee at the same strength rather than downgrading the backstop to
+-- "the build pass and the tests" — which is what simply dropping the index
+-- would have done.
+--
+-- DROP INDEX, not a comment: `build()` applies this file over the COMMITTED
+-- seed with `executescript`, and every statement here is IF NOT EXISTS, so a
+-- rebuild in place would otherwise keep the stale index alive in the shipped
+-- file and fail on the very row the exemption exists to allow.
+DROP INDEX IF EXISTS idx_one_thesis_per_resolved_author;
+
+-- The reviewed exceptions, one row per exempted (person, thesis) claim.
+--
+-- Written offline by `python -m analysis.build_thesis_facts` from the
+-- curated, human-reviewed data/multi_thesis_authors.json — see
+-- analysis/multi_thesis_authors.py for why a reviewed per-person fact is the
+-- only acceptable shape for this, and why the rule version of it ("claims
+-- that are byte-identical are safe") was weighed and rejected.
+--
+-- The build writes this table BEFORE thesis_people, because the trigger
+-- below reads it. That is an ordering fact, stated in `build()`'s docstring.
+CREATE TABLE IF NOT EXISTS multi_thesis_authors (
+    person_slug TEXT NOT NULL REFERENCES people(slug),
+    handle      TEXT NOT NULL REFERENCES theses(handle),
+    source_url  TEXT NOT NULL,   -- the citable page the review was read off.
+    evidence    TEXT NOT NULL,   -- why a human is satisfied it is one person. Not optional.
+    PRIMARY KEY (person_slug, handle)
+);
+
+-- Two resolved author rows may share a person_slug only when both of their
+-- (person_slug, handle) pairs are reviewed above AND they are on different
+-- theses. With the table empty this is exactly the old index: the first
+-- condition fails, so any second resolved author row on a slug aborts.
+--
+-- The same-thesis case stays forbidden in both directions, which the old
+-- index also forbade: two author names on ONE thesis both resolving to one
+-- person is a double-counted student, not a multi-thesis author, and the
+-- build pass demotes it.
+CREATE TRIGGER IF NOT EXISTS trg_one_thesis_per_resolved_author
+BEFORE INSERT ON thesis_people
+WHEN NEW.role = 'author' AND NEW.person_slug IS NOT NULL
+BEGIN
+    -- One string literal, not three adjacent ones: SQLite has no implicit
+    -- string concatenation, and three would be a syntax error in every
+    -- `executescript` that applies this file.
+    SELECT RAISE(ABORT, 'one person authors at most one thesis in this corpus: this person_slug already carries a resolved author row, and data/multi_thesis_authors.json does not review both claims as the same human on two different theses')
+    WHERE EXISTS (
+        SELECT 1
+        FROM thesis_people existing
+        WHERE existing.role = 'author'
+          AND existing.person_slug = NEW.person_slug
+          AND NOT (
+              existing.handle <> NEW.handle
+              AND EXISTS (
+                  SELECT 1 FROM multi_thesis_authors m
+                  WHERE m.person_slug = NEW.person_slug AND m.handle = NEW.handle
+              )
+              AND EXISTS (
+                  SELECT 1 FROM multi_thesis_authors m
+                  WHERE m.person_slug = existing.person_slug AND m.handle = existing.handle
+              )
+          )
+    );
+END;
 
 -- A researched identity for a thesis mention that will never get a slug.
 --

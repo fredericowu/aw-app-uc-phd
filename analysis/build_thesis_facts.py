@@ -44,7 +44,7 @@ import yaml
 # nothing and opens no socket.
 from estudo_geral_extractor.oai import HARVEST_SETS
 
-from . import external_people, person_aliases, person_full_names
+from . import external_people, multi_thesis_authors, person_aliases, person_full_names
 from .name_match import (
     AMBIGUOUS,
     CONFIDENCE,
@@ -160,7 +160,7 @@ def people_rows(front_matter: dict, people: list[Person], cache: dict) -> list[t
       and demote; written as the raw slugs they would slip past as two
       separate claimants, which is exactly the false merge that pass exists
       to catch — only harder to see, because the two slugs are one person.
-    * ``idx_one_thesis_per_resolved_author`` (scraper/schema.sql) then sees
+    * ``trg_one_thesis_per_resolved_author`` (scraper/schema.sql) then sees
       canonical slugs too, so the backstop guards the same thing the pass
       does rather than a weaker version of it.
 
@@ -198,8 +198,25 @@ def _token_set(text: str) -> frozenset:
     return frozenset(tokenize(text))
 
 
+def resolved_author_claims(rows: list[tuple]) -> set[tuple[str, str]]:
+    """``{(person_slug, handle)}`` for every author the matcher resolved.
+
+    Read off the rows BEFORE ``resolve_author_conflicts`` runs, because that
+    is the fact ``analysis/multi_thesis_authors.validate`` has to check an
+    exemption against: an entry is only legitimate while the matcher still
+    independently resolves both of its claims.
+    """
+    return {
+        (row[SLUG], row[HANDLE])
+        for row in rows
+        if row[ROLE] == "author" and row[SLUG] is not None
+    }
+
+
 def resolve_author_conflicts(
-    rows: list[tuple], people: list[Person]
+    rows: list[tuple],
+    people: list[Person],
+    exempt_claims: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[list[tuple], list[dict]]:
     """One ``people`` row authors at most one thesis — enforced over the corpus.
 
@@ -218,6 +235,17 @@ def resolve_author_conflicts(
     that is now what it is. Zero or several set-equal claimants means nothing
     separates them, so all of them are demoted.
 
+    ``exempt_claims`` is ``{(person_slug, handle)}`` from the reviewed
+    ``data/multi_thesis_authors.json`` (``analysis/multi_thesis_authors.py``):
+    a human has read both records and confirmed one graduate with two deposits
+    — an MSc dissertation and a doctoral thesis, which is the one shape where
+    the rule above is wrong about a real person. On a slug with exemptions,
+    every exempted claim keeps its slug and **every claim the entry does not
+    list is demoted**, because the handle list is exhaustive: an unlisted
+    claim is, by that reviewed fact, somebody else. A slug whose claims are
+    all exempted is not a conflict at all and is not reported as one. With no
+    exemptions, nothing below changes.
+
     **Authors only.** One supervisor across many theses is the normal case and
     the whole point of the advisor view; the same rule there would delete it.
     """
@@ -234,22 +262,45 @@ def resolve_author_conflicts(
     demotions: dict[tuple[str, str], str] = {}
     for slug in sorted(s for s, by_claimant in claimants.items() if len(by_claimant) > 1):
         by_claimant = claimants[slug]
+        reviewed = sorted(c for c in by_claimant if (slug, c[0]) in exempt_claims)
+        if len(reviewed) == len(by_claimant):
+            # Every claim on this slug is a reviewed deposit of one graduate.
+            # Not a conflict, so not reported as one — and nothing to demote.
+            continue
         equal = sorted(c for c, is_equal in by_claimant.items() if is_equal)
-        keeper = equal[0] if len(equal) == 1 else None
+        keeper = None if reviewed else (equal[0] if len(equal) == 1 else None)
         for claimant in sorted(by_claimant):
-            if claimant == keeper:
+            if claimant == keeper or claimant in reviewed:
                 continue
-            if keeper is not None:
+            if reviewed:
+                reason = (
+                    f"the reviewed entry for {slug} in data/multi_thesis_authors.json "
+                    f"lists {', '.join(handle for handle, _ in reviewed)}, and this "
+                    "claim is not among them, so that review says it is somebody else"
+                )
+            elif keeper is not None:
                 reason = (
                     f"slug {slug} is also claimed by thesis {keeper[0]}, whose author "
                     f'"{keeper[1]}" equals the CISUC row "{names[slug]}" exactly; this '
                     "subset claim cannot be confirmed against it"
                 )
+            elif equal:
+                # The João Campos shape: several claims ARE set-equal to the
+                # row, so the "none of them equals it" branch below would be
+                # a lie — and the lie is what sent one investigation of this
+                # exact case looking for a matching bug that was not there.
+                reason = (
+                    f"slug {slug} is claimed by {len(by_claimant)} thesis authors, "
+                    f'{len(equal)} of which equal the CISUC row "{names[slug]}" '
+                    "exactly, so nothing separates them; if this really is one "
+                    "person with several theses in this corpus, record it in "
+                    "data/multi_thesis_authors.json"
+                )
             else:
                 reason = (
-                    f"slug {slug} is claimed by {len(by_claimant)} different thesis "
-                    f'author names and none of them equals the CISUC row '
-                    f'"{names[slug]}" exactly; no claim can be preferred over another'
+                    f"slug {slug} is claimed by {len(by_claimant)} thesis authors and "
+                    f'none of them equals the CISUC row "{names[slug]}" exactly; no '
+                    "claim can be preferred over another"
                 )
             demotions[claimant] = (
                 f"Resolved to {slug} on the name alone, then withdrawn: one person "
@@ -263,10 +314,13 @@ def resolve_author_conflicts(
                 "demoted": [
                     {"handle": handle, "name_raw": name_raw}
                     for handle, name_raw in sorted(by_claimant)
-                    if (handle, name_raw) != keeper
+                    if (handle, name_raw) != keeper and (handle, name_raw) not in reviewed
                 ],
                 "decision": (
-                    "kept the one set-equality claim, demoted the rest"
+                    f"kept the {len(reviewed)} claims reviewed in "
+                    "data/multi_thesis_authors.json, demoted the rest"
+                    if reviewed
+                    else "kept the one set-equality claim, demoted the rest"
                     if keeper
                     else "no single set-equality claim — demoted every claimant"
                 ),
@@ -375,6 +429,7 @@ def build(
     aliases_path: Path | None = None,
     full_names_path: Path | None = None,
     external_people_path: Path | None = None,
+    multi_thesis_authors_path: Path | None = None,
 ) -> dict:
     """Rebuild the three tables from scratch. Returns what it wrote.
 
@@ -384,6 +439,19 @@ def build(
     transaction too but on the far side of the matching, because what it is
     validated against is this build's *output*: an entry has to name a row
     that exists and is still ``unmatched``.
+
+    ``multi_thesis_authors`` is the one curated file whose two halves straddle
+    the matching, and the order is load-bearing in both directions:
+
+    * it is **read** before ``resolve_author_conflicts``, which consumes the
+      exemptions;
+    * it is **checked** after it, against the claims the matcher resolved on
+      its own — an exemption with no live claim behind it is a hole in the
+      one-person-one-thesis check, not a harmless leftover;
+    * and its **table is written before the ``thesis_people`` rows**, because
+      ``scraper/schema.sql``'s ``trg_one_thesis_per_resolved_author`` reads it
+      on every insert. That is the one ordering fact a trigger has that the
+      UNIQUE index it replaced did not.
     """
     front_matters = load_front_matters(estudo_geral_dir)
     reconcile(front_matters, estudo_geral_dir / "manifest.json")
@@ -418,6 +486,11 @@ def build(
         full_names = person_full_names.load_and_write(conn, full_names_path)
         people = load_people(conn)
 
+        # Shape-checked here, identity-checked below: the conflict pass needs
+        # the exemptions, and the only facts that can judge them are that
+        # pass's own input.
+        multi_entries = multi_thesis_authors.load_entries(multi_thesis_authors_path)
+
         cache: dict = {}
         theses = [thesis_row(fm) for fm in front_matters]
         thesis_people: list[tuple] = []
@@ -428,10 +501,21 @@ def build(
             thesis_keywords += keyword_rows(fm)
             thesis_sets += set_rows(fm)
 
-        thesis_people, author_conflicts = resolve_author_conflicts(thesis_people, people)
+        multi_thesis_authors.validate(
+            multi_entries,
+            {identity_of(person) for person in people},
+            {fm["handle"] for fm in front_matters},
+            resolved_author_claims(thesis_people),
+        )
+        thesis_people, author_conflicts = resolve_author_conflicts(
+            thesis_people, people, multi_thesis_authors.exempt_claims(multi_entries)
+        )
         minimal_evidence = minimal_evidence_matches(thesis_people, people)
 
         conn.executemany("INSERT INTO theses VALUES (?,?,?,?,?,?,?,?,?,?)", theses)
+        # Before the thesis_people rows, not after: the trigger that replaced
+        # idx_one_thesis_per_resolved_author reads this table on every insert.
+        multi = multi_thesis_authors.write_table(conn, multi_entries)
         conn.executemany("INSERT INTO thesis_people VALUES (?,?,?,?,?,?,?,?)", thesis_people)
         conn.executemany("INSERT INTO thesis_keywords VALUES (?,?,?)", thesis_keywords)
         conn.executemany("INSERT INTO thesis_sets VALUES (?,?)", thesis_sets)
@@ -452,6 +536,7 @@ def build(
         "theses": len(theses),
         "person_aliases": aliases,
         "person_full_names": full_names,
+        "multi_thesis_authors": {"people": len(multi_entries), "exempted_claims": multi},
         "external_people": externals,
         "thesis_people_rows": len(thesis_people),
         "thesis_keywords": len(thesis_keywords),
@@ -488,6 +573,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--person-aliases", type=Path, default=None)
     parser.add_argument("--person-full-names", type=Path, default=None)
     parser.add_argument("--external-people", type=Path, default=None)
+    parser.add_argument("--multi-thesis-authors", type=Path, default=None)
     args = parser.parse_args(argv)
 
     report = build(
@@ -496,6 +582,7 @@ def main(argv: list[str] | None = None) -> int:
         args.person_aliases,
         args.person_full_names,
         args.external_people,
+        args.multi_thesis_authors,
     )
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0

@@ -151,11 +151,18 @@ def _insert_author(conn, handle, name_raw, slug):
 def test_one_resolved_person_cannot_author_two_theses(fixture_db):
     """The DB-level backstop for the pedro-martins false merge. The matcher
     and analysis/build_thesis_facts.py's conflict pass are what make this
-    index satisfiable; the index is what makes a regression uncommittable."""
+    satisfiable; the backstop is what makes a regression uncommittable.
+
+    It is a BEFORE INSERT trigger rather than the partial UNIQUE index it
+    started as, because the invariant acquired a reviewed exception — a
+    graduate with both an MSc and a PhD deposited here — and a SQLite partial
+    index cannot subquery the table that records it. Hence the message this
+    matches on is the trigger's own RAISE and not sqlite's index text; the
+    exempted path is covered in tests/test_build_thesis_facts.py."""
     conn = sqlite3.connect(fixture_db)
     try:
         _insert_author(conn, "10316/900001", "Lovelace, Ada", "ada")
-        with pytest.raises(sqlite3.IntegrityError, match="thesis_people.person_slug"):
+        with pytest.raises(sqlite3.IntegrityError, match="one person authors at most one"):
             _insert_author(conn, "10316/900002", "Lovelace, Ada Byron", "ada")
     finally:
         conn.close()

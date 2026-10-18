@@ -119,12 +119,34 @@ different people wrote those two theses. Resolution:
 **Supervisors are exempt.** One supervisor across many theses is the normal
 case and the entire point of the advisor view.
 
-The escape hatch, if a genuine dual doctorate ever appears in this corpus: the
-build demotes both claims and lists the conflict in `author_conflicts`, and
-`scraper/schema.sql`'s partial unique index
-(`idx_one_thesis_per_resolved_author`) refuses to let a re-merge be committed
-at all. That is loud by design — a real second doctorate has to be a human
-decision recorded here, not something the matcher quietly absorbs. Note that
+The escape hatch, when a genuine multi-thesis author appears in this corpus:
+the build demotes both claims and lists the conflict in `author_conflicts`,
+and the backstop in `scraper/schema.sql` refuses to let a re-merge be
+committed at all. That is loud by design — a real second thesis has to be a
+human decision recorded somewhere, not something the matcher quietly absorbs.
+
+**It appeared in 2026-10, and that somewhere is now
+`data/multi_thesis_authors.json`.** The corpus grew to 2690 theses including
+the university-wide collection, and João Rodrigues Campos's MSc dissertation
+(`10316/83144`, 2017) and doctoral thesis (`10316/100421`, 2022) are both
+deposited under the identical author string "Campos, João Rodrigues de" —
+both token-set-equal to the CISUC row, so the gate found two set-equality
+claimants, could prefer neither and withdrew both links. The fourth curated
+file records the reviewed fact that this is one graduate with two deposits,
+keyed on the slug with an **exhaustive** list of handles; a claim on that
+slug for a handle the entry does not list is demoted exactly as before.
+`analysis/multi_thesis_authors.py` explains why this is a reviewed per-person
+fact and not the rule it looks like it could be ("claims that are
+byte-identical are safe" — rejected: byte-identical is the *maximally*
+similar pair of claims in a corpus whose core trap is that similarity is not
+identity).
+
+The backstop changed shape with it. It was a partial UNIQUE index,
+`idx_one_thesis_per_resolved_author` ON `thesis_people(person_slug)`; a
+SQLite partial-index predicate cannot subquery, so it cannot ask whether a
+pair has been reviewed, and it is now a BEFORE INSERT trigger,
+`trg_one_thesis_per_resolved_author`, which reads the `multi_thesis_authors`
+seed table. With that table empty the trigger is exactly the old index. Note that
 `people.slug` was **already** the primary key of `people`; a unique student
 slug was never the missing piece. The defect was the other direction, a wrong
 many-people → one-slug *mapping*, which no key on `people` can see.
@@ -454,7 +476,7 @@ to_slug, evidence)` inside the seed; `scraper/schema.sql` adds a
 candidates that all share one canonical identity
 (`name_match._one_canonical`), `build_thesis_facts.people_rows` writes the
 **canonical** slug — which is what makes `resolve_author_conflicts` and
-`idx_one_thesis_per_resolved_author` see one person rather than two slugs —
+`trg_one_thesis_per_resolved_author` see one person rather than two slugs —
 and the profile aggregates across the group with the merge stated on the page.
 
 **Why this is not option C in disguise.** C was a table of *thesis name ->

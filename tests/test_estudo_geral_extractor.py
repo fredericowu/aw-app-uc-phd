@@ -327,12 +327,15 @@ def test_carried_forward_entry_synthesises_one_when_the_manifest_has_no_row():
     }
 
 
-def test_harvest_sets_are_the_four_requested_communities():
-    """CISUC's own community (com_10316_27707, measured 0 theses) and the
-    UC-wide umbrella are deliberately NOT in scope — see the card."""
+def test_harvest_sets_are_the_five_requested_sets():
+    """CISUC's own community (com_10316_27707, measured 0 theses) is
+    deliberately NOT in scope. col_10316_15519 (the university-wide
+    doctoral-theses collection) was added to catch theses cross-listed
+    under none of DEI/INESCC/ISR/IT — see the card."""
     assert HARVEST_SETS == {
         "com_10316_255": "DEI",
         "com_10316_27710": "INESCC",
         "com_10316_27713": "ISR",
         "com_10316_47572": "IT",
+        "col_10316_15519": "UC",
     }

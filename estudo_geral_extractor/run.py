@@ -184,7 +184,9 @@ def process_one(session, handle, oai_sets, keep_pdfs=False):
     front_matter = build_front_matter(fields, entry["source_url"], oai_sets)
     md = render_markdown(front_matter, body_text)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    (OUTPUT_DIR / f"{handle_to_slug(handle)}.md").write_text(md, encoding="utf-8")
+    # PDF text extraction occasionally yields lone UTF-16 surrogate codepoints
+    # (malformed source PDFs), which strict utf-8 encoding rejects outright.
+    (OUTPUT_DIR / f"{handle_to_slug(handle)}.md").write_text(md, encoding="utf-8", errors="replace")
 
     entry["full_text"] = full_text
     return entry

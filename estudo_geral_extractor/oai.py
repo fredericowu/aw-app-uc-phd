@@ -1,8 +1,11 @@
 """OAI-PMH enumeration of estudogeral.uc.pt's doctoral-thesis population.
 
-`HARVEST_SETS` is the scope: DEI plus the three institutes CISUC researchers
-also deposit under (INESCC, ISR, IT). `run.py` enumerates each and merges by
-handle, because the same thesis is routinely listed in several of them.
+`HARVEST_SETS` is the scope: DEI, the three institutes CISUC researchers also
+deposit under (INESCC, ISR, IT), and `col_10316_15519` — the university-wide
+"UC - Teses de Doutoramento" collection, which catches a doctoral thesis that
+is cross-listed under none of the above (e.g. only the UC-wide umbrella
+community). `run.py` enumerates each and merges by handle, because the same
+thesis is routinely listed in several of them.
 
 No deposit-date floor: `fetch_all_records` harvests a community set's full
 history (DEI's `com_10316_255` is ~891 records all-time), and `select_dei_doctoral_theses`
@@ -14,19 +17,24 @@ date) and additionally required `dc:date` year >= 2024, yielding 18 theses;
 that floor is gone per the corpus-widening decision — corpus scope is a row
 attribute in the store, not a harvest-time filter.
 """
+import time
 from xml.etree import ElementTree as ET
+
+import requests
 
 OAI_BASE = "https://estudogeral.uc.pt/oai/request"
 SET_SPEC = "com_10316_255"  # DEI community
 METADATA_PREFIX = "oai_dc"
 
-#: The communities this corpus harvests, and the short label each stands for.
+#: The sets this corpus harvests, and the short label each stands for. Most
+#: are communities; `col_10316_15519` is a collection (the university-wide
+#: doctoral-theses one) kept in the same map for the same reason.
 #:
 #: DEI alone was the corpus until CISUC researchers turned out to deposit under
 #: the institutes they also belong to, so a thesis cross-listed nowhere near
 #: DEI was invisible to the harvest. The map is a constant and not a config
-#: file because adding a community is a corpus-scope decision someone has to
-#: make on a card, not a knob to turn.
+#: file because adding a set is a corpus-scope decision someone has to make on
+#: a card, not a knob to turn.
 #:
 #: `com_10316_27707` (CISUC's own community) is deliberately absent: measured
 #: 0 theses. Labels are for the run output and for grouping queries over
@@ -36,6 +44,7 @@ HARVEST_SETS = {
     "com_10316_27710": "INESCC",
     "com_10316_27713": "ISR",
     "com_10316_47572": "IT",
+    "col_10316_15519": "UC",
 }
 
 NS = {
@@ -86,6 +95,24 @@ def select_dei_doctoral_theses(records):
     return selected
 
 
+def _get_page_with_retry(session, params, max_attempts=3, sleep_between_attempts=None):
+    """GET one OAI-PMH page, retrying on a transient 5xx — see download.py's
+    download_pdf for the same pattern. The live endpoint flakes on roughly
+    1-in-several-dozen requests across a multi-hundred-page harvest, so a
+    harvest with no retry here cannot be expected to ever finish."""
+    last_exc = None
+    for attempt in range(max_attempts):
+        if attempt > 0:
+            time.sleep(sleep_between_attempts(attempt) if sleep_between_attempts else 2**attempt)
+        r = session.get(OAI_BASE, params=params, timeout=30)
+        if 500 <= r.status_code < 600:
+            last_exc = requests.HTTPError(f"{r.status_code} Server Error for url: {r.url}", response=r)
+            continue
+        r.raise_for_status()
+        return r
+    raise last_exc
+
+
 def fetch_all_records(session, set_spec=SET_SPEC, from_date=None, metadata_prefix=METADATA_PREFIX, sleep=None):
     """Paginate ListRecords via resumptionToken. Yields parsed record dicts.
 
@@ -96,8 +123,7 @@ def fetch_all_records(session, set_spec=SET_SPEC, from_date=None, metadata_prefi
     if from_date:
         params["from"] = from_date
     while True:
-        r = session.get(OAI_BASE, params=params, timeout=30)
-        r.raise_for_status()
+        r = _get_page_with_retry(session, params)
         root = ET.fromstring(r.content)
         list_records = root.find("oai:ListRecords", NS)
         if list_records is None:

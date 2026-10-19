@@ -86,16 +86,6 @@
       "evidence": "His CiênciaVitae record declares \"Nome completo: JOAQUIM MANUEL SOARES CEREJEIRA\", Associate Professor at UC's Faculty of Medicine, specialist in old-age psychiatry, researcher at the Center for Innovation in Biomedicine and Biotechnology, and Clinical Director of the private psychiatric units of Coimbra and Aveiro (111E-C45C-3DDA, read 2026-10-16). He co-supervised a serious-games cognitive-assessment thesis for older adults from medicine, not informatics — a different UC faculty, so no CISUC row applies."
     },
     {
-      "handle": "10316/31011",
-      "name_raw": "Cruz, Luís Alberto da Silva",
-      "role": "supervisor",
-      "display_name": "Luís Alberto da Silva Cruz",
-      "affiliation": "University of Coimbra – DEEC, and Instituto de Telecomunicações (a different UC research unit from CISUC)",
-      "source_url": "https://www.cienciavitae.pt/portal/7E1F-6BAD-07EA",
-      "note": "This is one of the two names measured-rejected relaxation B resolved WRONGLY, to \"Luís Silva\" (docs/thesis-attribution.md). Luís Cruz is not Luís Silva, and this entry must never be read as licence to resolve him: it attaches a display name and carries no person_slug.",
-      "evidence": "His CiênciaVitae record declares \"Nome completo: Luis Alberto da Silva Cruz\" — token-for-token the Estudo Geral form — at UC's Department of Electrical and Computer Engineering since 1990 and a researcher at Instituto de Telecomunicações de Coimbra since 1994, working on image and video processing and coding (7E1F-6BAD-07EA, read 2026-10-16). He is internal to UC and external to CISUC, which is why no `people` row exists."
-    },
-    {
       "handle": "10316/20004",
       "name_raw": "Domingo-Pascual, Jordi",
       "role": "supervisor",

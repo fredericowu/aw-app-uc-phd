@@ -8,6 +8,18 @@ name against the ``people`` table with ``analysis.name_match``, and writes
 ``theses`` / ``thesis_people`` / ``thesis_keywords`` / ``thesis_sets`` into
 ``data/cisuc.sqlite3``.
 
+Two pools, in a fixed order
+---------------------------
+``people`` stopped being one directory the moment UC's per-unit staff pages
+were harvested into it (``scraper/uc_directories/``), so the matching runs
+TWICE and the order is a semantic fact, not an implementation detail. Pass 1
+is CISUC's own directory and is byte-for-byte what this script always did;
+pass 2 is UC's unit directories and is consulted only for a supervisor
+mention pass 1 left unmatched. ``people_rows`` below has the full set of
+fences and the reason for each. Nothing merges the two pools, and the build
+report keeps their numbers apart for the same reason: a figure this repo has
+published must keep meaning what it meant.
+
 Why the seed and not Postgres. Every join partner — people, project_people,
 project_groups, project_partners — is already in this file, so structured
 thesis facts anywhere else make every advisor or collaboration query a
@@ -114,16 +126,67 @@ def reconcile(front_matters: list[dict], manifest_path: Path) -> None:
 #: name. LEFT JOINs rather than queries folded together in Python — both are
 #: properties of the row, and a row carrying neither must come back with NULLs
 #: rather than be absent. Both join on a PRIMARY KEY, so neither fans out.
-_PEOPLE_SQL = """
+#:
+#: The one filter is what splits the two pools below: a ``people`` row with no
+#: ``directory_listings`` row came from CISUC's own People directory, exactly
+#: as every row did before UC's per-unit directories existed
+#: (``scraper/schema.sql``). Scope is derived from that join and asserted
+#: nowhere.
+_CISUC_PEOPLE_SQL = """
 SELECT p.slug, p.name, a.to_slug, f.full_name
 FROM people p
 LEFT JOIN person_aliases a ON a.from_slug = p.slug
 LEFT JOIN person_full_names f ON f.slug = p.slug
+WHERE p.slug NOT IN (SELECT person_slug FROM directory_listings)
+"""
+
+#: The UC-unit pool, one row per PERSON and not per listing: a human listed by
+#: both FEUC and CES is one candidate, and two Person rows for one slug would
+#: let a single human fit a name twice. ``MIN(d.source)`` is that person's
+#: canonical source for the one rule that reads it
+#: (``name_match._one_folded_name``); the full provenance stays in
+#: ``directory_listings``, which is what the note and the UI join against.
+_UC_PEOPLE_SQL = """
+SELECT p.slug, p.name, a.to_slug, f.full_name, MIN(d.source)
+FROM people p
+JOIN directory_listings d ON d.person_slug = p.slug
+LEFT JOIN person_aliases a ON a.from_slug = p.slug
+LEFT JOIN person_full_names f ON f.slug = p.slug
+GROUP BY p.slug, p.name, a.to_slug, f.full_name
 """
 
 
-def load_people(conn: sqlite3.Connection) -> list[Person]:
-    return [Person(row[0], row[1], row[2], row[3]) for row in conn.execute(_PEOPLE_SQL)]
+def _has_directory_listings(conn: sqlite3.Connection) -> bool:
+    """A seed built before the table existed has no UC pool, and that is a
+    valid state rather than an error: ``build()`` applies the schema first so
+    it is always true there, but ``analysis/audit_unmatched_supervisors.py``
+    opens an arbitrary committed seed ``mode=ro``."""
+    return bool(
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='directory_listings'"
+        ).fetchone()
+    )
+
+
+def load_cisuc_people(conn: sqlite3.Connection) -> list[Person]:
+    """Pass 1's pool: CISUC's own directory, and nothing else.
+
+    Byte-for-byte the rows ``load_people`` used to return on a seed with no UC
+    listings, which is what makes pass 1's output comparable to every number
+    this repo has published.
+    """
+    sql = _CISUC_PEOPLE_SQL if _has_directory_listings(conn) else _CISUC_PEOPLE_SQL.split("WHERE")[0]
+    return [Person(row[0], row[1], row[2], row[3]) for row in conn.execute(sql)]
+
+
+def load_uc_directory_people(conn: sqlite3.Connection) -> list[Person]:
+    """Pass 2's pool: the people UC's per-unit directories publish."""
+    if not _has_directory_listings(conn):
+        return []
+    return [
+        Person(row[0], row[1], row[2], row[3], source=row[4])
+        for row in conn.execute(_UC_PEOPLE_SQL)
+    ]
 
 
 def thesis_row(front_matter: dict) -> tuple:
@@ -147,9 +210,65 @@ def thesis_row(front_matter: dict) -> tuple:
     )
 
 
-def people_rows(front_matter: dict, people: list[Person], cache: dict) -> list[tuple]:
+#: Prefix on a ``match_note`` that pass 2 resolved. Carried in the note so
+#: every such row is auditable without a join, while the join to
+#: ``directory_listings`` stays the machine-readable provenance.
+UC_NOTE_PREFIX = "via UC directory"
+
+
+def uc_note(result) -> str:
+    sources = ", ".join(sorted({p.source for p in result.people}))
+    return f"{UC_NOTE_PREFIX} {sources}: {result.note}"
+
+
+def people_rows(
+    front_matter: dict,
+    people: list[Person],
+    cache: dict,
+    uc_people: list[Person] | None = None,
+    uc_cache: dict | None = None,
+) -> list[tuple]:
     """``thesis_people`` rows for one thesis — one per resolved candidate, and
     exactly one carrying a NULL slug when nothing resolved.
+
+    **Two pools, two passes, two caches.** Pass 1 runs the unmodified
+    ``match_name`` against ``people`` — CISUC's own directory — and its
+    verdict is final for every name it resolves, exactly as today. Pass 2 runs
+    the same unmodified ``match_name`` against ``uc_people`` — UC's per-unit
+    directories — and is consulted for one case only: a ``supervisor`` mention
+    pass 1 left ``unmatched``.
+
+    What pass 2 is deliberately NOT consulted for, and why each is a rule and
+    not an oversight:
+
+    * **authors.** A doctoral student is not staff and is structurally absent
+      from a staff directory, so there is nothing to find; what a staff
+      directory WOULD offer is a same-name member of faculty, which is this
+      corpus's worst failure mode. Product Owner's fence.
+    * **a pass-1 ``ambiguous`` name.** It already has real CISUC candidates
+      that no rule separates. More candidates cannot resolve that, only widen
+      it.
+    * **a pass-1 RESOLVED name.** The CISUC verdict stands — today's behaviour
+      for that name IS the CISUC match, and demoting a few hundred of them to
+      ``ambiguous`` because UC is a bigger pool would move the published
+      coverage DOWN and churn every number this repo has reported. The
+      collision is not swallowed: ``cross_directory_fits`` in the build report
+      lists every pass-1 resolved name a UC row also fits, reported and never
+      acted on (the ``audit_unmatched_supervisors`` pattern — a flag for a
+      human, not a verdict).
+    * **a pass-2 ``ambiguous`` result.** Surfaced in the build report
+      (``uc_pool_ambiguous``) rather than written to the row. Writing it would
+      flip a previously-``unmatched`` row to ``ambiguous`` without giving it a
+      slug, and the row-level acceptance for this feature is that the delta
+      consists only of unmatched supervisor rows GAINING a slug. The reader
+      loses nothing: an ambiguous pass-2 name has no slug either way, and the
+      candidates are in the report.
+
+    The two caches must not be one. ``match_name`` is memoised on
+    ``name_raw``, and a name appearing in both roles — 24 of them in the
+    181-thesis corpus — would otherwise read the supervisor pass's UC answer
+    for its AUTHOR mention, which is precisely the fence above, breached
+    silently.
 
     **The canonical slug is written, not the matched one**, and it happens
     *here* rather than anywhere later in the pipeline. Two reasons, both load-
@@ -173,6 +292,13 @@ def people_rows(front_matter: dict, people: list[Person], cache: dict) -> list[t
             if name_raw not in cache:
                 cache[name_raw] = match_name(name_raw, people)
             result = cache[name_raw]
+            note = result.note
+            if role == "supervisor" and result.status == UNMATCHED and uc_people:
+                if name_raw not in uc_cache:
+                    uc_cache[name_raw] = match_name(name_raw, uc_people)
+                uc_result = uc_cache[name_raw]
+                if uc_result.status in (EXACT, CONFIDENT):
+                    result, note = uc_result, uc_note(uc_result)
             slugs = (
                 list(dict.fromkeys(identity_of(p) for p in result.people))
                 if result.status in (EXACT, CONFIDENT)
@@ -187,11 +313,44 @@ def people_rows(front_matter: dict, people: list[Person], cache: dict) -> list[t
                         slug,
                         result.status,
                         result.confidence,
-                        result.note,
+                        note,
                         ordinal,
                     )
                 )
     return rows
+
+
+def cross_directory_fits(cache: dict, uc_people: list[Person]) -> list[dict]:
+    """Pass-1 RESOLVED names that a UC-directory row also fits.
+
+    The question "is the CISUC match for this name actually right, now that we
+    can see all of UC?" — computed on every build, reported, and never acted
+    on. A reviewer who finds a CISUC match wrong fixes it with the curated
+    instruments (``data/person_aliases.json``,
+    ``data/person_full_names.json``); the matcher never flip-flops on which
+    directory answered first, because that is what keeps every published
+    number comparable across rebuilds.
+
+    If this list ever shows SYSTEMATIC pass-1 wrong-person matches, that is
+    the evidence — and the only evidence — that reopens the merged-single-pool
+    decision (see the Architect's design, §9).
+    """
+    out = []
+    for name_raw, result in sorted(cache.items()):
+        if result.status not in (EXACT, CONFIDENT):
+            continue
+        also = match_name(name_raw, uc_people)
+        if not also.people:
+            continue
+        out.append(
+            {
+                "name_raw": name_raw,
+                "cisuc": [[p.slug, p.name] for p in result.people],
+                "uc_directory": [[p.slug, p.name, p.source] for p in also.people],
+                "uc_status": also.status,
+            }
+        )
+    return out
 
 
 def _token_set(text: str) -> frozenset:
@@ -484,7 +643,8 @@ def build(
         # analysis/person_aliases.py on why a silent skip un-merges a person.
         aliases = person_aliases.load_and_write(conn, aliases_path)
         full_names = person_full_names.load_and_write(conn, full_names_path)
-        people = load_people(conn)
+        people = load_cisuc_people(conn)
+        uc_people = load_uc_directory_people(conn)
 
         # Shape-checked here, identity-checked below: the conflict pass needs
         # the exemptions, and the only facts that can judge them are that
@@ -492,12 +652,13 @@ def build(
         multi_entries = multi_thesis_authors.load_entries(multi_thesis_authors_path)
 
         cache: dict = {}
+        uc_cache: dict = {}
         theses = [thesis_row(fm) for fm in front_matters]
         thesis_people: list[tuple] = []
         thesis_keywords: list[tuple] = []
         thesis_sets: list[tuple] = []
         for fm in front_matters:
-            thesis_people += people_rows(fm, people, cache)
+            thesis_people += people_rows(fm, people, cache, uc_people, uc_cache)
             thesis_keywords += keyword_rows(fm)
             thesis_sets += set_rows(fm)
 
@@ -532,6 +693,7 @@ def build(
         conn.close()
 
     tiers = collections.Counter(m.status for m in cache.values())
+    uc_tiers = collections.Counter(m.status for m in uc_cache.values())
     return {
         "theses": len(theses),
         "person_aliases": aliases,
@@ -558,6 +720,30 @@ def build(
         # and sql/thesis_match_tiers.sql reads the written rows for the other
         # view. `author_conflicts` is where the two differ.
         "tiers": {tier: tiers.get(tier, 0) for tier in TIERS},
+        # Pass 2, reported SEPARATELY and never merged into `tiers` above.
+        # `tiers` is pass 1's report card and keeps its exact current meaning,
+        # which is what makes it comparable to every figure this repo has
+        # published; `uc_directory` is a second, additional number.
+        "uc_directory": {
+            "people": len(uc_people),
+            "units": sorted({p.source for p in uc_people}),
+            # Distinct supervisor names pass 1 left unmatched that pass 2 was
+            # consulted about, by what pass 2 concluded. `unmatched` here means
+            # neither directory holds them — the leftover list
+            # `analysis/classify_unmatched_supervisors.py` triages.
+            "tiers": {tier: uc_tiers.get(tier, 0) for tier in TIERS},
+            "names_consulted": len(uc_cache),
+            # Surfaced rather than written — see `people_rows`. More than one
+            # UC row fits and no rule separates them, which after the
+            # `_one_folded_name` tightening is what two units publishing one
+            # name looks like.
+            "ambiguous_names": {
+                name: [[p.slug, p.name, p.source] for p in m.people]
+                for name, m in sorted(uc_cache.items())
+                if m.status == AMBIGUOUS
+            },
+        },
+        "cross_directory_fits": cross_directory_fits(cache, uc_people) if uc_people else [],
         "unresolved": sorted(
             name for name, m in cache.items() if m.status in (AMBIGUOUS, UNMATCHED)
         ),

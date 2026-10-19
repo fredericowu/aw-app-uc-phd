@@ -274,7 +274,12 @@ def test_the_committed_entries_validate_against_the_real_seed():
         conn.close()
     entries = external_people.load_entries()
     external_people.validate(entries, status)
-    assert len(entries) >= 29
+    # 28 since the UC unit-directory pool landed: "Cruz, Luís Alberto da
+    # Silva" now resolves to his own FCTUC/DEEC listing, so his entry was an
+    # obsolete claim sitting next to a real identity and the validator above
+    # refuses it by design (analysis/external_people.py). The floor is a
+    # "don't silently lose entries" guard, not a target.
+    assert len(entries) >= 28
 
 
 def test_the_committed_seed_carries_the_external_people_table_the_app_reads():

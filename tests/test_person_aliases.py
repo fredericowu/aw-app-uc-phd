@@ -253,7 +253,7 @@ def test_people_canonical_excludes_aliases_but_people_keeps_them(tmp_path, alias
 # The matcher — collapse, and the collapse that must NOT happen
 # --------------------------------------------------------------------------
 
-#: Two CISUC rows for one human, as `load_people` hands them to the matcher.
+#: Two CISUC rows for one human, as `load_cisuc_people` hands them to the matcher.
 #: Different display names, so nothing here is the pre-existing byte-equal
 #: duplicate rule.
 JORGE = (
@@ -368,13 +368,13 @@ def test_the_builder_writes_the_canonical_slug_once_not_both_rows(tmp_path, fixt
         conn.close()
 
 
-def test_load_people_fills_canonical_from_the_table(tmp_path, fixture_db):
+def test_load_cisuc_people_fills_canonical_from_the_table(tmp_path, fixture_db):
     conn = sqlite3.connect(fixture_db)
     try:
         conn.execute("INSERT INTO people (slug, name) VALUES ('ada-1', 'Ada A. Lovelace')")
         person_aliases.load_and_write(conn, _write(tmp_path, PAIR_SAME))
         conn.commit()
-        by_slug = {p.slug: p for p in build_mod.load_people(conn)}
+        by_slug = {p.slug: p for p in build_mod.load_cisuc_people(conn)}
     finally:
         conn.close()
     assert by_slug["ada-1"].canonical == "ada"

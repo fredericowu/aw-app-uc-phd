@@ -263,10 +263,10 @@ def test_front_matter_without_delimiters_raises(tmp_path):
         build_mod.load_front_matters(directory)
 
 
-def test_load_people_reads_the_people_table(fixture_db):
+def test_load_cisuc_people_reads_the_people_table(fixture_db):
     conn = sqlite3.connect(fixture_db)
     try:
-        assert Person("ada", "Ada Lovelace") in build_mod.load_people(conn)
+        assert Person("ada", "Ada Lovelace") in build_mod.load_cisuc_people(conn)
     finally:
         conn.close()
 

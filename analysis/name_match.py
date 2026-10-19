@@ -118,12 +118,22 @@ class Person:
     Those two fields are the only things in this module that are not derived
     from the names: see ``analysis/person_aliases.py`` and
     ``analysis/person_full_names.py`` for why those decisions cannot be.
+
+    ``source`` is which directory published this row — ``"cisuc"`` for every
+    row of CISUC's own People directory, which is every row this module saw
+    before UC's per-unit directories existed, and hence the default. It is
+    read by exactly one rule (``_one_folded_name``) and by nothing else: it is
+    NOT a trust level, it does not reach a tier, and no comparison in here
+    weighs one source above another. See ``analysis/build_thesis_facts.py``
+    for the two pools and why the pass order, not this field, is what decides
+    which directory answers a name.
     """
 
     slug: str
     name: str
     canonical: str | None = None
     full_name: str | None = None
+    source: str = "cisuc"
 
 
 @dataclass(frozen=True)
@@ -290,11 +300,32 @@ def identity_of(person: Person) -> str:
 
 
 def _one_folded_name(people: tuple[Person, ...]) -> bool:
-    """Several rows, one folded name: ``people`` has duplicates of the same
-    human (``joao-bicker`` / ``joao-bicker-1``), an inconsistency in the
-    scraped source. There is no way to tell which row is "the" one, so all
-    of them are kept and downstream unions their groups."""
-    return len({fold(p.name) for p in people}) == 1
+    """Several rows of ONE directory, one folded name: that directory has
+    duplicates of the same human (``joao-bicker`` / ``joao-bicker-1``), an
+    inconsistency in the scraped source. There is no way to tell which row is
+    "the" one, so all of them are kept and downstream unions their groups.
+
+    **Requires a single ``source``, and that is a tightening.** The rule was
+    written for CISUC listing one human twice on its own site, which is
+    evidence about that site's data entry. Two *different* directories
+    publishing the same folded name is not that evidence at all: "João Silva"
+    on FDUC's Docentes page and "João Silva" on FFUC's is two people until a
+    human says otherwise, and collapsing them would resolve a genuinely
+    ambiguous name by picking an arbitrary slug — the one thing this module
+    exists not to do.
+
+    Withholding a collapse can only ever turn a ``confident`` into an
+    ``ambiguous``; it can never create a match, so it buys zero edges (every
+    edge bought by a rule change is a regression, not a win —
+    ``docs/thesis-attribution.md``). On the legacy corpus it is a no-op by
+    construction: every row there carries ``source="cisuc"``, so the new
+    condition is satisfied by every candidate set the golden fixture covers.
+
+    Cross-source pairs that ARE one human are merged the house way instead —
+    a ``data/person_aliases.json`` verdict with evidence, which
+    ``_one_canonical`` below already honours across sources.
+    """
+    return len({fold(p.name) for p in people}) == 1 and len({p.source for p in people}) == 1
 
 
 def _one_canonical(people: tuple[Person, ...]) -> bool:

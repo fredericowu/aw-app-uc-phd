@@ -166,12 +166,12 @@ def test_the_evidence_travels_into_the_table(tmp_path, fixture_db):
         conn.close()
 
 
-def test_load_people_fills_full_name_from_the_table(tmp_path, fixture_db):
+def test_load_cisuc_people_fills_full_name_from_the_table(tmp_path, fixture_db):
     conn = sqlite3.connect(fixture_db)
     try:
         person_full_names.load_and_write(conn, _write(tmp_path, ENTRY))
         conn.commit()
-        by_slug = {p.slug: p for p in build_mod.load_people(conn)}
+        by_slug = {p.slug: p for p in build_mod.load_cisuc_people(conn)}
     finally:
         conn.close()
     assert by_slug["ada"].full_name == "Ada Lovelace Byron"

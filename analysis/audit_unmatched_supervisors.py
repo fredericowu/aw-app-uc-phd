@@ -72,7 +72,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from .build_thesis_facts import DEFAULT_DB, load_people
+from .build_thesis_facts import DEFAULT_DB, load_cisuc_people
 from .name_match import (
     _carries_primary_given,
     _fits,
@@ -95,31 +95,70 @@ SINGLETON_SAMPLE_SIZE = 30
 REVIEW_CUT = 2
 
 
+#: This audit's universe, narrowed to CISUC's OWN directory on purpose.
+#:
+#: The clause at the end is not a new rule — it is what keeps the old one
+#: meaning what it meant. `people` used to be CISUC's directory and nothing
+#: else, so "resolved to a person" and "resolved to a CISUC person" were the
+#: same sentence. Since `scraper/uc_directories/` harvests UC's per-unit staff
+#: pages into the same table (`scraper/schema.sql`), a thesis whose only
+#: resolved name is an FDUC professor would silently enter this universe, and
+#: the published "569 CISUC-touching theses / 636 of 1065 supervisor edges"
+#: would change meaning without anybody editing a number. Excluding slugs that
+#: carry a `directory_listings` row keeps the 569 the 569.
+_CISUC_TOUCHING_SQL = """
+SELECT DISTINCT handle FROM thesis_people
+WHERE person_slug IS NOT NULL
+  AND match_status IN ('exact', 'confident')
+  AND person_slug NOT IN (SELECT person_slug FROM directory_listings)
+"""
+
+
 def cisuc_touching(conn: sqlite3.Connection) -> set[str]:
-    """The theses where CISUC is present at all — this audit's universe."""
-    return {
-        handle
-        for (handle,) in conn.execute(
-            "SELECT DISTINCT handle FROM thesis_people WHERE person_slug IS NOT NULL "
-            "AND match_status IN ('exact', 'confident')"
-        )
-    }
+    """The theses where CISUC's own directory is present at all — this audit's
+    universe. See ``_CISUC_TOUCHING_SQL`` on why the UC-directory exclusion is
+    what PRESERVES this number rather than redefining it."""
+    sql = _CISUC_TOUCHING_SQL
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='directory_listings'"
+    ).fetchone():
+        sql = sql.split("  AND person_slug NOT IN")[0]
+    return {handle for (handle,) in conn.execute(sql)}
 
 
-def supervisor_edges(conn: sqlite3.Connection, handles: set[str], status: str) -> list[tuple]:
+def supervisor_edges(
+    conn: sqlite3.Connection, handles: set[str], status: str, source: str = "any"
+) -> list[tuple]:
     """``[(handle, name_raw)]`` for supervisor mentions at one match_status.
 
     An EDGE is a (thesis, name) pair, not a row: a name resolving to two
     duplicate ``people`` rows writes two rows and is still one edge, and
     counting rows would quietly inflate the denominator of the headline
     number this audit exists to produce.
+
+    ``source`` splits the resolved side by WHICH directory answered —
+    ``cisuc`` is the pool this audit has always counted (and is what keeps the
+    published 636/1065 comparable), ``uc`` is the per-unit directories, and
+    ``any`` is both. The split exists rather than a redefinition because the
+    Product Owner's constraint is that the old number keeps meaning what it
+    meant; the new one is reported beside it, never merged into it.
     """
+    clause = {
+        "any": "",
+        "cisuc": " AND person_slug NOT IN (SELECT person_slug FROM directory_listings)",
+        "uc": " AND person_slug IN (SELECT person_slug FROM directory_listings)",
+    }[source]
+    if clause and not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='directory_listings'"
+    ).fetchone():
+        # No UC pool in this seed at all: every resolved row is a CISUC one.
+        clause = "" if source == "cisuc" else " AND 0"
     return sorted(
         {
             (handle, name_raw)
             for handle, name_raw in conn.execute(
                 "SELECT handle, name_raw FROM thesis_people WHERE role = 'supervisor' "
-                "AND match_status = ?",
+                "AND match_status = ?" + clause,
                 (status,),
             )
             if handle in handles
@@ -228,12 +267,15 @@ def audit(db_path: Path) -> dict:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         handles = cisuc_touching(conn)
-        people = load_people(conn)
+        people = load_cisuc_people(conn)
         unmatched = supervisor_edges(conn, handles, "unmatched")
         ambiguous = supervisor_edges(conn, handles, "ambiguous")
         matched = len(
-            supervisor_edges(conn, handles, "exact")
-        ) + len(supervisor_edges(conn, handles, "confident"))
+            supervisor_edges(conn, handles, "exact", "cisuc")
+        ) + len(supervisor_edges(conn, handles, "confident", "cisuc"))
+        matched_uc = len(
+            supervisor_edges(conn, handles, "exact", "uc")
+        ) + len(supervisor_edges(conn, handles, "confident", "uc"))
     finally:
         conn.close()
 
@@ -276,8 +318,13 @@ def audit(db_path: Path) -> dict:
     )
     return {
         "cisuc_touching_theses": len(handles),
-        "supervisor_edges": matched + len(unmatched) + len(ambiguous),
+        "supervisor_edges": matched + matched_uc + len(unmatched) + len(ambiguous),
+        # `matched_edges` is and stays CISUC's own directory: it is the number
+        # this repo published as 636 of 1065, and a reader comparing against it
+        # has to be comparing the same thing. The UC-directory edges are the
+        # separate number next to it.
         "matched_edges": matched,
+        "matched_edges_uc_directory": matched_uc,
         "unmatched_edges": len(unmatched),
         "ambiguous_edges": len(ambiguous),
         "distinct_unmatched_names": len(by_name),

@@ -932,3 +932,109 @@ because the sample contains exactly the failure this document exists to
 prevent ("Almeida, Ana de" → "Ana Cristina Ferreira de Almeida", plausible
 and unverified). That measurement is the Product Owner's to spend, not a
 Coder's.
+
+## Amendment, 2026-10-19: a reviewed `distinct` verdict now outranks the duplicate-row rule
+
+Card `3fe5bf3b-9510-8137-b4cc-f53bbbbe4ec4`. The dashboard tile read "2,690
+Theses / 2,686 Students" while `thesis_people WHERE role='author'` held
+**2691** rows — one thesis with two authors, which the corpus invariant says
+is impossible.
+
+**What was wrong.** `data/person_aliases.json` carries both verdicts, but
+only the `same` half was ever read by anything that matches. A `distinct`
+verdict wrote no alias row, so it reached the matcher as *nothing at all* —
+and `_one_folded_name` went on reading two `people` rows with one folded name
+and one source as "a duplicate in the scraped source, not two people. All of
+them are kept." For `nuno-silva-1` / `nuno-silva-2` — both published "Nuno
+Silva", both CISUC, and reviewed as **two different humans** with different
+mailboxes — that returned both at the `confident` tier, and
+`build_thesis_facts.people_rows` writes one row per returned candidate. One
+thesis mention therefore became two rows under two unrelated real people.
+
+The inflated row count was the cheap half of the damage. Anything that joins
+on `person_slug` — `sql/partner_thesis_links.sql`,
+`sql/thesis_attribution_coverage.sql`, `_person_group_shares` in
+`uc_phd_app/theses.py` — saw both slugs independently, so each affected
+thesis was attributed in full to two people, one of whom had nothing to do
+with it. `uc_phd_app/theses.py::_resolve_person_rows` groups by `name_raw`
+within a thesis and the frontend reads `matched[0]`, which is exactly why the
+tile showed 4 repeat students and not 5: the bug was hidden from the one
+number that would have reported it.
+
+**The fix, and why it is the only direction allowed.**
+`person_aliases.distinct_pairs()` exposes the `distinct` half as sorted slug
+pairs; `build()` passes it to `people_rows` and into `match_name`, which
+hands it to `_same_person_twice`. A pair a human has ruled different humans
+is checked *first* and settles it — no name rule gets to say two rows are one
+human after somebody read both CISUC pages and wrote down that they are not.
+The matcher stays a pure function of a name, a pool and that reviewed fact:
+it reads no file, and with the set empty its behaviour is byte-for-byte
+today's, which is what keeps every number above comparable.
+
+Like `_one_folded_name`'s own source test, this can only ever **withhold** a
+collapse, so it buys zero edges and the worst it can do is turn a `confident`
+into an `ambiguous` — which is what more than one real person fitting a name
+has always meant. No rule in `_fits`/`_fits_full` was touched, and the golden
+fixture stayed green unedited.
+
+The lookup is on both a row's slug **and** its canonical, because the
+`luis-rodrigues` family records the `distinct` verdict against
+`luis-rodrigues-3` while `luis-rodrigues` is a reviewed `same` of it. A
+review is a fact about the humans, not about which of their rows somebody
+happened to open.
+
+**Measured over all 2690 theses, before and after** (distinct names, the
+matcher's own report card):
+
+| | before | after |
+|---|---|---|
+| `exact` | 116 | 116 |
+| `confident` | 408 | **404** |
+| `ambiguous` | 11 | **15** |
+| `unmatched` | 4453 | 4453 |
+| `thesis_people` rows | 7265 | **7260** |
+| `author` rows | 2691 | **2690** (= `theses`) |
+| `author_conflicts` | 29 | 29 |
+
+`cross_directory_fits` goes 64 -> 62 in the build report, which is the two
+demoted names dropping out of a list that only ever covers pass-1 *resolved*
+names. Report-only, nothing written.
+
+Every changed row was inspected. Exactly five `(handle, name_raw, role)`
+mentions — four distinct names — went from two `confident` rows to one
+`ambiguous` row carrying no slug, and nothing else in any table moved:
+
+| handle | role | name_raw | was | now |
+|---|---|---|---|---|
+| 10316/24923 | author | Silva, João Nuno Cruz Matos Calvão da | `nuno-silva-1` + `nuno-silva-2` | ambiguous |
+| 10316/101744 | supervisor | Silva, Nuno Miguel Barateiro Gonçalves | `nuno-silva-1` + `nuno-silva-2` | ambiguous |
+| 10316/121216 | supervisor | Silva, João Nuno Cruz Matos Calvão da | `nuno-silva-1` + `nuno-silva-2` | ambiguous |
+| 10316/123784 | supervisor | Silva, João Nuno Mestre Fernandes da | `nuno-silva-1` + `nuno-silva-2` | ambiguous |
+| 10316/10200 | supervisor | Rodrigues, Luís Eduardo Teixeira | `luis-rodrigues-2` + `luis-rodrigues-3` | ambiguous |
+
+Five rows is the whole blast radius in `thesis_people`, exhaustively: a
+`GROUP BY handle, name_raw, role HAVING COUNT(*) > 1` over the rebuilt seed
+returns nothing. `joao-bicker` / `joao-bicker-1` — a genuine scraped-source
+duplicate under a `same` verdict — is untouched, and so is every pair with no
+verdict at all; only a recorded `distinct` changes behaviour.
+
+**One downstream figure moved, and it is the finding rather than a cost.**
+For four of the five theses — `10316/24923`, `10316/101744`, `10316/121216`,
+`10316/123784` — the wrong match was the **only** CISUC-resolved name they
+carried, so they leave the audit's CISUC-touching universe:
+`cisuc_touching_theses` 569 -> 565, `supervisor_edges` 1055 -> 1050,
+`matched_edges` 626 -> 622, `matched_edges_uc_directory` 95 -> 93,
+`ambiguous_edges` 3 -> 4 (`analysis/audit_unmatched_supervisors.py`). Those
+four were never CISUC-attributed by anything real. The genuinely unmatched
+tail every triage figure is about does not move at all — 331 edges, 279
+names — and `10316/10200` stays in the universe because `filipe-araujo`
+resolves on it independently.
+
+**What this makes harder later.** `match_name` is no longer a function of two
+arguments, and a new caller that forgets the third gets the old, wrong answer
+silently. The default is empty rather than required on purpose — the tests
+and the golden fixture call it with a pool they built themselves, where no
+reviewed verdict applies — so the fence is
+`tests/test_person_aliases.py::test_a_reviewed_distinct_pair_with_one_display_name_is_ambiguous_not_both`
+and its control, which fail if the plumbing is dropped anywhere between
+`build()` and the rule.

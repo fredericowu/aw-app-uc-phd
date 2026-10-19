@@ -154,6 +154,53 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     assert slugs == ["ada", "ada-1"]
 
 
+def test_two_rows_a_review_calls_different_people_write_one_unresolved_row(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The same two rows as the test above, with the one fact that changes what
+    they mean: ``data/person_aliases.json`` says a human read both CISUC pages
+    and these are two people (the real ``nuno-silva-1``/``nuno-silva-2``).
+
+    Writing both rows then attributes one thesis mention to two unrelated
+    humans — and every query that joins on ``person_slug``
+    (``sql/partner_thesis_links.sql``, ``_person_group_shares``) counts it
+    twice. One mention is one row, and with two real people fitting it, it is
+    ambiguous and carries no slug.
+    """
+    conn = sqlite3.connect(fixture_db)
+    conn.execute("INSERT INTO people (slug, name) VALUES ('ada-1', 'Ada Lovelace')")
+    conn.commit()
+    conn.close()
+    aliases.write_text(
+        json.dumps(
+            {
+                "pairs": [
+                    {
+                        "a": "ada",
+                        "b": "ada-1",
+                        "verdict": "distinct",
+                        "canonical": None,
+                        "evidence": "Different mailboxes at different domains.",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+
+    conn = sqlite3.connect(fixture_db)
+    conn.row_factory = sqlite3.Row
+    rows = list(
+        conn.execute("SELECT * FROM thesis_people WHERE name_raw = 'Lovelace, Ada'")
+    )
+    conn.close()
+    assert len(rows) == 1
+    assert rows[0]["person_slug"] is None
+    assert rows[0]["match_status"] == "ambiguous"
+
+
 def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases, full_names, externals, multi_authors):
     """The tables are a pure function of the committed corpus. An upsert would
     leave a withdrawn thesis in the seed forever."""
@@ -304,13 +351,22 @@ def test_the_committed_seed_holds_the_real_corpus():
     4580 -> 4574, when four more such pairs were reviewed (joao-bicker,
     jcfgonc, cristina-costa, luis-rodrigues-3). The count of distinct
     supervision EDGES (``build()``'s ``supervision_edges``, 4570) is the
-    figure aliasing cannot move, and it did not."""
+    figure aliasing cannot move, and it did not.
+
+    4574 -> 4570 is the same floor moving for the mirror-image reason: the
+    matcher now reads ``person_aliases``' reviewed ``distinct`` verdicts, so
+    four supervisor mentions that were two rows under two different real
+    people are one unresolved row each (``docs/thesis-attribution.md``,
+    amendment 2026-10-19). ``supervision_edges`` is still 4570 — which is
+    what says these were duplicate ROWS for one mention and not lost
+    supervisions — and the floor is now equal to it, so the next collapse of
+    either kind will fail here and want a number read off a rebuild."""
     conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
     try:
         assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 2690
         assert conn.execute(
             "SELECT COUNT(*) FROM thesis_people WHERE role = 'supervisor'"
-        ).fetchone()[0] >= 4574
+        ).fetchone()[0] >= 4570
         assert conn.execute(
             "SELECT COUNT(DISTINCT name_raw) FROM thesis_people"
         ).fetchone()[0] == 4988

@@ -190,6 +190,23 @@ def test_reviewed_pairs_covers_both_verdicts_sorted(tmp_path):
     assert person_aliases.reviewed_pairs(pairs) == {("ada", "ada-1"), ("grace", "grace-1")}
 
 
+def test_distinct_pairs_is_the_distinct_half_only(tmp_path):
+    """``reviewed_pairs`` asks "has anybody looked at this pair"; this one asks
+    "did they say no", and only the matcher's collapse may act on the second."""
+    pairs = person_aliases.load_pairs(_write(tmp_path, PAIR_SAME, PAIR_DISTINCT))
+    assert person_aliases.distinct_pairs(pairs) == {("grace", "grace-1")}
+
+
+def test_the_committed_file_carries_the_nuno_silva_distinct_verdicts():
+    """The fixtures below model ``nuno-silva-1``/``nuno-silva-2`` and
+    ``luis-rodrigues-2``/``luis-rodrigues-3``. If those verdicts ever leave the
+    real file the fixtures stop standing for anything, so assert they are
+    there rather than assume it."""
+    distinct = person_aliases.distinct_pairs(person_aliases.load_pairs())
+    assert ("nuno-silva-1", "nuno-silva-2") in distinct
+    assert ("luis-rodrigues-2", "luis-rodrigues-3") in distinct
+
+
 @pytest.fixture()
 def aliased_db(fixture_db):
     """The fixture database with an ``ada-1`` row, so ``ada-1``/``ada`` is a
@@ -292,6 +309,68 @@ def test_a_reviewed_distinct_pair_does_not_collapse():
     result = match_name("Silva, Nuno Pedro de Jesus", list(NUNO))
     assert result.status == AMBIGUOUS
     assert {p.slug for p in result.people} == {"nuno-silva-1", "nuno-silva-4"}
+
+
+#: The ``nuno-silva-1``/``nuno-silva-2`` shape, and the one the rule above
+#: could not see: two reviewed-different humans CISUC publishes under the
+#: **same display name**, so the byte-equal-duplicate rule reads them as one
+#: human listed twice unless the verdict is passed in.
+NUNO_SAME_NAME = (
+    Person("nuno-silva-1", "Nuno Silva", None),
+    Person("nuno-silva-2", "Nuno Silva", None),
+)
+
+#: ``nuno-silva-1``/``nuno-silva-2`` as ``distinct_pairs()`` hands it over.
+NUNO_DISTINCT = frozenset({("nuno-silva-1", "nuno-silva-2")})
+
+
+def test_a_reviewed_distinct_pair_with_one_display_name_is_ambiguous_not_both():
+    """The bug this closes. The two rows are byte-equal in name and come from
+    one source, so ``_one_folded_name`` called them a scraped-source duplicate
+    and returned BOTH at the confident tier — which wrote one thesis mention
+    as two rows under two unrelated real people (10316/24923 and four
+    supervisor rows in the 2690-thesis seed).
+    """
+    result = match_name(
+        "Silva, João Nuno Cruz Matos Calvão da", list(NUNO_SAME_NAME), NUNO_DISTINCT
+    )
+    assert result.status == AMBIGUOUS
+    assert {p.slug for p in result.people} == {"nuno-silva-1", "nuno-silva-2"}
+
+
+def test_without_the_verdict_those_same_two_rows_still_collapse():
+    """The control, and the reason the verdict has to be plumbed in rather
+    than inferred: nothing about these two names says they are two people."""
+    result = match_name("Silva, João Nuno Cruz Matos Calvão da", list(NUNO_SAME_NAME))
+    assert result.status == CONFIDENT
+    assert "duplicate in the scraped source" in result.note
+
+
+def test_a_reviewed_same_pair_is_untouched_by_a_populated_distinct_set():
+    """Only the pair under a ``distinct`` verdict changes behaviour. The
+    genuine ``joao-bicker``/``joao-bicker-1`` duplicate keeps collapsing with
+    the real file's eight distinct pairs in hand."""
+    bicker = [Person("joao-bicker", "João Bicker"), Person("joao-bicker-1", "João Bicker")]
+    distinct = frozenset(person_aliases.distinct_pairs(person_aliases.load_pairs()))
+    result = match_name("Bicker, João", bicker, distinct)
+    assert result.status == CONFIDENT
+    assert "duplicate in the scraped source" in result.note
+
+
+def test_a_verdict_recorded_against_an_aliased_slug_still_separates_them():
+    """The ``luis-rodrigues`` family: ``luis-rodrigues`` is a reviewed ``same``
+    of ``luis-rodrigues-3``, and the ``distinct`` verdict is recorded against
+    ``luis-rodrigues-3``. Looking the pair up on the raw slugs alone would
+    miss it, so both the slug and its canonical are checked — the review is a
+    fact about the humans, not about which row somebody happened to open."""
+    rodrigues = [
+        Person("luis-rodrigues", "Luis rodrigues", "luis-rodrigues-3"),
+        Person("luis-rodrigues-2", "Luis Rodrigues", None),
+    ]
+    distinct = frozenset({("luis-rodrigues-2", "luis-rodrigues-3")})
+    assert match_name("Rodrigues, Luís", rodrigues, distinct).status == AMBIGUOUS
+    # And the control: without the verdict, the tie-break resolves it.
+    assert match_name("Rodrigues, Luís", rodrigues).status == CONFIDENT
 
 
 def test_a_third_unrelated_person_still_makes_the_name_ambiguous():

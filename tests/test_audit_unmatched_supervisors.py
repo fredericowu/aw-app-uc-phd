@@ -138,15 +138,30 @@ def test_the_audit_reproduces_the_universe_it_reported_on():
     edges, 358 -> 279 names. That is the feature working, and it is reported
     beside the old number as ``matched_edges_uc_directory`` rather than folded
     into it.
+
+    **Amendment 2026-10-19: the universe DID move, by 4, and that is the
+    finding and not a regression.** Reading ``person_aliases``' reviewed
+    ``distinct`` verdicts in the matcher (``docs/thesis-attribution.md``,
+    amendment of the same date) un-resolved five mentions that had been
+    matched to two different real people at once. For four theses
+    — 10316/24923, 10316/101744, 10316/121216, 10316/123784 — that wrong
+    match was the *only* CISUC-resolved name they carried, so they leave the
+    CISUC-touching universe entirely: 569 -> 565 theses, 1055 -> 1050
+    supervisor edges, 626 -> 622 matched, 95 -> 93 via UC. They were never
+    CISUC-attributed by anything real. The genuinely unmatched tail is
+    untouched (331 edges, 279 names), and the fifth mention — 10316/10200's
+    supervisor — stays in the universe because ``filipe-araujo`` resolves on
+    it independently, which is why ``ambiguous_edges`` goes 3 -> 4 rather
+    than 3 -> 7.
     """
     report = audit.audit(audit.DEFAULT_DB)
-    assert report["cisuc_touching_theses"] == 569
-    assert report["supervisor_edges"] == 1055
-    assert report["matched_edges"] == 626
-    assert report["matched_edges_uc_directory"] == 95
+    assert report["cisuc_touching_theses"] == 565
+    assert report["supervisor_edges"] == 1050
+    assert report["matched_edges"] == 622
+    assert report["matched_edges_uc_directory"] == 93
     assert report["distinct_unmatched_names"] == 279
     assert report["unmatched_edges"] == 331
-    assert report["ambiguous_edges"] == 3
+    assert report["ambiguous_edges"] == 4
     assert report["edge_frequency"] == {1: 246, 2: 22, 3: 7, 4: 2, 6: 2}
     assert len(report["above_cut"]) == 33
     assert len(report["singleton_sample"]) == 30

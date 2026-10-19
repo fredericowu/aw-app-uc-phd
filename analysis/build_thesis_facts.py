@@ -227,6 +227,7 @@ def people_rows(
     cache: dict,
     uc_people: list[Person] | None = None,
     uc_cache: dict | None = None,
+    distinct_pairs: frozenset[tuple[str, str]] = frozenset(),
 ) -> list[tuple]:
     """``thesis_people`` rows for one thesis — one per resolved candidate, and
     exactly one carrying a NULL slug when nothing resolved.
@@ -285,17 +286,25 @@ def people_rows(
 
     Deduped, because collapsing an alias group means several candidates now
     name one slug — one person, one row.
+
+    **``distinct_pairs`` goes to both pools**, for the same reason the
+    canonical slug is written here: ``data/person_aliases.json``'s reviewed
+    verdicts are facts at the person grain, and a fact that stops two rows
+    being read as one human is not less true of UC's directories than of
+    CISUC's. One mention is one row per *human* who fits it, and a pair a
+    reviewer has separated is two humans — so the mention is ambiguous and
+    carries no slug, rather than being written twice under two identities.
     """
     rows = []
     for role, field in ROLE_FIELDS:
         for ordinal, name_raw in enumerate(front_matter.get(field) or []):
             if name_raw not in cache:
-                cache[name_raw] = match_name(name_raw, people)
+                cache[name_raw] = match_name(name_raw, people, distinct_pairs)
             result = cache[name_raw]
             note = result.note
             if role == "supervisor" and result.status == UNMATCHED and uc_people:
                 if name_raw not in uc_cache:
-                    uc_cache[name_raw] = match_name(name_raw, uc_people)
+                    uc_cache[name_raw] = match_name(name_raw, uc_people, distinct_pairs)
                 uc_result = uc_cache[name_raw]
                 if uc_result.status in (EXACT, CONFIDENT):
                     result, note = uc_result, uc_note(uc_result)
@@ -320,7 +329,11 @@ def people_rows(
     return rows
 
 
-def cross_directory_fits(cache: dict, uc_people: list[Person]) -> list[dict]:
+def cross_directory_fits(
+    cache: dict,
+    uc_people: list[Person],
+    distinct_pairs: frozenset[tuple[str, str]] = frozenset(),
+) -> list[dict]:
     """Pass-1 RESOLVED names that a UC-directory row also fits.
 
     The question "is the CISUC match for this name actually right, now that we
@@ -339,7 +352,7 @@ def cross_directory_fits(cache: dict, uc_people: list[Person]) -> list[dict]:
     for name_raw, result in sorted(cache.items()):
         if result.status not in (EXACT, CONFIDENT):
             continue
-        also = match_name(name_raw, uc_people)
+        also = match_name(name_raw, uc_people, distinct_pairs)
         if not also.people:
             continue
         out.append(
@@ -642,6 +655,15 @@ def build(
         # against the live rows and raised on, never skipped — see
         # analysis/person_aliases.py on why a silent skip un-merges a person.
         aliases = person_aliases.load_and_write(conn, aliases_path)
+        # The other half of the same file, at the grain `match_name` needs.
+        # Read from the file and not from the table `load_and_write` just
+        # wrote, because that table carries only the `same` verdicts — a
+        # `distinct` has no canonical to store, so the only place it exists is
+        # here. Passed in rather than read inside the matcher, which stays a
+        # pure function of a name and a pool.
+        reviewed_distinct = frozenset(
+            person_aliases.distinct_pairs(person_aliases.load_pairs(aliases_path))
+        )
         full_names = person_full_names.load_and_write(conn, full_names_path)
         people = load_cisuc_people(conn)
         uc_people = load_uc_directory_people(conn)
@@ -658,7 +680,9 @@ def build(
         thesis_keywords: list[tuple] = []
         thesis_sets: list[tuple] = []
         for fm in front_matters:
-            thesis_people += people_rows(fm, people, cache, uc_people, uc_cache)
+            thesis_people += people_rows(
+                fm, people, cache, uc_people, uc_cache, reviewed_distinct
+            )
             thesis_keywords += keyword_rows(fm)
             thesis_sets += set_rows(fm)
 
@@ -743,7 +767,9 @@ def build(
                 if m.status == AMBIGUOUS
             },
         },
-        "cross_directory_fits": cross_directory_fits(cache, uc_people) if uc_people else [],
+        "cross_directory_fits": (
+            cross_directory_fits(cache, uc_people, reviewed_distinct) if uc_people else []
+        ),
         "unresolved": sorted(
             name for name, m in cache.items() if m.status in (AMBIGUOUS, UNMATCHED)
         ),

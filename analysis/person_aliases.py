@@ -28,7 +28,17 @@ What this module does with that file:
 * ``reviewed_pairs()`` — every pair under **either** verdict, which is what
   ``scraper/people.py``'s detection pass subtracts so a pair a human has
   already ruled on goes quiet instead of being re-reported forever.
+* ``distinct_pairs()`` — the ``distinct`` half on its own, which is what
+  ``name_match._same_person_twice`` subtracts so a pair a human has ruled
+  **different humans** is never collapsed into one by a name rule.
 * ``write_table()``  — replace ``person_aliases`` in the seed from it.
+
+**The ``distinct`` half is a fact, not just a silencer.** Until it was read by
+the matcher, a ``distinct`` verdict only quieted the detection pass, and
+``name_match._one_folded_name`` went on collapsing ``nuno-silva-1`` /
+``nuno-silva-2`` — two reviewed-different humans who happen to be published
+under the same display name — into "a duplicate in the scraped source", which
+wrote one thesis mention as two rows under two unrelated identities.
 
 **Why it fails loudly.** The alternative — skipping an entry whose slug no
 longer exists — would silently *un-merge* a person: the build would succeed,
@@ -192,6 +202,23 @@ def reviewed_pairs(pairs: list[dict]) -> set[tuple[str, str]]:
     tuples. ``distinct`` counts: the point of recording one is that the
     detection pass stops re-reporting it."""
     return {(e["a"], e["b"]) if e["a"] < e["b"] else (e["b"], e["a"]) for e in pairs}
+
+
+def distinct_pairs(pairs: list[dict]) -> set[tuple[str, str]]:
+    """The pairs a human ruled **different humans**, as sorted slug tuples.
+
+    ``reviewed_pairs()``'s ``distinct`` half, separated because the two have
+    opposite uses: that one asks "has anybody looked at this pair yet", this
+    one asks "did they say no". ``analysis/name_match.match_name`` takes it so
+    a reviewed ``distinct`` outranks every name rule that would otherwise read
+    two rows as one human — no canonical to write, so there is nothing for
+    ``alias_map()`` to carry it on.
+    """
+    return {
+        (e["a"], e["b"]) if e["a"] < e["b"] else (e["b"], e["a"])
+        for e in pairs
+        if e["verdict"] == DISTINCT
+    }
 
 
 def write_table(conn, pairs: list[dict]) -> int:

@@ -28,7 +28,10 @@ The four tiers, and why ``ambiguous`` is not a failure
                below.
 ``ambiguous``  more than one person genuinely fits and no rule separates
                them. Surfaced with every candidate attached, never resolved
-               by picking one.
+               by picking one. A pair ``data/person_aliases.json`` has
+               reviewed as ``distinct`` lands here too: the rules that would
+               read two rows as one human are withheld, which leaves exactly
+               what the review says is true — two real people fit this name.
 ``unmatched``  nobody fits.
 
 Why subset coverage is ``confident`` and not ``exact``. ``_fits()`` accepts a
@@ -78,6 +81,7 @@ because of that, and both are cheaper to leave visible than to guess wrong.
 """
 from __future__ import annotations
 
+import itertools
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -345,13 +349,68 @@ def _one_canonical(people: tuple[Person, ...]) -> bool:
     return len({identity_of(p) for p in people}) == 1
 
 
-def _same_person_twice(people: tuple[Person, ...]) -> bool:
-    """One human under several ``people`` rows — by name, or by review."""
+def _identifiers(person: Person) -> tuple[str, ...]:
+    """Every slug that names this row's human — its own, and its canonical
+    when a reviewed ``same`` says CISUC lists them twice. A ``distinct``
+    verdict is recorded at whichever of the two a human was looking at, so a
+    lookup on only one grain misses it."""
+    return (person.slug, identity_of(person))
+
+
+def _reviewed_distinct(
+    people: tuple[Person, ...], distinct_pairs: frozenset[tuple[str, str]]
+) -> bool:
+    """Has a human already ruled two of these rows **different humans**?
+
+    ``data/person_aliases.json`` carries both verdicts, and until this was
+    read the ``distinct`` half only quieted the duplicate-detection pass:
+    ``nuno-silva-1`` and ``nuno-silva-2`` are two reviewed-different people
+    CISUC publishes under one display name, so ``_one_folded_name`` below read
+    them as one human listed twice and kept both — writing one thesis mention
+    as two rows under two unrelated identities.
+
+    A review outranks every rule here, in the one direction a review can be
+    trusted to: it only ever *withholds* a collapse, so like
+    ``_one_folded_name``'s own source test it buys zero edges and can at worst
+    turn a ``confident`` into an ``ambiguous`` — which is what more than one
+    real person fitting a name has always meant.
+    """
+    if not distinct_pairs:
+        return False
+    for left, right in itertools.combinations(people, 2):
+        for a in _identifiers(left):
+            for b in _identifiers(right):
+                if ((a, b) if a < b else (b, a)) in distinct_pairs:
+                    return True
+    return False
+
+
+def _same_person_twice(
+    people: tuple[Person, ...], distinct_pairs: frozenset[tuple[str, str]] = frozenset()
+) -> bool:
+    """One human under several ``people`` rows — by name, or by review.
+
+    A reviewed ``distinct`` is checked first and settles it: no name rule gets
+    to say two rows are one human after somebody read both CISUC pages and
+    wrote down that they are not.
+    """
+    if _reviewed_distinct(people, distinct_pairs):
+        return False
     return _one_folded_name(people) or _one_canonical(people)
 
 
-def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> NameMatch:
-    """Resolve one thesis name against ``people``. Pure: no I/O, no network."""
+def match_name(
+    name_raw: str,
+    people: list[Person] | tuple[Person, ...],
+    distinct_pairs: frozenset[tuple[str, str]] = frozenset(),
+) -> NameMatch:
+    """Resolve one thesis name against ``people``. Pure: no I/O, no network.
+
+    ``distinct_pairs`` is ``analysis/person_aliases.distinct_pairs()`` —
+    reviewed "these two slugs are different humans" verdicts, passed in rather
+    than read here so this stays a pure function of a name and a candidate
+    pool. Empty by default, which is exactly today's behaviour.
+    """
     thesis_tokens = tokenize(name_raw)
     surname_tokens, given_tokens = split_thesis_name(name_raw)
     primary_given = given_tokens[0] if given_tokens else ""
@@ -436,7 +495,7 @@ def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> Name
             f"{', '.join(uncorroborated)}.",
         )
 
-    if _same_person_twice(candidates):
+    if _same_person_twice(candidates, distinct_pairs):
         if _one_folded_name(candidates):
             note = (
                 f"people holds {len(candidates)} rows with the same name — "
@@ -467,7 +526,7 @@ def match_name(name_raw: str, people: list[Person] | tuple[Person, ...]) -> Name
             primary_given,
         )
     )
-    if preferred and (len(preferred) == 1 or _same_person_twice(preferred)):
+    if preferred and (len(preferred) == 1 or _same_person_twice(preferred, distinct_pairs)):
         rejected = tuple(p for p in candidates if p not in preferred)
         return NameMatch(
             name_raw,

@@ -290,6 +290,9 @@ def test_the_committed_seed_carries_the_external_people_table_the_app_reads():
         assert conn.execute(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='external_people'"
         ).fetchone()[0] == 1
-        assert conn.execute("SELECT COUNT(*) FROM external_people").fetchone()[0] >= 29
+        # 28 since "Cruz, Luís Alberto da Silva" started resolving to his own
+        # FCTUC/DEEC listing — see the floor above and the loader's own
+        # refusal of an entry whose mention is no longer unmatched.
+        assert conn.execute("SELECT COUNT(*) FROM external_people").fetchone()[0] >= 28
     finally:
         conn.close()

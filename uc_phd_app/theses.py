@@ -102,7 +102,13 @@ IDENTITY_COVERAGE_NOTE = (
     "are real people with no CISUC person row and no reason to have one — a "
     "CERN project leader, an ISEP professor who co-supervised one thesis, a "
     "graduate who left — so the name is identified without becoming a CISUC "
-    "identity. Nothing in these numbers moved when they were added."
+    "identity. Nothing in these numbers moved when they were added. "
+    "Since UC's per-unit staff directories were harvested, a resolved "
+    "supervisor may be a UC academic from another Faculty rather than a CISUC "
+    "member; every figure here therefore carries a source split, and the "
+    "within-CISUC figure is reported as its own number beside the corpus-wide "
+    "one rather than merged into it — the two answer different questions "
+    "about different universes."
 )
 
 #: Tiers that mean "this is a person". ``ambiguous`` is deliberately not one
@@ -195,9 +201,44 @@ def external_people(db_path: Path | None = None) -> dict[tuple[str, str, str], d
     }
 
 
+def directory_listings(db_path: Path | None = None) -> dict[str, list[dict]]:
+    """``{person_slug: [{source, unit_name, listing_url, person_url, ...}]}``
+
+    Which UC unit directory publishes a person, for the people who are not
+    CISUC members. **A CISUC person has no entry here at all**, which is what
+    keeps the payload shape unchanged for every row that existed before this
+    feature: ``_resolve_person_rows`` only attaches a ``directory`` field when
+    this lookup answers, so an older frontend and every existing test see
+    exactly what they saw.
+
+    Tolerates a seed built before the table existed, same as
+    ``external_people`` above and for the same reason.
+    """
+    try:
+        rows = db.rows(db.load_query("directory_listings"), (), db_path)
+    except sqlite3.OperationalError:
+        # "no such table: directory_listings" — a pre-harvest seed. Every
+        # person in it is a CISUC person, which is the correct answer.
+        return {}
+    out: dict[str, list[dict]] = {}
+    for row in rows:
+        out.setdefault(row["person_slug"], []).append(
+            {
+                "source": row["source"],
+                "unit_name": row["unit_name"],
+                "listing_url": row["listing_url"],
+                "person_url": row["person_url"],
+                "name_as_published": row["name_as_published"],
+                "role_as_published": row["role_as_published"],
+            }
+        )
+    return out
+
+
 def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
                           with_groups: bool = True,
-                          externals: dict[tuple[str, str, str], dict] | None = None) -> list[dict]:
+                          externals: dict[tuple[str, str, str], dict] | None = None,
+                          directories: dict[str, list[dict]] | None = None) -> list[dict]:
     """Collapse the ``thesis_people`` rows for one (name, role) into the shape
     the dashboard renders.
 
@@ -225,12 +266,30 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
     absent otherwise. It changes nothing about the entry's ``status``,
     ``match_status`` or ``confidence``: it is what the name's person is
     called and where they work, for a row that is correctly not a CISUC
-    person. ``externals`` is passed in by ``list_theses`` so the lookup
-    happens once per request rather than once per thesis; a caller that omits
-    it gets its own read.
+    person.
+
+    ``directory`` is attached to a **matched** entry whose person is published
+    by a UC unit directory rather than by CISUC's own — a Faculty of Economics
+    professor who supervised a thesis, resolved exactly like any other person
+    and visibly not a CISUC member. It carries the primary listing plus every
+    other unit listing them (``units``), and the live ``listing_url`` is the
+    point of it: a reader can check the match against the page it was read
+    off. **It is absent for a CISUC person**, so the payload shape of every
+    row that existed before this feature is unchanged.
+
+    What must never happen here is a research-group chip for one of them:
+    ``group_shares`` comes back empty from ``_person_group_shares`` because
+    they have no CISUC project history, and that empty state is the correct
+    display rather than a gap to fill. Nothing below fabricates one.
+
+    ``externals`` and ``directories`` are passed in by ``list_theses`` so each
+    lookup happens once per request rather than once per thesis; a caller that
+    omits them gets its own read.
     """
     if externals is None:
         externals = external_people(db_path)
+    if directories is None:
+        directories = directory_listings(db_path)
     by_name: dict[str, dict] = {}
     slug_cache: dict[str, dict[str, float]] = {}
     raw_weights: dict[str, dict[str, float]] = {}
@@ -256,6 +315,13 @@ def _resolve_person_rows(rows: list[dict], db_path: Path | None = None,
         if entry["status"] != "matched" or row["person_slug"] is None:
             continue
         entry["matched"].append({"slug": row["person_slug"], "name": row["person_name"]})
+        listings = directories.get(row["person_slug"])
+        if listings and "directory" not in entry:
+            # First listed unit wins the badge (the query is ordered by source
+            # so a rebuild does not reshuffle it); the rest ride along in
+            # `units`, because a person really is on two pages and the profile
+            # shows both.
+            entry["directory"] = {**listings[0], "units": listings}
         if not with_groups:
             continue
         slug = row["person_slug"]
@@ -361,15 +427,19 @@ def list_theses(db_path: Path | None = None) -> list[dict]:
         content.setdefault(row["handle"], {})[row["group_code"]] = row["score"]
 
     # Once, not once per thesis: the whole table is 29 rows against 181
-    # theses, so the round trip costs more than the rows do.
+    # theses, so the round trip costs more than the rows do. Same call for
+    # the UC-directory listings beside it.
     externals = external_people(db_path)
+    directories = directory_listings(db_path)
 
     theses = []
     for thesis in db.rows(db.load_query("theses"), (), db_path):
         roles = by_handle.get(thesis["handle"], {})
-        authors = _resolve_person_rows(roles.get("author", []), db_path, externals=externals)
+        authors = _resolve_person_rows(
+            roles.get("author", []), db_path, externals=externals, directories=directories
+        )
         supervisors = _resolve_person_rows(
-            roles.get("supervisor", []), db_path, externals=externals
+            roles.get("supervisor", []), db_path, externals=externals, directories=directories
         )
         attribution = _attribution(
             _people_signal([("author", authors), ("supervisor", supervisors)]),
@@ -427,6 +497,7 @@ def supervisors_for(handles: list[str], db_path: Path | None = None) -> dict[str
     by_handle: dict[str, list[dict]] = {h: [] for h in wanted}
     rows = db.rows(db.load_query("thesis_people"), (), db_path)
     externals = external_people(db_path)
+    directories = directory_listings(db_path)
     grouped: dict[str, list[dict]] = {}
     for row in rows:
         if row["handle"] in wanted and row["role"] == "supervisor":
@@ -442,9 +513,17 @@ def supervisors_for(handles: list[str], db_path: Path | None = None) -> dict[str
                 # screen names supervisors, and an unresolved one reads as a
                 # dead end unless it can say who the person actually is.
                 **({"external": person["external"]} if "external" in person else {}),
+                # Carried here for the same reason `external` is: the Fit
+                # screen names supervisors, and a resolved one who is not a
+                # CISUC member must say so wherever they are rendered.
+                **({"directory": person["directory"]} if "directory" in person else {}),
             }
             for person in _resolve_person_rows(
-                person_rows, db_path, with_groups=False, externals=externals
+                person_rows,
+                db_path,
+                with_groups=False,
+                externals=externals,
+                directories=directories,
             )
         ]
     return by_handle
@@ -489,9 +568,32 @@ def identity_coverage(db_path: Path | None = None) -> dict:
                 "resolved": row["supervisor_names_resolved"],
             },
         },
+        # Corpus-wide, and the definition is untouched: `resolved` is still
+        # `person_slug IS NOT NULL` over every supervisor edge in the corpus,
+        # which is exactly what the tile on screen has always shown. `by_source`
+        # is additive — it says WHICH directory answered, and its two values
+        # sum to `resolved`.
         "supervision_edges": {
             "total": row["supervision_edges"],
             "resolved": row["supervision_edges_resolved"],
+            "by_source": {
+                "cisuc": row["supervision_edges_resolved_cisuc"],
+                "uc_directory": row["supervision_edges_resolved_uc"],
+            },
+        },
+        # A SEPARATE number, never merged into the one above: the universe
+        # analysis/audit_unmatched_supervisors.py reports on — theses where
+        # CISUC's own directory is present at all. It is pinned to
+        # CISUC-source resolutions on both sides so that it keeps meaning what
+        # it meant before `people` held two directories.
+        "supervision_edges_within_cisuc": {
+            "theses": row["cisuc_touching_theses"],
+            "total": row["cisuc_supervision_edges"],
+            "resolved": row["cisuc_supervision_edges_resolved"],
+            "by_source": {
+                "cisuc": row["cisuc_supervision_edges_resolved_cisuc"],
+                "uc_directory": row["cisuc_supervision_edges_resolved_uc"],
+            },
         },
         "theses": {
             "total": row["theses_total"],

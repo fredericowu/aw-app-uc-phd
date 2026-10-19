@@ -261,3 +261,79 @@ def test_every_person_in_the_fixture_resolves(client):
     assert payload["projects"]["project_count"] == 0
     assert payload["projects"]["items"] == []
     assert [t["handle"] for t in payload["theses"]["supervised"]] == ["10316/000001"]
+
+
+# ---------------------------------------------------------------------------
+# A UC academic who is not a CISUC member: resolved, linked, and with every
+# CISUC-derived section correctly empty.
+#
+# This page had never rendered a person who is "resolved" and yet has zero
+# projects, zero groups and no CISUC URL, and that is this feature's most
+# visible failure mode — an exception or a blank page reads as a bug in the
+# app rather than as the correct answer. So the path is tested explicitly,
+# payload-first, because the caveat that explains the empties is in the
+# payload and a frontend change must not be able to drop it.
+# ---------------------------------------------------------------------------
+
+UC_SLUG = "uc--feuc--boaventura-de-sousa-santos"
+
+
+@pytest.fixture()
+def uc_person(live_db):
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    conn.execute("INSERT INTO people (slug, name) VALUES (?, ?)", (UC_SLUG, "Boaventura de Sousa Santos"))
+    conn.execute(
+        "INSERT INTO directory_listings (person_slug, source, unit_name, listing_url, "
+        "person_url, name_as_published, role_as_published, fetched_at) VALUES "
+        "(?, 'feuc', 'Faculdade de Economia (FEUC)', "
+        "'https://www.uc.pt/feuc/pessoas-e-servicos/docentes/', "
+        "'https://ces.uc.pt/pt/ces/pessoas/investigadoras-es/boaventura-de-sousa-santos', "
+        "'Boaventura de Sousa Santos', 'Professor Catedrático - Jubilado', "
+        "'2026-10-19T00:00:00+00:00')",
+        (UC_SLUG,),
+    )
+    conn.commit()
+    conn.close()
+    return UC_SLUG
+
+
+def test_a_uc_directory_person_profile_renders_honest_empties(client, uc_person):
+    resp = client.get(f"/api/people/{uc_person}")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # The affiliation and the LIVE listing URL, which is what makes the match
+    # checkable by a human.
+    assert body["person"]["directory"] == [
+        {
+            "source": "feuc",
+            "unit_name": "Faculdade de Economia (FEUC)",
+            "listing_url": "https://www.uc.pt/feuc/pessoas-e-servicos/docentes/",
+            "person_url": (
+                "https://ces.uc.pt/pt/ces/pessoas/investigadoras-es/boaventura-de-sousa-santos"
+            ),
+            "name_as_published": "Boaventura de Sousa Santos",
+            "role_as_published": "Professor Catedrático - Jubilado",
+        }
+    ]
+    assert "not a member of CISUC" in body["directory_caveat"]
+
+    # Every CISUC-derived section is empty, and that is the correct answer —
+    # not a gap, and never a fabricated research group.
+    assert body["person"]["groups"] == []
+    assert body["person"]["cisuc_url"] is None
+    assert body["projects"]["project_count"] == 0
+    assert body["projects"]["items"] == []
+    assert body["keywords"]["project"] == []
+    assert body["theses"]["authored"] == []
+    assert body["theses"]["supervised"] == []
+
+
+def test_a_cisuc_person_profile_carries_no_directory_fields(client):
+    """The payload shape for everybody who existed before this feature is
+    unchanged except for one empty list."""
+    body = client.get("/api/people/ada").json()
+    assert body["person"]["directory"] == []
+    assert body["directory_caveat"] is None

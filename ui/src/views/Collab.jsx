@@ -312,7 +312,22 @@ export default function Collab() {
           return (
             <>
               <div className="tiles">
-                <Tile value={count(summary.total_people)} label="People" />
+                {/* "People" alone became a lie the moment `people` held two
+                    directories: every number on this page is built from
+                    project_people, which only the CISUC project scraper
+                    writes. The label now says what it counts, and the UC
+                    unit-directory people are a note beside it rather than
+                    silently absent. */}
+                <Tile
+                  value={count(summary.total_people)}
+                  label="People in the CISUC directory"
+                  note={
+                    summary.uc_directory_people
+                      ? `+ ${count(summary.uc_directory_people)} UC unit-directory people, not `
+                        + 'counted here — they appear on no CISUC project'
+                      : undefined
+                  }
+                />
                 <Tile value={count(summary.people_on_multiple_projects)} label="On 2+ projects" />
                 <Tile
                   value={count(summary.co_project.pair_count)}

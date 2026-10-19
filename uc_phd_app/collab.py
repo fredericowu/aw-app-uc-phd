@@ -485,7 +485,23 @@ def summary() -> dict:
     # figure is rendered as "N people" (ui/src/views/Collab.jsx). Counting the
     # raw table would report CISUC's duplicate directory entries as extra
     # researchers — see scraper/schema.sql's note on the view.
-    total_people = db.one("SELECT COUNT(*) AS n FROM people_canonical")["n"]
+    #
+    # And filtered to CISUC's OWN directory, which is the whole point of this
+    # page: every number beside it is built from `project_people`, which only
+    # the CISUC project scraper writes. Since `people` also holds UC's
+    # per-unit staff directories (scraper/schema.sql: directory_listings),
+    # counting the view raw would render "1813 people" next to a collaboration
+    # graph built from 905 of them — a label that is wrong rather than a count
+    # that is high. The UC-directory people are reported separately so the
+    # growth is visible instead of silently excluded.
+    total_people = db.one(
+        "SELECT COUNT(*) AS n FROM people_canonical WHERE slug NOT IN "
+        "(SELECT person_slug FROM directory_listings)"
+    )["n"]
+    uc_directory_people = db.one(
+        "SELECT COUNT(*) AS n FROM people_canonical WHERE slug IN "
+        "(SELECT person_slug FROM directory_listings)"
+    )["n"]
     multi_project_people = db.one(
         """
         SELECT COUNT(*) AS n FROM (
@@ -496,7 +512,11 @@ def summary() -> dict:
         """
     )["n"]
 
-    result = {"total_people": total_people, "people_on_multiple_projects": multi_project_people}
+    result = {
+        "total_people": total_people,
+        "uc_directory_people": uc_directory_people,
+        "people_on_multiple_projects": multi_project_people,
+    }
     for kind in KINDS:
         pairs = _pairs_for(kind)
         weights = [p["weight"] for p in pairs]

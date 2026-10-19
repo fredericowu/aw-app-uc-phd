@@ -332,7 +332,14 @@ def test_theses_list_resolves_identity_from_the_seed(client):
         "author": {"exact": 1, "unmatched": 3},
         "supervisor": {"exact": 2, "ambiguous": 1},
     }
-    assert body["identity_coverage"]["supervision_edges"] == {"total": 4, "resolved": 3}
+    assert body["identity_coverage"]["supervision_edges"] == {
+            "total": 4,
+            "resolved": 3,
+            # Additive: `people` now holds CISUC's directory AND UC's per-unit
+            # ones, so every resolved figure says which answered. The two
+            # values sum to `resolved`, which keeps its exact old meaning.
+            "by_source": {"cisuc": 3, "uc_directory": 0},
+        }
     assert "correct answer, not a gap" in body["identity_note"]
     assert body["attribution_tiers"] == {
         "corroborated": 1,

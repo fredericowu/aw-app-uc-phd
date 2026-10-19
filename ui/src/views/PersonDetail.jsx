@@ -164,6 +164,24 @@ export default function PersonDetail({ slug, onBack }) {
                       stored href means no link at all. */}
                   {person.cisuc_url ? (
                     <ExternalLink href={person.cisuc_url}>Open on cisuc.uc.pt</ExternalLink>
+                  ) : person.directory?.length ? (
+                    /* A UC academic from another unit. The affiliation and
+                       the live listing go HERE, in the header, rather than
+                       only in the caveat below: the empty CISUC sections
+                       further down are correct, and a reader has to be told
+                       why before they read them as a broken page. */
+                    <span>
+                      {person.directory.map((d, i) => (
+                        <span key={d.source}>
+                          {i > 0 ? ' · ' : ''}
+                          Listed in {d.unit_name}
+                          {d.role_as_published ? ` — ${d.role_as_published}` : ''}{' '}
+                          <ExternalLink href={d.person_url || d.listing_url}>
+                            {d.person_url ? 'profile' : 'directory'}
+                          </ExternalLink>
+                        </span>
+                      ))}
+                    </span>
                   ) : (
                     <span style={{ color: 'var(--text-muted)' }}>
                       No CISUC profile URL published for this person
@@ -173,6 +191,16 @@ export default function PersonDetail({ slug, onBack }) {
               </div>
 
               <Caveat label="What this page is">{data.caveat}</Caveat>
+
+              {/* Why every CISUC section below is empty, said once and up
+                  front. Without it this page reads as a bug for the ~900
+                  people who reached the app through their own Faculty's
+                  directory rather than CISUC's. */}
+              {data.directory_caveat ? (
+                <Caveat label="A UC academic, not a CISUC member">
+                  {data.directory_caveat}
+                </Caveat>
+              ) : null}
 
               {/* The "de x para": CISUC lists this human under more than one
                   directory entry, a human reviewed it, and this profile is the
@@ -243,7 +271,12 @@ export default function PersonDetail({ slug, onBack }) {
                     <Caveat label="How these are counted">{projects.caveat}</Caveat>
                   </>
                 ) : (
-                  <p className="chart-note">No project lists this person.</p>
+                  <p className="chart-note">
+                    {person.directory?.length
+                      ? 'No CISUC project lists this person — expected for a UC academic '
+                        + 'outside CISUC, not a missing record.'
+                      : 'No project lists this person.'}
+                  </p>
                 )}
               </div>
 

@@ -96,13 +96,46 @@ export function PersonLink({ slug, children, title }) {
  *  of three people with no sign that a choice was made, so a name with more
  *  than one candidate — like one with none — stays plain text. The caller
  *  keeps rendering its own unattributed/ambiguous marker around this. */
+/** Which UC unit directory publishes a resolved person who is NOT a CISUC
+ *  member — "FEUC", "CES", "FCTUC-DCV".
+ *
+ *  Rendered next to a real `PersonLink`, because that is what they are: the
+ *  name resolved, the profile exists, the link works. The badge answers the
+ *  one question the link alone would leave a reader to guess wrong — this
+ *  person is a UC academic from another unit, not a CISUC member — and it
+ *  does so in the same muted register `ExternalIdentity` uses, with the live
+ *  directory page in the tooltip so the match can be checked against its
+ *  source. `payload.directory` is absent for a CISUC person, so nothing
+ *  renders for them.
+ *
+ *  It is deliberately NOT a research-group chip and must never become one: a
+ *  UC-directory person has no CISUC project history, `group_shares` comes out
+ *  empty, and an empty group list is the correct display. */
+export function DirectoryBadge({ directory }) {
+  if (!directory) return null;
+  const units = directory.units || [directory];
+  const where = units.map((u) => u.unit_name).join(' · ');
+  return (
+    <span
+      className="chip"
+      style={{ color: 'var(--text-muted)', marginLeft: '0.35rem' }}
+      title={`Listed in ${where} — not a CISUC member.\n\nDirectory: ${directory.listing_url}`}
+    >
+      {directory.source.toUpperCase()}
+    </span>
+  );
+}
+
 export function ResolvedPersonName({ person, title }) {
   const matched = person.matched || [];
   if (person.status === 'matched' && matched.length === 1) {
     return (
-      <PersonLink slug={matched[0].slug} title={title}>
-        {person.name}
-      </PersonLink>
+      <>
+        <PersonLink slug={matched[0].slug} title={title}>
+          {person.name}
+        </PersonLink>
+        <DirectoryBadge directory={person.directory} />
+      </>
     );
   }
   // Additively: an unresolved name whose person has been researched carries

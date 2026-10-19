@@ -280,7 +280,23 @@ def test_identity_coverage_reports_every_grain_the_views_consume(live_db):
         "author": {"total": 4, "resolved": 1},
         "supervisor": {"total": 3, "resolved": 2},
     }
-    assert coverage["supervision_edges"] == {"total": 4, "resolved": 3}
+    assert coverage["supervision_edges"] == {
+        "total": 4,
+        "resolved": 3,
+        "by_source": {"cisuc": 3, "uc_directory": 0},
+    }
+    # A SEPARATE number over a different universe, never merged into the one
+    # above: the theses where CISUC's own directory is present at all.
+    assert coverage["supervision_edges_within_cisuc"] == {
+        "theses": 3,
+        # 3, not the 4 above: one of the fixture's supervisor edges is on a
+        # thesis where nothing resolved at all, so that thesis is outside the
+        # CISUC-touching universe. Which is the point of reporting the two
+        # separately — they count different things.
+        "total": 3,
+        "resolved": 3,
+        "by_source": {"cisuc": 3, "uc_directory": 0},
+    }
     assert coverage["theses"] == {
         "total": 5,
         "listing_a_supervisor": 3,

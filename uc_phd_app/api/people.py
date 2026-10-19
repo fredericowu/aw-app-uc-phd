@@ -26,6 +26,8 @@ frontend fetches the neighbourhood separately — the same split
 """
 from __future__ import annotations
 
+import sqlite3
+
 from fastapi import APIRouter, HTTPException
 
 from .. import collab, db, theses
@@ -83,6 +85,23 @@ DUPLICATE_NAME_CAVEAT = (
     "slug, not name."
 )
 
+#: Said on the page of a person UC publishes but CISUC does not. Three things
+#: a reader would otherwise have to infer from an empty page: who lists them,
+#: that the empty CISUC sections below are CORRECT rather than broken, and the
+#: live URL to check the identity against. A profile that looks broken reads
+#: as a bug, which is this workspace's own house failure mode.
+DIRECTORY_CAVEAT = (
+    "This person is a University of Coimbra academic listed by {where}, not a "
+    "member of CISUC. They reached this app through their unit's own staff "
+    "directory (scraper/uc_directories/), which is why the CISUC sections on "
+    "this page — projects, research groups, collaborators-via-projects — are "
+    "empty: those are derived from CISUC project listings, this person "
+    "appears on none, and showing no group is the correct answer rather than "
+    "a gap. The theses below are real: a supervisor name on an Estudo Geral "
+    "record resolved to this directory entry. Check it against the live "
+    "listing linked above."
+)
+
 #: Said out loud whenever this profile is an aggregate of several CISUC
 #: directory entries, because every figure on the page then counts something
 #: the site itself splits in two — a reader comparing this project count
@@ -116,6 +135,17 @@ FROM project_fields_raw
 WHERE href IS NOT NULL
   AND substr(href, length(href) - length(:slug)) = '/' || :slug
 LIMIT 1
+"""
+
+# Every UC unit that lists this person, ordered so the primary listing is
+# stable across rebuilds. Empty for a CISUC member, which is how the profile
+# tells the two apart without a second column on `people`
+# (scraper/schema.sql: directory_listings).
+_DIRECTORY_SQL = """
+SELECT source, unit_name, listing_url, person_url, name_as_published, role_as_published
+FROM directory_listings
+WHERE person_slug IN ({group})
+ORDER BY source
 """
 
 # The requested slug's canonical identity, or nothing when it already is one.
@@ -293,6 +323,13 @@ async def person_detail(slug: str) -> dict:
     )
     siblings = db.rows(_SIBLING_SLUGS_SQL, {"slug": canonical, "canonical": canonical})
     person_groups = collab.person_groups()
+    # A seed built before the harvest existed has no table; every person in it
+    # is a CISUC person, which is the correct answer rather than a 500. Same
+    # call theses.directory_listings() makes.
+    try:
+        listings = db.rows(_DIRECTORY_SQL.format(group=placeholders), group_params)
+    except sqlite3.OperationalError:
+        listings = []
 
     projects = _fold_projects(
         db.rows(_PROJECTS_SQL.format(group=placeholders), group_params)
@@ -327,6 +364,10 @@ async def person_detail(slug: str) -> dict:
             # across two entries belongs to the groups of both.
             "groups": sorted(set().union(*(person_groups.get(s, set()) for s in group_slugs))),
             "name_siblings": siblings,
+            # Which UC unit directory publishes this person, or [] for a
+            # CISUC member — the payload shape for an existing profile is
+            # therefore unchanged except for one empty list.
+            "directory": listings,
             # The other CISUC directory entries for this same human. Empty for
             # almost everyone; never None, so the frontend can read .length.
             "aliases": aliases,
@@ -357,5 +398,10 @@ async def person_detail(slug: str) -> dict:
         "duplicate_name_caveat": DUPLICATE_NAME_CAVEAT if siblings else None,
         "alias_caveat": (
             ALIAS_CAVEAT.format(count=len(group_slugs), canonical=canonical) if aliases else None
+        ),
+        "directory_caveat": (
+            DIRECTORY_CAVEAT.format(where=" and ".join(r["unit_name"] for r in listings))
+            if listings
+            else None
         ),
     }

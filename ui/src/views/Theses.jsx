@@ -65,7 +65,11 @@ function slotOf(code) {
   return code === UNATTRIBUTED ? 'muted' : groupSlot(code);
 }
 
-function PersonList({ people }) {
+// Exported for tests/DirectoryBadge.test.jsx only. The one thing this has to
+// keep doing for a resolved UC-directory person is NOT print
+// "(unattributed)" next to them, which it would the moment the status check
+// below drifted.
+export function PersonList({ people }) {
   if (!people.length) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
   return (
     <>
@@ -130,6 +134,15 @@ function GroupChips({ groups, attribution }) {
 // advisor edges, so the name-grain number understates what one failure costs.
 // Deliberately not the pooled 283-name figure: that one mixes in the authors,
 // a third of whom correctly do not resolve.
+function sourceSplit(edges) {
+  // Always said, never implied: an aggregate percentage that pooled CISUC
+  // members with UC academics from other Faculties would let a reader
+  // conclude the lab is bigger than it is.
+  const by = edges.by_source;
+  if (!by) return '';
+  return ` · ${count(by.cisuc)} CISUC directory / ${count(by.uc_directory)} UC unit directories`;
+}
+
 function IdentityTile({ identity }) {
   const edges = identity.supervision_edges;
   return (
@@ -137,8 +150,32 @@ function IdentityTile({ identity }) {
       value={edges.total ? `${Math.round((100 * edges.resolved) / edges.total)}%` : '—'}
       label="Supervisor names resolved to a person"
       note={
-        `${count(edges.resolved)} of ${count(edges.total)} supervision edges · `
+        `${count(edges.resolved)} of ${count(edges.total)} supervision edges, corpus-wide · `
         + `${count(identity.supervisor_people)} distinct supervisors`
+        + sourceSplit(edges)
+      }
+    />
+  );
+}
+
+// A SECOND number, deliberately not merged into the one above. The corpus is
+// university-wide (2690 theses, every Faculty); CISUC is one lab inside it, so
+// "how much of the supervision graph resolves" has two honest answers and a
+// single one would describe neither. This is the universe
+// analysis/audit_unmatched_supervisors.py reports on, and it is pinned to
+// CISUC-source resolutions so it stays comparable to the figure this app
+// published before UC's unit directories existed.
+function WithinCisucTile({ identity }) {
+  const edges = identity.supervision_edges_within_cisuc;
+  if (!edges) return null;
+  return (
+    <Tile
+      value={edges.total ? `${Math.round((100 * edges.resolved) / edges.total)}%` : '—'}
+      label="Supervisor names resolved, within CISUC-touching theses"
+      note={
+        `${count(edges.resolved)} of ${count(edges.total)} supervision edges on the `
+        + `${count(edges.theses)} theses where a CISUC person appears at all`
+        + sourceSplit(edges)
       }
     />
   );
@@ -292,6 +329,7 @@ export default function Theses({ onOpenThesis }) {
                   }
                 />
                 {identity ? <IdentityTile identity={identity} /> : null}
+                {identity ? <WithinCisucTile identity={identity} /> : null}
               </div>
 
               {showUnattributed ? (

@@ -861,3 +861,74 @@ theses have a resolved supervisor" understates the matcher: against the 157
 that actually list one it is 91%. Routed to the Product Owner as a separate
 card against the Estudo Geral extractor; it likely buys more advisor-view
 coverage than any identity work remaining.
+
+---
+
+## Amendment, 2026-10-19: a second directory, and what `exact` now means
+
+Card `3fd5bf3b-9510-8113-a699-ec378da4a0c9` added UC's per-unit staff
+directories to the candidate pool. The design is
+`docs/design/uc-phd-non-cisuc-uc-directories.md` in the workspace repo; this
+section records what changed about the *method* this document describes,
+because three sentences above are no longer literally true.
+
+**`people` is no longer one directory.** It holds CISUC's own roster plus
+whatever `scraper/uc_directories/` has harvested, and the two are told apart
+by a join: a row with no `directory_listings` row is a CISUC person exactly
+as before (`scraper/schema.sql`). Every claim of the form "absent from
+`people`" now has to say *which* directory it means. The slug namespaces are
+disjoint by construction (`uc--<source>--<name-slug>`) and the harvester
+refuses a collision, so no CISUC row can be overwritten by a UC one.
+
+**Matching runs twice, and the order is a semantic fact.** Pass 1 is the
+CISUC pool and is byte-for-byte what it always was — that is what keeps every
+number in this document comparable. Pass 2 runs the *unmodified* `match_name`
+over the UC pool, and only for a `supervisor` mention pass 1 left
+`unmatched`. It is never consulted for an author (a doctoral student is not
+staff), never for a pass-1 `ambiguous` name (more candidates cannot separate
+two that already fit), and never for a name pass 1 resolved (the CISUC
+verdict stands). That last one is a *source-precedence* rule rather than a
+quality judgement, and it is not silent: `cross_directory_fits` in the build
+report lists every pass-1 resolved name a UC row also fits — reported, never
+acted on. If that list ever shows systematic pass-1 wrong-person matches,
+that is the evidence, and the only evidence, that reopens the merged-pool
+decision.
+
+**`exact`'s definition drifted, and this is the correction.** Above it reads
+"the token sets are equal" and meant equality with *CISUC's* published
+identity. It now means equality with the published form of **whichever
+directory answered** — so an `exact` supervisor may be exact against a
+Faculty of Economics staff page. The tier still says nothing about source;
+the source is carried by the `match_note` prefix (`via UC directory feuc: …`)
+and by the `directory_listings` join, and every coverage figure is split
+`cisuc` / `uc_directory` so no aggregate can blur them.
+
+**One rule was tightened, and tightening is the only direction allowed.**
+`Person` gained a `source` field and `_one_folded_name` now additionally
+requires one source. That rule existed for CISUC listing one human twice,
+which is evidence about one site's data entry; "João Silva" at FDUC and
+"João Silva" at FFUC is two people until a human says otherwise. Withholding
+a collapse can only turn a `confident` into an `ambiguous`, so it buys zero
+edges — and on the legacy corpus it is a no-op by construction, which is why
+the golden fixture stayed green unedited. Cross-source pairs that *are* one
+human are merged the house way: a `person_aliases` verdict with evidence,
+which `_one_canonical` already honours across sources.
+
+**The two rejected relaxations stay rejected, and so does option C.** No rule
+in `_fits`/`_fits_full` was loosened. The lever was pool size, exactly as the
+Product Owner scoped it. One consequence is worth writing down because it is
+now measurable rather than hypothetical: the **superset shape** — the
+directory publishes "João Carlos Freitas Arriscado Nunes" and the thesis
+writes "Nunes, João Arriscado", so `_fits` rule 2 rejects a candidate
+carrying given names the thesis omits — is the single largest remaining
+cause of unresolved supervisors, and it is the open backlog card
+`matching:uc-phd-fits-extra-cisuc-initial`. Measured on the 2690-thesis
+corpus against the 1340-person UC pool: enabling the mirror comparison for
+UC rows would resolve **168 more names / 278 more edges** and move 25 names
+from `unmatched` to `ambiguous`. It was NOT shipped, because for a UC person
+the published form *is* the full form, so a `person_full_names` entry per
+slug would be a rule change wearing a curated instrument's clothes — and
+because the sample contains exactly the failure this document exists to
+prevent ("Almeida, Ana de" → "Ana Cristina Ferreira de Almeida", plausible
+and unverified). That measurement is the Product Owner's to spend, not a
+Coder's.

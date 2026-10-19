@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from analysis import build_thesis_facts as build_mod
+from analysis import duplicate_theses as dup_mod
 from analysis.name_match import Person
 from tests.conftest import THESIS_MD
 
@@ -89,8 +90,27 @@ def multi_authors(tmp_path):
     return path
 
 
-def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db, aliases, full_names, externals, multi_authors):
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+@pytest.fixture()
+def dup_theses(tmp_path):
+    """An EMPTY duplicate_theses.json, for exactly the reason the four fixtures
+    above are empty, and here the refusal would be the most consequential of
+    the five: the committed ``data/duplicate_theses.json`` names two real
+    Estudo Geral handles and requires BOTH to be in the corpus being built, so
+    this one synthetic thesis would (correctly) refuse the entry — and if it
+    somehow did not, the build under test would be dropping a thesis the test
+    never asked it to.
+
+    Empty is also the control these tests mostly want: with no reviewed
+    duplicate, ``build()`` must behave exactly as it did before this
+    instrument existed. The tests that want an exclusion write their own, as
+    ``test_a_reviewed_duplicate_*`` below does."""
+    path = tmp_path / "duplicate_theses.json"
+    path.write_text(json.dumps({"entries": []}), encoding="utf-8")
+    return path
+
+
+def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     assert report["theses"] == 1
     assert report["supervision_edges"] == 2
@@ -114,10 +134,10 @@ def test_it_writes_the_three_tables_and_reports_what_it_wrote(corpus, fixture_db
     conn.close()
 
 
-def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """The whole reason person_slug is nullable: dropping the 14 names nobody
     can resolve would be data loss dressed up as a clean join."""
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     conn = sqlite3.connect(fixture_db)
     conn.row_factory = sqlite3.Row
@@ -133,7 +153,7 @@ def test_an_unmatched_name_is_preserved_as_a_row_with_a_null_slug(corpus, fixtur
     assert rows["Curie, Marie Sklodowska"]["match_note"]
 
 
-def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """The João Bicker case: the PK has to carry person_slug or one of the two
     rows silently overwrites the other."""
     conn = sqlite3.connect(fixture_db)
@@ -141,7 +161,7 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
     conn.commit()
     conn.close()
 
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     conn = sqlite3.connect(fixture_db)
     slugs = [
@@ -155,7 +175,7 @@ def test_one_name_resolving_to_duplicate_people_rows_writes_both(corpus, fixture
 
 
 def test_two_rows_a_review_calls_different_people_write_one_unresolved_row(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The same two rows as the test above, with the one fact that changes what
     they mean: ``data/person_aliases.json`` says a human read both CISUC pages
@@ -188,7 +208,7 @@ def test_two_rows_a_review_calls_different_people_write_one_unresolved_row(
         encoding="utf-8",
     )
 
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     conn = sqlite3.connect(fixture_db)
     conn.row_factory = sqlite3.Row
@@ -201,14 +221,14 @@ def test_two_rows_a_review_calls_different_people_write_one_unresolved_row(
     assert rows[0]["match_status"] == "ambiguous"
 
 
-def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """The tables are a pure function of the committed corpus. An upsert would
     leave a withdrawn thesis in the seed forever."""
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     (corpus / "10316-000001.md").unlink()
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     assert report["theses"] == 0
     conn = sqlite3.connect(fixture_db)
@@ -217,7 +237,7 @@ def test_rebuilding_replaces_rather_than_accumulates(corpus, fixture_db, aliases
     conn.close()
 
 
-def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """The glob is not the inventory. A half-failed download leaves a manifest
     entry with no .md, and trusting the glob would report a smaller corpus
     with no error at all."""
@@ -225,24 +245,24 @@ def test_a_manifest_that_disagrees_with_the_files_is_a_hard_failure(corpus, fixt
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/999999"}]), encoding="utf-8"
     )
     with pytest.raises(build_mod.ReconciliationError, match="10316/999999"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
 
-def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_an_unlisted_md_file_is_a_hard_failure_too(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     (corpus / "manifest.json").write_text("[]", encoding="utf-8")
     with pytest.raises(build_mod.ReconciliationError, match="unlisted"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
 
-def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_a_thesis_without_a_source_url_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """source_url is NOT NULL in the schema; a bare sqlite3.IntegrityError
     would not say which thesis lost its provenance."""
     (corpus / "10316-000001.md").write_text(THESIS_NO_URL, encoding="utf-8")
     with pytest.raises(ValueError, match="10316/000001: no source_url"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
 
-def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """Origin is many-to-many: the umbrella collection is stored next to the
     harvested community, raw, so a membership nobody planned for stays
     queryable without re-harvesting.
@@ -254,7 +274,7 @@ def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, alias
     the many-to-many the first paragraph describes, not a defect: the report
     answers "how many theses came from ISR", and a thesis cross-listed in
     two communities genuinely came from both."""
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     assert report["thesis_sets"] == 2
     assert report["theses_per_harvest_set"] == {
         "DEI": 1,
@@ -272,15 +292,15 @@ def test_it_writes_every_oai_set_the_thesis_belongs_to(corpus, fixture_db, alias
     assert rows == [("10316/000001", "col_10316_15519"), ("10316/000001", "com_10316_255")]
 
 
-def test_a_rebuild_replaces_thesis_sets_rather_than_appending(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_a_rebuild_replaces_thesis_sets_rather_than_appending(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """thesis_sets is in THESIS_TABLES, so the full-replace delete covers it —
     without that, a second run would hit the (handle, set_spec) primary key."""
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     assert report["thesis_sets"] == 2
 
 
-def test_a_duplicated_set_spec_is_stored_once(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_a_duplicated_set_spec_is_stored_once(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """The primary key is (handle, set_spec); a header repeating a spec must
     not turn a provenance detail into an IntegrityError."""
     (corpus / "10316-000001.md").write_text(
@@ -289,17 +309,17 @@ def test_a_duplicated_set_spec_is_stored_once(corpus, fixture_db, aliases, full_
         ),
         encoding="utf-8",
     )
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     assert report["thesis_sets"] == 2
 
 
-def test_a_thesis_without_oai_sets_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_a_thesis_without_oai_sets_names_itself_when_it_fails(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """Same strictness as source_url, for the same reason: every OAI header
     carries set membership, so a front matter without it is a stale file —
     and writing zero rows would hide that from every grouping query."""
     (corpus / "10316-000001.md").write_text(THESIS_NO_SETS, encoding="utf-8")
     with pytest.raises(ValueError, match="10316/000001: no oai_sets"):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
 
 def test_front_matter_without_delimiters_raises(tmp_path):
@@ -318,20 +338,21 @@ def test_load_cisuc_people_reads_the_people_table(fixture_db):
         conn.close()
 
 
-def test_the_cli_prints_its_report(corpus, fixture_db, aliases, full_names, externals, multi_authors, capsys):
+def test_the_cli_prints_its_report(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses, capsys):
     assert build_mod.main(
         ["--db", str(fixture_db), "--estudo-geral", str(corpus),
          "--person-aliases", str(aliases),
          "--person-full-names", str(full_names),
          "--external-people", str(externals),
-         "--multi-thesis-authors", str(multi_authors)]
+         "--multi-thesis-authors", str(multi_authors),
+         "--duplicate-theses", str(dup_theses)]
     ) == 0
     assert json.loads(capsys.readouterr().out)["theses"] == 1
 
 
 def test_the_committed_seed_holds_the_real_corpus():
     """The seed that actually ships. Asserts the measured shape of the real
-    data — 2690 theses, 4574 supervisor rows, 4988 distinct names — so a
+    data — 2689 theses, 4568 supervisor rows, 4988 distinct names — so a
     rebuild that silently loses rows fails here rather than in the dashboard.
 
     The numbers were 181 / 242 / 283 while the harvest was DEI-only. They are
@@ -360,16 +381,47 @@ def test_the_committed_seed_holds_the_real_corpus():
     amendment 2026-10-19). ``supervision_edges`` is still 4570 — which is
     what says these were duplicate ROWS for one mention and not lost
     supervisions — and the floor is now equal to it, so the next collapse of
-    either kind will fail here and want a number read off a rebuild."""
+    either kind will fail here and want a number read off a rebuild.
+
+    **2690 -> 2689, and 4570 -> 4568 (amendment 2026-10-19).** The first
+    movement of these figures that is a thesis genuinely leaving the corpus
+    rather than rows collapsing onto one person. ``10316/90536`` is one
+    physical doctoral thesis that Estudo Geral deposited twice, reviewed
+    against both OAI records and excluded by ``data/duplicate_theses.json``
+    (``analysis/duplicate_theses.py``); the record that stays is
+    ``10316/90537``. The deltas are the duplicate's own rows and nothing else,
+    read off a rebuild and row-diffed against the previous seed: ``theses``
+    -1, ``thesis_people`` -3 (its unmatched author plus its two ``exact``
+    UC-directory supervisors), ``thesis_keywords`` -5, ``thesis_sets`` -4.
+
+    ``supervision_edges`` moves this time, 4570 -> 4568, where aliasing could
+    never move it — and that is the point: it is counted from the front
+    matters, so a thesis leaving the corpus is exactly the kind of change it
+    is supposed to register. The supervisor-row floor tracks it down to 4568
+    for the same reason, so floor == edges still holds.
+
+    ``distinct_names`` does NOT move, and that was checked rather than assumed:
+    both of the dropped supervisor name strings ("Alcoforado, Joaquim Luís
+    Medeiros", "Vieira, Cristina Maria Coimbra") appear on other theses (3 and
+    8 respectively), and the dropped author "Moio, Isabel Sofia Fernandes" is
+    still the author of the surviving 10316/90537. The author-name count the
+    dashboard publishes as "Students" is unchanged at 2686 for that last
+    reason."""
     conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
     try:
-        assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 2690
+        assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 2689
         assert conn.execute(
             "SELECT COUNT(*) FROM thesis_people WHERE role = 'supervisor'"
-        ).fetchone()[0] >= 4570
+        ).fetchone()[0] >= 4568
         assert conn.execute(
             "SELECT COUNT(DISTINCT name_raw) FROM thesis_people"
         ).fetchone()[0] == 4988
+        # The invariant item #1 restored, re-checked at the new size: one
+        # `people` row authors at most one thesis, so resolved or not, the
+        # corpus has exactly one author row per thesis.
+        assert conn.execute(
+            "SELECT COUNT(*) FROM thesis_people WHERE role = 'author'"
+        ).fetchone()[0] == 2689
         # Every thesis carries its provenance, and nothing lost its rights flag.
         assert conn.execute("SELECT COUNT(*) FROM theses WHERE source_url IS NULL").fetchone()[0] == 0
     finally:
@@ -491,7 +543,7 @@ def test_minimal_evidence_lists_the_two_token_matches_for_human_review():
 
 
 def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """End to end: a second thesis whose author's longer name also fits 'Ada
     Lovelace' must not merge the two into one student."""
@@ -503,7 +555,7 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         json.dumps([{"handle": "10316/000001"}, {"handle": "10316/000002"}]), encoding="utf-8"
     )
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     assert [c["person_slug"] for c in report["author_conflicts"]] == ["ada"]
     assert report["author_conflicts"][0]["kept"]["handle"] == "10316/000001"
 
@@ -522,7 +574,7 @@ def test_the_build_reports_the_conflict_and_writes_no_duplicate_resolved_author(
         conn.close()
 
 
-def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db, aliases, full_names, externals, multi_authors):
+def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses):
     """The ordering trap: schema.sql's author backstop is created by `build()`
     itself, so a rebuild has to clear the old rows BEFORE applying the schema
     or the fix could never be applied to the data it fixes.
@@ -546,11 +598,11 @@ def test_rebuilding_over_a_seed_that_still_holds_a_false_merge_succeeds(corpus, 
     finally:
         conn.close()
 
-    assert build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)["theses"] == 1
+    assert build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)["theses"] == 1
 
 
 def test_a_rebuild_in_place_drops_the_index_the_trigger_replaced(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The trap one step past the one above, and the reason schema.sql carries
     a DROP INDEX rather than just not creating one.
@@ -573,7 +625,7 @@ def test_a_rebuild_in_place_drops_the_index_the_trigger_replaced(
     finally:
         conn.close()
 
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     conn = sqlite3.connect(fixture_db)
     try:
@@ -687,7 +739,7 @@ def _exemption(path, slug, *handles):
 
 
 def test_a_reviewed_multi_thesis_author_keeps_the_slug_on_every_listed_thesis(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """D2's whole point. Without the entry both rows are ``ambiguous`` with a
     NULL slug (``test_with_several_set_equal_claimants_the_note_says_so``
@@ -695,7 +747,7 @@ def test_a_reviewed_multi_thesis_author_keeps_the_slug_on_every_listed_thesis(
     _two_theses(corpus, "10316/000001", "10316/000002")
     _exemption(multi_authors, "ada", "10316/000001", "10316/000002")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     assert report["author_conflicts"] == []
     assert report["multi_thesis_authors"] == {"people": 1, "exempted_claims": 2}
@@ -715,7 +767,7 @@ def test_a_reviewed_multi_thesis_author_keeps_the_slug_on_every_listed_thesis(
 
 
 def test_a_claim_the_reviewed_entry_does_not_list_is_still_demoted(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The handle list is exhaustive, and that is what keeps this a fact about
     one person rather than a blanket licence on a slug: a third thesis the
@@ -723,7 +775,7 @@ def test_a_claim_the_reviewed_entry_does_not_list_is_still_demoted(
     _two_theses(corpus, "10316/000001", "10316/000002", "10316/000003")
     _exemption(multi_authors, "ada", "10316/000001", "10316/000002")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     assert [c["person_slug"] for c in report["author_conflicts"]] == ["ada"]
     assert report["author_conflicts"][0]["demoted"] == [
@@ -756,7 +808,7 @@ def test_a_claim_the_reviewed_entry_does_not_list_is_still_demoted(
 
 
 def test_an_exemption_whose_claim_the_matcher_does_not_resolve_is_refused(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The staleness guard, and the boundary that keeps this file off the
     matcher's side of the line: an entry may only prevent a withdrawal, never
@@ -775,11 +827,11 @@ def test_an_exemption_whose_claim_the_matcher_does_not_resolve_is_refused(
         build_mod.multi_thesis_authors.MultiThesisAuthorError,
         match="does not resolve the author of thesis '10316/000002'",
     ):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
 
 def test_an_exemption_naming_a_thesis_outside_the_corpus_is_refused(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """A thesis withdrawn upstream leaves an exemption over a handle that is
     gone — an unreviewed hole in the one-person-one-thesis check."""
@@ -788,11 +840,11 @@ def test_an_exemption_naming_a_thesis_outside_the_corpus_is_refused(
         build_mod.multi_thesis_authors.MultiThesisAuthorError,
         match="thesis '10316/999999' is not in this corpus",
     ):
-        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+        build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
 
 def test_with_several_set_equal_claimants_the_note_says_so(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The lying note, fixed. This is the same input as the first test in this
     section with the exemption removed, and it used to print the no-keeper
@@ -801,7 +853,7 @@ def test_with_several_set_equal_claimants_the_note_says_so(
     matcher bug that was not there."""
     _two_theses(corpus, "10316/000001", "10316/000002")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     assert report["author_conflicts"][0]["kept"] is None
     conn = sqlite3.connect(fixture_db)
@@ -928,5 +980,210 @@ def test_the_trigger_refuses_a_second_resolved_author_row_for_an_unreviewed_slug
             "('t/1', 'Hopper, Grace', 'supervisor', 'grace', 'exact', 1.0, 'ok', 0), "
             "('t/2', 'Hopper, Grace', 'supervisor', 'grace', 'exact', 1.0, 'ok', 0)"
         )
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------
+# The reviewed duplicate exclusion — one physical thesis, two deposited records
+#
+# The seam, and the whole argument for it: the exclusion applies to the
+# front-matter list AFTER reconcile() has seen the full corpus and BEFORE any
+# row is derived from it, so every thesis-keyed table is free of the handle by
+# construction rather than by four separate filters. These tests assert that
+# construction, not four filters — see analysis/duplicate_theses.py.
+# --------------------------------------------------------------------------
+
+
+def _exclusion(path, duplicate, keeper, fields=("authors", "date")):
+    path.write_text(
+        json.dumps(
+            {
+                "entries": [
+                    {
+                        "duplicate_handle": duplicate,
+                        "kept_handle": keeper,
+                        "identical_fields": list(fields),
+                        "source_url": f"https://estudogeral.uc.pt/handle/{duplicate}",
+                        "evidence": "Reviewed against both OAI records: one deposit, "
+                        "two handles, identical creator/date/abstracts.",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_a_reviewed_duplicate_is_absent_from_every_thesis_keyed_table(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
+):
+    """What the seam buys. One filter, applied before any derivation, and all
+    four tables come out consistent — there is no table left to forget, and so
+    no orphan row pointing at a handle that is not in ``theses``."""
+    _two_theses(corpus, "10316/000001", "10316/000002")
+    _exclusion(dup_theses, "10316/000001", "10316/000002")
+
+    report = build_mod.build(
+        fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses
+    )
+
+    assert report["theses"] == 1
+    assert report["duplicate_theses"] == {"entries": 1, "excluded_handles": 1}
+    # Derived from the FILTERED list, which is why it is not 4: two theses with
+    # two supervisors each, one of them dropped before the count.
+    assert report["supervision_edges"] == 2
+
+    conn = sqlite3.connect(fixture_db)
+    try:
+        for table in ("theses", "thesis_people", "thesis_keywords", "thesis_sets"):
+            assert conn.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE handle = '10316/000001'"
+            ).fetchone()[0] == 0, f"the excluded handle still has {table} rows"
+        assert conn.execute(
+            "SELECT COUNT(*) FROM theses WHERE handle = '10316/000002'"
+        ).fetchone()[0] == 1, "the surviving thesis must still be written"
+        # The reason the handle is gone is queryable, not only readable in git.
+        assert conn.execute(
+            "SELECT duplicate_handle, kept_handle FROM duplicate_theses"
+        ).fetchall() == [("10316/000001", "10316/000002")]
+    finally:
+        conn.close()
+
+
+def test_an_empty_exclusion_file_writes_both_records(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
+):
+    """The control, and the thing that says this instrument is additive: the
+    same corpus with nothing reviewed builds exactly as it did before the file
+    existed. If this ever fails, something started excluding on its own — which
+    is the one behaviour the Product Owner ruled out."""
+    _two_theses(corpus, "10316/000001", "10316/000002")
+
+    report = build_mod.build(
+        fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses
+    )
+
+    assert report["theses"] == 2
+    assert report["duplicate_theses"] == {"entries": 0, "excluded_handles": 0}
+    conn = sqlite3.connect(fixture_db)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM theses").fetchone()[0] == 2
+        assert conn.execute("SELECT COUNT(*) FROM duplicate_theses").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def test_the_exclusion_is_validated_against_the_unfiltered_corpus(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
+):
+    """Order, asserted rather than assumed. ``validate()`` compares the
+    duplicate's front matter with the survivor's, so it has to run while the
+    duplicate is still in the list — a filter applied first would leave the
+    verdict permanently unprovable and the check permanently passing."""
+    _two_theses(corpus, "10316/000001", "10316/000002")
+    # The two records disagree in a field the entry's evidence rests on.
+    text = (corpus / "10316-000001.md").read_text(encoding="utf-8")
+    (corpus / "10316-000001.md").write_text(
+        text.replace("date: '2024-05-01'", "date: '2019-02-02'"), encoding="utf-8"
+    )
+    _exclusion(dup_theses, "10316/000001", "10316/000002")
+
+    with pytest.raises(dup_mod.DuplicateThesisError, match="'date' no longer matches"):
+        build_mod.build(
+            fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses
+        )
+
+
+def test_an_exclusion_naming_a_thesis_outside_the_corpus_is_refused(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
+):
+    """A reviewed duplicate that went away upstream. The build stops rather
+    than leaving an exclusion standing over nothing — which would hide a real
+    harvest change behind an editorial decision nobody re-read."""
+    _exclusion(dup_theses, "10316/000999", "10316/000001")
+
+    with pytest.raises(dup_mod.DuplicateThesisError, match="'10316/000999' is not in this corpus"):
+        build_mod.build(
+            fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses
+        )
+
+
+def test_an_exclusion_whose_survivor_left_the_corpus_is_refused(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
+):
+    """The dangerous direction: with the survivor gone the entry would erase
+    the thesis instead of deduplicating it, and no count downstream would say
+    so. The build has to be the thing that notices."""
+    _exclusion(dup_theses, "10316/000001", "10316/000999")
+
+    with pytest.raises(dup_mod.DuplicateThesisError, match="SURVIVING thesis '10316/000999'"):
+        build_mod.build(
+            fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses
+        )
+
+
+def test_rebuilding_over_a_seed_that_still_holds_an_excluded_thesis_succeeds(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
+):
+    """The ordering trap this trigger has and the author one does not: the seed
+    being rebuilt may itself still carry the row the exclusion now forbids.
+    ``THESIS_TABLES`` is swept before ``schema.sql`` is applied, so the stale
+    row is gone before the trigger can see it — the same reason the sweep moved
+    ahead of ``executescript`` for the author index."""
+    _two_theses(corpus, "10316/000001", "10316/000002")
+    build_mod.build(
+        fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses
+    )
+
+    _exclusion(dup_theses, "10316/000001", "10316/000002")
+    report = build_mod.build(
+        fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses
+    )
+    assert report["theses"] == 1
+
+
+def test_the_trigger_refuses_an_excluded_handle_entering_theses(fixture_db):
+    """The backstop, at the strength the build filter has: a reviewed-out
+    record is impossible to COMMIT even when ``build()`` is bypassed entirely.
+    This inserts straight into the table, as a hand-written migration or a
+    future pipeline that skipped the filter would."""
+    conn = sqlite3.connect(fixture_db)
+    try:
+        conn.executescript(
+            "INSERT INTO theses (handle, slug, title, source_url) VALUES"
+            " ('t/2', 't-2', 'The real one', 'https://example.test/2');"
+            "INSERT INTO duplicate_theses VALUES"
+            " ('t/1', 't/2', 'https://example.test/1', 'one deposit, two records');"
+        )
+        with pytest.raises(sqlite3.IntegrityError, match="reviewed duplicate record"):
+            conn.execute(
+                "INSERT INTO theses (handle, slug, title, source_url) "
+                "VALUES ('t/1', 't-1', 'The duplicate', 'https://example.test/1')"
+            )
+
+        # Nothing else is touched: an unrelated thesis still inserts, and so
+        # does the SURVIVOR of a reviewed pair — the trigger keys on the
+        # duplicate handle, never on the entry.
+        conn.execute(
+            "INSERT INTO theses (handle, slug, title, source_url) "
+            "VALUES ('t/3', 't-3', 'Unrelated', 'https://example.test/3')"
+        )
+    finally:
+        conn.close()
+
+
+def test_the_committed_seed_carries_the_duplicate_backstop_as_a_trigger(fixture_db):
+    """The trigger ships in ``schema.sql``, so every seed built by this script
+    carries it — including the committed one. Asserted against a freshly
+    applied schema rather than against the seed's text, because the seed is a
+    binary and a grep over it is not a test."""
+    conn = sqlite3.connect(fixture_db)
+    try:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' "
+            "AND name = 'trg_no_excluded_thesis'"
+        ).fetchone()[0] == 1
     finally:
         conn.close()

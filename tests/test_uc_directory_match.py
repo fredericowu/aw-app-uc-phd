@@ -84,6 +84,16 @@ def multi_authors(tmp_path):
     return path
 
 
+@pytest.fixture()
+def dup_theses(tmp_path):
+    """Empty, like the three above: the committed data/duplicate_theses.json
+    names two real Estudo Geral handles and requires both in the corpus being
+    built, which no fixture corpus here has."""
+    path = tmp_path / "duplicate_theses.json"
+    path.write_text(json.dumps({"entries": []}), encoding="utf-8")
+    return path
+
+
 def _add_uc_person(
     db,
     slug,
@@ -141,11 +151,11 @@ def _rows(db):
 
 
 def test_a_supervisor_pass_1_cannot_resolve_is_resolved_by_the_uc_pool(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     _add_uc_person(fixture_db, "uc--feuc--marie-sklodowska-curie", UC_CURIE)
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Curie, Marie Sklodowska", "supervisor")]
 
     assert row["person_slug"] == "uc--feuc--marie-sklodowska-curie"
@@ -162,7 +172,7 @@ def test_a_supervisor_pass_1_cannot_resolve_is_resolved_by_the_uc_pool(
 
 
 def test_an_author_with_the_same_name_is_never_consulted_against_the_uc_pool(
-    tmp_path, fixture_db, aliases, full_names, externals, multi_authors
+    tmp_path, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The Product Owner's fence, and the seam the two caches exist for: one
     name in both roles must not read the supervisor pass's answer."""
@@ -185,7 +195,7 @@ def test_an_author_with_the_same_name_is_never_consulted_against_the_uc_pool(
     )
     _add_uc_person(fixture_db, "uc--feuc--marie-sklodowska-curie", UC_CURIE)
 
-    build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors, dup_theses)
     rows = _rows(fixture_db)
 
     assert rows[("Curie, Marie Sklodowska", "supervisor")]["person_slug"] == (
@@ -196,7 +206,7 @@ def test_an_author_with_the_same_name_is_never_consulted_against_the_uc_pool(
 
 
 def test_a_pass_1_ambiguous_name_is_not_consulted_against_the_uc_pool(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """Two CISUC rows already fit and no rule separates them. More candidates
     cannot resolve that — only widen it — so pass 2 never runs."""
@@ -210,7 +220,7 @@ def test_a_pass_1_ambiguous_name_is_not_consulted_against_the_uc_pool(
     conn.close()
     _add_uc_person(fixture_db, "uc--feuc--at-all-nobody-uc", "At All Nobody")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Nobody, At All", "supervisor")]
 
     assert row["match_status"] == AMBIGUOUS
@@ -220,14 +230,14 @@ def test_a_pass_1_ambiguous_name_is_not_consulted_against_the_uc_pool(
 
 
 def test_a_pass_1_resolved_name_keeps_its_cisuc_verdict_and_is_reported(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """Source precedence, and it is not silent: the UC row that also fits
     appears in ``cross_directory_fits`` for a human to review."""
     _add_uc_person(fixture_db, "uc--fduc--ada-lovelace", "Ada Lovelace", source="fduc",
                    unit="Faculdade de Direito (FDUC)")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Lovelace, Ada", "author")]
 
     assert row["person_slug"] == "ada"
@@ -241,7 +251,7 @@ def test_a_pass_1_resolved_name_keeps_its_cisuc_verdict_and_is_reported(
 
 
 def test_one_folded_name_in_two_units_is_ambiguous_not_one_person(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The ``_one_folded_name`` tightening. "João Silva" at FDUC and "João
     Silva" at FFUC is two people until a human says otherwise, so the name
@@ -252,7 +262,7 @@ def test_one_folded_name_in_two_units_is_ambiguous_not_one_person(
     _add_uc_person(fixture_db, "uc--ffuc--marie-sklodowska-curie", UC_CURIE, source="ffuc",
                    unit="Faculdade de Farmácia (FFUC)")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Curie, Marie Sklodowska", "supervisor")]
 
     assert row["person_slug"] is None
@@ -266,7 +276,7 @@ def test_one_folded_name_in_two_units_is_ambiguous_not_one_person(
 
 
 def test_one_folded_name_twice_within_one_unit_still_collapses(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """A single directory listing one human twice is the ``joao-bicker``
     shape, and the tightening must not have broken it: one source, so the
@@ -274,7 +284,7 @@ def test_one_folded_name_twice_within_one_unit_still_collapses(
     _add_uc_person(fixture_db, "uc--feuc--marie-sklodowska-curie", UC_CURIE)
     _add_uc_person(fixture_db, "uc--feuc--marie-sklodowska-curie-2", UC_CURIE)
 
-    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     conn = sqlite3.connect(fixture_db)
     rows = conn.execute(
         "SELECT person_slug, match_status FROM thesis_people "
@@ -290,7 +300,7 @@ def test_one_folded_name_twice_within_one_unit_still_collapses(
 
 
 def test_a_reviewed_alias_merges_two_units_into_one_person(
-    corpus, fixture_db, tmp_path, full_names, externals, multi_authors
+    corpus, fixture_db, tmp_path, full_names, externals, multi_authors, dup_theses
 ):
     """The sanctioned cross-source merge, and the escape hatch the
     ``_one_folded_name`` tightening leaves open.
@@ -325,7 +335,7 @@ def test_a_reviewed_alias_merges_two_units_into_one_person(
         encoding="utf-8",
     )
 
-    build_mod.build(fixture_db, corpus, aliases_path, full_names, externals, multi_authors)
+    build_mod.build(fixture_db, corpus, aliases_path, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Curie, Marie Sklodowska", "supervisor")]
 
     assert row["person_slug"] == "uc--fduc--marie-sklodowska-curie"
@@ -334,12 +344,12 @@ def test_a_reviewed_alias_merges_two_units_into_one_person(
 
 
 def test_the_uc_pool_is_empty_on_a_seed_with_no_listings(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """Every number is byte-identical to the one-pool build when no unit has
     been harvested. This is the zero-regression guarantee held structurally
     rather than by review."""
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
 
     assert report["uc_directory"]["people"] == 0
     assert report["uc_directory"]["names_consulted"] == 0
@@ -365,7 +375,7 @@ def test_load_cisuc_people_excludes_the_uc_pool_and_vice_versa(fixture_db):
 
 
 def test_a_bare_published_name_does_not_resolve_a_richer_thesis_name(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The card's failure, in miniature. "Marie Curie" is surname plus first
     given and nothing else, so it fits every "Curie, Marie …" alive — which is
@@ -373,7 +383,7 @@ def test_a_bare_published_name_does_not_resolve_a_richer_thesis_name(
     its pass-1 ``unmatched`` verdict and the refusal is reported."""
     _add_uc_person(fixture_db, "uc--feuc--marie-curie", "Marie Curie")
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Curie, Marie Sklodowska", "supervisor")]
 
     assert row["person_slug"] is None
@@ -392,7 +402,7 @@ def test_a_bare_published_name_does_not_resolve_a_richer_thesis_name(
 
 
 def test_a_second_listing_publishing_the_full_form_keeps_the_match(
-    corpus, fixture_db, aliases, full_names, externals, multi_authors
+    corpus, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The rescue, and the reason the guard reads ``directory_listings``
     rather than ``people.name``: the pool flattens a human to one display
@@ -409,7 +419,7 @@ def test_a_second_listing_publishing_the_full_form_keeps_the_match(
         published="Curie, Marie Sklodowska",
     )
 
-    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Curie, Marie Sklodowska", "supervisor")]
 
     assert row["person_slug"] == "uc--feuc--marie-curie"
@@ -432,7 +442,7 @@ def test_a_second_listing_publishing_the_full_form_keeps_the_match(
 
 
 def test_a_bare_thesis_name_still_matches_a_bare_published_name_exactly(
-    tmp_path, fixture_db, aliases, full_names, externals, multi_authors
+    tmp_path, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """Set-equal rows are NOT demoted (design §1): a bare thesis mention
     carries no middle names to contradict, it is the evidence grade pass 1 has
@@ -442,7 +452,7 @@ def test_a_bare_thesis_name_still_matches_a_bare_published_name_exactly(
     directory = _corpus_with_supervisor(tmp_path, "Curie, Marie")
     _add_uc_person(fixture_db, "uc--feuc--marie-curie", "Marie Curie")
 
-    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Curie, Marie", "supervisor")]
 
     assert row["person_slug"] == "uc--feuc--marie-curie"
@@ -458,7 +468,7 @@ def test_a_bare_thesis_name_still_matches_a_bare_published_name_exactly(
 
 
 def test_a_published_name_richer_than_the_floor_still_resolves_a_superset(
-    tmp_path, fixture_db, aliases, full_names, externals, multi_authors
+    tmp_path, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The unchanged majority, and the boundary of the guard: "Marie
     Sklodowska Curie" carries a given name beyond surname-plus-first, so the
@@ -468,7 +478,7 @@ def test_a_published_name_richer_than_the_floor_still_resolves_a_superset(
     directory = _corpus_with_supervisor(tmp_path, "Curie, Marie Salomea Sklodowska")
     _add_uc_person(fixture_db, "uc--feuc--marie-sklodowska-curie", UC_CURIE)
 
-    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Curie, Marie Salomea Sklodowska", "supervisor")]
 
     assert row["person_slug"] == "uc--feuc--marie-sklodowska-curie"
@@ -479,7 +489,7 @@ def test_a_published_name_richer_than_the_floor_still_resolves_a_superset(
 
 
 def test_corroboration_can_never_turn_a_rejected_candidate_into_a_match(
-    tmp_path, fixture_db, aliases, full_names, externals, multi_authors
+    tmp_path, fixture_db, aliases, full_names, externals, multi_authors, dup_theses
 ):
     """The relaxation-B fence (design §1), and the reason this comparison is
     safe where B was not.
@@ -500,7 +510,7 @@ def test_corroboration_can_never_turn_a_rejected_candidate_into_a_match(
         published="Luís Alberto da Silva Cruz",
     )
 
-    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors)
+    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors, dup_theses)
     row = _rows(fixture_db)[("Cruz, Luís Alberto da Silva", "supervisor")]
 
     assert row["person_slug"] is None

@@ -396,6 +396,53 @@ CREATE TABLE IF NOT EXISTS external_people (
 );
 CREATE INDEX IF NOT EXISTS idx_external_people_handle ON external_people(handle);
 
+-- One physical thesis that Estudo Geral deposited twice, reviewed by a human.
+--
+-- Written offline by `python -m analysis.build_thesis_facts` from the curated
+-- data/duplicate_theses.json — see analysis/duplicate_theses.py for why a
+-- reviewed per-record fact is the only acceptable shape for this, and why the
+-- rule version of it ("byte-identical abstracts are the same thesis") was
+-- weighed and rejected: a false positive here silently deletes a real thesis.
+--
+-- The build drops the duplicate's front matter immediately after reconcile()
+-- and before any row is derived, so this table exists to make the reason a
+-- handle is ABSENT from `theses` queryable rather than only readable in git.
+-- "2690 .md files, 2689 theses" is a discrepancy anyone auditing the corpus
+-- will hit, and these rows are the answer to it.
+--
+-- The build writes this table BEFORE theses, because the trigger below reads
+-- it. That is an ordering fact, stated in `build()`'s docstring.
+CREATE TABLE IF NOT EXISTS duplicate_theses (
+    -- The record the build drops. Deliberately NOT `REFERENCES theses(handle)`:
+    -- its absence from that table is the entire point of the row, so the
+    -- foreign key every other handle column here carries would be exactly
+    -- backwards and would refuse every row this table is for.
+    duplicate_handle TEXT PRIMARY KEY,
+    -- The record that stays, and it IS in theses — which is what makes the
+    -- claim falsifiable: an entry asserts a pair, not a lone deletion, and a
+    -- survivor that went away upstream must break the build rather than let
+    -- the exclusion erase the thesis entirely.
+    kept_handle      TEXT NOT NULL REFERENCES theses(handle),
+    source_url       TEXT NOT NULL,   -- the citable record the review was read off.
+    evidence         TEXT NOT NULL    -- why a human is satisfied it is one deposit. Not optional.
+);
+
+-- The backstop, not the mechanism: `build()`'s filter is what keeps the
+-- duplicate out, and this refuses any OTHER writer — or a future refactor that
+-- drops the filter — putting a reviewed-out record back into `theses`. Same
+-- defense-in-depth move as trg_one_thesis_per_resolved_author above, and the
+-- same reason it is a trigger rather than a constraint: only a trigger can ask
+-- whether a row has been reviewed.
+CREATE TRIGGER IF NOT EXISTS trg_no_excluded_thesis
+BEFORE INSERT ON theses
+WHEN EXISTS (SELECT 1 FROM duplicate_theses d WHERE d.duplicate_handle = NEW.handle)
+BEGIN
+    -- One string literal, not several adjacent ones: SQLite has no implicit
+    -- string concatenation, and two would be a syntax error in every
+    -- `executescript` that applies this file.
+    SELECT RAISE(ABORT, 'this handle is a reviewed duplicate record (data/duplicate_theses.json) and must not enter theses');
+END;
+
 -- Keyed on ordinal, not keyword, for the same reason project_partners is: a
 -- thesis legitimately repeats a keyword (9 of 18 do — case variants, and a
 -- literal '-' the source publishes as a separator). Kept verbatim, in

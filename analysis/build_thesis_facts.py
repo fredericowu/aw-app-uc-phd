@@ -8,6 +8,13 @@ name against the ``people`` table with ``analysis.name_match``, and writes
 ``theses`` / ``thesis_people`` / ``thesis_keywords`` / ``thesis_sets`` into
 ``data/cisuc.sqlite3``.
 
+One thesis the corpus holds is deliberately NOT written: ``reconcile()`` sees
+every harvested ``.md``, and a record a human has reviewed as a duplicate
+deposit of another (``data/duplicate_theses.json``,
+``analysis/duplicate_theses.py``) is dropped right after it, before any row is
+derived. So ``estudo_geral/*.md`` is legitimately one file longer than
+``theses`` is rows; the build report's ``duplicate_theses`` says by how many.
+
 Two pools, in a fixed order
 ---------------------------
 ``people`` stopped being one directory the moment UC's per-unit staff pages
@@ -56,7 +63,13 @@ import yaml
 # nothing and opens no socket.
 from estudo_geral_extractor.oai import HARVEST_SETS
 
-from . import external_people, multi_thesis_authors, person_aliases, person_full_names
+from . import (
+    duplicate_theses,
+    external_people,
+    multi_thesis_authors,
+    person_aliases,
+    person_full_names,
+)
 from .name_match import (
     AMBIGUOUS,
     CONFIDENCE,
@@ -86,7 +99,18 @@ DEFAULT_ESTUDO_GERAL = ROOT / "estudo_geral"
 
 ROLE_FIELDS = (("author", "authors"), ("supervisor", "supervisors"))
 TIERS = (EXACT, CONFIDENT, AMBIGUOUS, UNMATCHED)
-THESIS_TABLES = ("thesis_sets", "thesis_keywords", "thesis_people", "theses")
+#: Swept clean before the rebuild, in reverse dependency order — which is why
+#: `duplicate_theses` sits before `theses` rather than at the end: its
+#: `kept_handle` references that table, and this tuple's order is what would
+#: keep the sweep legal if this connection ever ran with `foreign_keys = ON`
+#: (`scraper/db.py` does; this script does not).
+THESIS_TABLES = (
+    "thesis_sets",
+    "thesis_keywords",
+    "thesis_people",
+    "duplicate_theses",
+    "theses",
+)
 
 #: Column positions in a ``thesis_people`` row tuple, so the passes below read
 #: as names rather than as ``row[3]``.
@@ -839,6 +863,7 @@ def build(
     full_names_path: Path | None = None,
     external_people_path: Path | None = None,
     multi_thesis_authors_path: Path | None = None,
+    duplicate_theses_path: Path | None = None,
 ) -> dict:
     """Rebuild the three tables from scratch. Returns what it wrote.
 
@@ -861,9 +886,33 @@ def build(
       ``scraper/schema.sql``'s ``trg_one_thesis_per_resolved_author`` reads it
       on every insert. That is the one ordering fact a trigger has that the
       UNIQUE index it replaced did not.
+
+    ``duplicate_theses`` straddles the matching too, but at the other end — it
+    runs before any of it, and its order is the whole argument for the seam:
+
+    * ``reconcile()`` runs FIRST, over the **full** harvested corpus, so a
+      reviewed exclusion can never be read as a missing ``.md``;
+    * the file is **validated** against that unfiltered corpus, because the
+      check that carries the verdict compares the duplicate's front matter with
+      the survivor's and needs both;
+    * the duplicate is then dropped from ``front_matters`` **before the first
+      row is derived**, so every thesis-keyed table is free of it by
+      construction rather than by four separate filters — that is what makes
+      orphan rows impossible instead of merely unlikely;
+    * and its **table is written before the ``theses`` inserts**, because
+      ``trg_no_excluded_thesis`` reads it on every one of them.
     """
     front_matters = load_front_matters(estudo_geral_dir)
     reconcile(front_matters, estudo_geral_dir / "manifest.json")
+
+    # Over the corpus reconcile() just checked, and before anything derives a
+    # row from it — see the docstring above on why both halves of that are
+    # load-bearing. A human has read two records and ruled them one deposit
+    # (analysis/duplicate_theses.py); the .md files stay on disk.
+    dup_entries = duplicate_theses.load_entries(duplicate_theses_path)
+    duplicate_theses.validate(dup_entries, {fm["handle"]: fm for fm in front_matters})
+    excluded = duplicate_theses.excluded_handles(dup_entries)
+    front_matters = [fm for fm in front_matters if fm["handle"] not in excluded]
 
     conn = sqlite3.connect(db_path)
     try:
@@ -960,6 +1009,10 @@ def build(
             thesis_people, uc_people, listing_names
         )
 
+        # Before the theses rows, not after: trg_no_excluded_thesis reads this
+        # table on every one of those inserts. Same ordering contract as
+        # multi_thesis_authors.write_table below, for the same reason.
+        duplicates = duplicate_theses.write_table(conn, dup_entries)
         conn.executemany("INSERT INTO theses VALUES (?,?,?,?,?,?,?,?,?,?)", theses)
         # Before the thesis_people rows, not after: the trigger that replaced
         # idx_one_thesis_per_resolved_author reads this table on every insert.
@@ -986,6 +1039,11 @@ def build(
         "person_aliases": aliases,
         "person_full_names": full_names,
         "multi_thesis_authors": {"people": len(multi_entries), "exempted_claims": multi},
+        # Stated in every build report rather than inferable, because this is
+        # the one number that explains why `theses` is smaller than the corpus
+        # on disk. Anyone auditing by `ls estudo_geral/*.md | wc -l` needs this
+        # breadcrumb, and a count of zero is itself worth reading.
+        "duplicate_theses": {"entries": duplicates, "excluded_handles": len(excluded)},
         "external_people": externals,
         "thesis_people_rows": len(thesis_people),
         "thesis_keywords": len(thesis_keywords),
@@ -1057,6 +1115,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--person-full-names", type=Path, default=None)
     parser.add_argument("--external-people", type=Path, default=None)
     parser.add_argument("--multi-thesis-authors", type=Path, default=None)
+    parser.add_argument("--duplicate-theses", type=Path, default=None)
     args = parser.parse_args(argv)
 
     report = build(
@@ -1066,6 +1125,7 @@ def main(argv: list[str] | None = None) -> int:
         args.person_full_names,
         args.external_people,
         args.multi_thesis_authors,
+        args.duplicate_theses,
     )
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0

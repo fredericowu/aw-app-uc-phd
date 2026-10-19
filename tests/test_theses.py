@@ -605,15 +605,21 @@ def test_the_identity_note_explains_that_externals_stay_unresolved():
 
 
 def _list_a_uc_supervisor(live_db):
-    """Make the fixture's one resolved supervisor a UC-directory person."""
+    """A resolved supervisor who is a UC-directory person.
+
+    `grace` and not `ada`, and that is the whole point of the test below:
+    `ada` is on two CISUC projects, so listing HER in a Faculty directory
+    produces a person with both a unit badge and a research group — a state
+    that cannot occur in the real seed (a UC-directory person appears in no
+    `project_people` row) and which would make the "never a group" assertion
+    pass for the wrong reason. `grace` is on no project at all, which is
+    exactly the shape every real UC-directory person has.
+    """
     import sqlite3
 
+    slug = "grace"
     conn = sqlite3.connect(live_db)
     try:
-        slug = conn.execute(
-            "SELECT person_slug FROM thesis_people WHERE role = 'supervisor' "
-            "AND person_slug IS NOT NULL LIMIT 1"
-        ).fetchone()[0]
         conn.execute(
             "INSERT INTO directory_listings (person_slug, source, unit_name, listing_url, "
             "person_url, name_as_published, role_as_published, fetched_at) VALUES "
@@ -645,7 +651,7 @@ def test_a_uc_directory_supervisor_carries_its_unit_and_never_a_group(live_db):
     supervisors = _by_handle(theses.list_theses(db_path=live_db), "10316/000001")["supervisors"]
     resolved = [s for s in supervisors if s["status"] == "matched"]
     assert resolved, "the fixture must have a resolved supervisor for this to mean anything"
-    entry = next(s for s in resolved if s["matched"][0]["slug"] == slug)
+    entry = next(s for s in resolved if any(m["slug"] == slug for m in s["matched"]))
     assert entry["directory"]["source"] == "feuc"
     assert entry["directory"]["unit_name"] == "Faculdade de Economia (FEUC)"
     assert entry["directory"]["units"] == [entry["directory"]["units"][0]]

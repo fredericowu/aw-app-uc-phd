@@ -133,9 +133,9 @@ def test_the_audit_reproduces_the_universe_it_reported_on():
     only resolved name is an FDUC professor would have walked into the 569 and
     changed what every figure here means without anybody editing a number.
 
-    The UNMATCHED half did move, and it moved because 92 of those edges (76
-    distinct names) now resolve against UC's per-unit directories: 426 -> 334
-    edges, 358 -> 282 names. That is the feature working, and it is reported
+    The UNMATCHED half did move, and it moved because 95 of those edges (79
+    distinct names) now resolve against UC's per-unit directories: 426 -> 331
+    edges, 358 -> 279 names. That is the feature working, and it is reported
     beside the old number as ``matched_edges_uc_directory`` rather than folded
     into it.
     """
@@ -143,14 +143,14 @@ def test_the_audit_reproduces_the_universe_it_reported_on():
     assert report["cisuc_touching_theses"] == 569
     assert report["supervisor_edges"] == 1055
     assert report["matched_edges"] == 626
-    assert report["matched_edges_uc_directory"] == 92
-    assert report["distinct_unmatched_names"] == 282
-    assert report["unmatched_edges"] == 334
+    assert report["matched_edges_uc_directory"] == 95
+    assert report["distinct_unmatched_names"] == 279
+    assert report["unmatched_edges"] == 331
     assert report["ambiguous_edges"] == 3
-    assert report["edge_frequency"] == {1: 249, 2: 22, 3: 7, 4: 2, 6: 2}
+    assert report["edge_frequency"] == {1: 246, 2: 22, 3: 7, 4: 2, 6: 2}
     assert len(report["above_cut"]) == 33
     assert len(report["singleton_sample"]) == 30
-    assert report["singletons_not_sampled"] == 219
+    assert report["singletons_not_sampled"] == 216
     # The sample is seeded, so the 30 names reviewed are the 30 names anybody
     # re-running this gets. Without that the bound it supports is an anecdote.
     assert audit.audit(audit.DEFAULT_DB)["singleton_sample"] == report["singleton_sample"]

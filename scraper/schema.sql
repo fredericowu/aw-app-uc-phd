@@ -128,6 +128,52 @@ CREATE VIEW IF NOT EXISTS people_canonical AS
 SELECT slug, name FROM people
 WHERE slug NOT IN (SELECT from_slug FROM person_aliases);
 
+-- Where a `people` row came from, when it did NOT come from CISUC's own
+-- directory: one row per (person, publishing unit).
+--
+-- Written offline by `python -m scraper.uc_directories.run` from the
+-- committed per-unit registry (scraper/uc_directories/units.py). UC runs no
+-- institution-wide staff directory — what exists is a per-Faculty "Docentes"
+-- page and a per-centre "Pessoas" page, one unit at a time — so a UC
+-- academic who is not a CISUC member reaches `people` through here.
+--
+-- **This table is what makes scope derivable rather than asserted twice.** A
+-- `people` row with NO row here is a CISUC-directory person, exactly as
+-- before (only the harvester above writes listings); a row with one is a
+-- UC-unit-directory person. Nothing adds a column to `people`: one person
+-- can hold listings in several units, which is a table and not a column, and
+-- `people` is applied with CREATE TABLE IF NOT EXISTS over the committed
+-- seed, where SQLite has no ADD COLUMN IF NOT EXISTS to lean on.
+--
+-- Slugs live in a disjoint, prefixed namespace (`uc--<source>--<name-slug>`)
+-- and the harvester REFUSES to write a slug that already exists in `people`
+-- outside it, so collision with CISUC's arbitrary URL-tail slugs is both
+-- structurally impossible and checked.
+--
+-- `listing_url` is the live page the row was read off, and it is the whole
+-- point: every match this pool buys has to be checkable by a human against
+-- the source. `person_url` is the unit's own per-person page where it
+-- publishes one, and it is also the ONLY evidence cross-unit duplicates are
+-- ever collapsed on — never the name, which is this corpus's core trap. A
+-- same-human pair with no shared person URL is surfaced for review and
+-- settled the house way, by a `person_aliases` verdict with evidence.
+--
+-- PK (person_slug, source): one person, one row per unit. Boaventura de
+-- Sousa Santos on FEUC's Docentes page and CES's Pessoas page is one slug
+-- and two rows, which is exactly the fact the grain exists to record.
+CREATE TABLE IF NOT EXISTS directory_listings (
+    person_slug       TEXT NOT NULL REFERENCES people(slug),
+    source            TEXT NOT NULL,   -- unit code: 'feuc', 'fduc', 'ces', ...
+    unit_name         TEXT NOT NULL,   -- 'Faculdade de Economia (FEUC)'
+    listing_url       TEXT NOT NULL,   -- the directory page the row was read off
+    person_url        TEXT,            -- per-person page, when the unit publishes one
+    name_as_published TEXT NOT NULL,   -- verbatim, before any display normalisation
+    role_as_published TEXT,            -- 'Professor Catedrático', when the page carries it
+    fetched_at        TEXT NOT NULL,
+    PRIMARY KEY (person_slug, source)
+);
+CREATE INDEX IF NOT EXISTS idx_directory_listings_source ON directory_listings(source);
+
 CREATE TABLE IF NOT EXISTS project_people (
     project_id  INTEGER NOT NULL REFERENCES projects(id),
     person_slug TEXT NOT NULL REFERENCES people(slug),

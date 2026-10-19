@@ -78,7 +78,7 @@ DEFAULT_OUT = ROOT / ".tmp" / "classify_unmatched_supervisors.json"
 #: Bumped whenever a signal or the class prior changes, and recorded in the
 #: output. The numbers in a Kanban report have to say which version produced
 #: them, or re-reading the report later compares two different measurements.
-CLASSIFIER_VERSION = 4
+CLASSIFIER_VERSION = 5
 
 #: The year at or below which a thesis is "old enough that a supervisor could
 #: have retired since". A prior, not a fact: UC publishes current staff and
@@ -291,6 +291,30 @@ def suggest_class(dossier: dict) -> tuple[str, str]:
             "to point a pool at — an extraction/registry gap rather than a statement "
             "about the person",
         )
+    if not dossier["registry_covers_the_corpus"]:
+        # THE gate on both write-off classes, and it is the most important
+        # line in this file. Absence from the eight harvested units is not
+        # absence from UC while ten other UC units have no pool at all — and
+        # a supervisor's home unit is NOT the unit their student deposited
+        # under, so "the thesis's faculty is harvested" says nothing about
+        # whether the person was ever looked for.
+        #
+        # Measured: the first version of this prior, without this gate,
+        # labelled four of the top 100 `never-uc`. Three were current UC full
+        # professors — Walter Rossa (FCTUC/DARQ, not harvested), Mário Grãos
+        # (CNC, not harvested) and Irene Vaquinhas (on FLUC's retired-staff
+        # table, which the parser was not reading). That is precisely the
+        # silent write-off of a real UC person the Product Owner refused, so
+        # this instrument now REFUSES to assert either write-off class until
+        # the registry covers every unit the corpus points at.
+        return (
+            RESOLVABLE_MISSED,
+            "absence is unproven: "
+            f"{len(dossier['corpus_units_not_harvested'])} UC units the corpus points at "
+            "have no harvested pool, and a supervisor's home unit is not the unit their "
+            "student deposited under — so no row carrying this surname means nobody has "
+            "looked yet, not that the person was never at UC",
+        )
     if (dossier["max_year"] or 9999) <= FORMER_UC_YEAR_CEILING:
         return (
             FORMER_UC,
@@ -352,6 +376,18 @@ def classify(db_path: Path, set_names_path: Path | None = None, top: int = 100) 
     for handle, name in edges:
         handles_by_name[name].append(handle)
 
+    # Every unit any thesis in the corpus points at, minus the ones with a
+    # pool. Computed ONCE over the whole corpus rather than per name: the
+    # question "has anybody looked for this person anywhere" is a property of
+    # the registry, not of one thesis's deposit community.
+    corpus_units_not_harvested = {
+        unit
+        for specs in sets_by_handle.values()
+        for spec in specs
+        if (label := set_names.get(spec)) and (unit := unit_for_set(label))
+        if unit not in harvested_sources
+    }
+
     def dossier(name: str) -> dict:
         handles = sorted(handles_by_name[name])
         thesis_years = sorted({years.get(h) for h in handles if years.get(h)})
@@ -367,6 +403,8 @@ def classify(db_path: Path, set_names_path: Path | None = None, top: int = 100) 
                 if source:
                     pointed.add(source)
         out = {
+            "registry_covers_the_corpus": not corpus_units_not_harvested,
+            "corpus_units_not_harvested": sorted(corpus_units_not_harvested),
             "edges": len(handles),
             "handles": handles,
             "years": thesis_years,

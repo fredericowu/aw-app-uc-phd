@@ -337,3 +337,20 @@ def test_a_cisuc_person_profile_carries_no_directory_fields(client):
     body = client.get("/api/people/ada").json()
     assert body["person"]["directory"] == []
     assert body["directory_caveat"] is None
+
+
+def test_a_seed_built_before_directory_listings_existed_still_renders_a_profile(client, live_db):
+    """An install that predates this card has no table. Every person in it is
+    a CISUC person, which is the correct answer rather than a 500 on a page
+    that used to work."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        conn.execute("DROP TABLE directory_listings")
+        conn.commit()
+    finally:
+        conn.close()
+    body = client.get("/api/people/ada").json()
+    assert body["person"]["directory"] == []
+    assert body["directory_caveat"] is None

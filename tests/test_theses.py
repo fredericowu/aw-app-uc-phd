@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from uc_phd_app import theses
+from uc_phd_app import db, theses
 
 
 @pytest.fixture()
@@ -595,3 +595,94 @@ def test_the_identity_note_explains_that_externals_stay_unresolved():
     assume one of the two is wrong unless the note says which."""
     assert "external" in theses.IDENTITY_COVERAGE_NOTE
     assert "still counted as" in theses.IDENTITY_COVERAGE_NOTE
+
+
+# ---------------------------------------------------------------------------
+# The UC unit-directory payload field. Same three paths the `external_people`
+# block above covers, for the same reasons: the happy path, the older-seed
+# path, and the caller that does not hand the map in.
+# ---------------------------------------------------------------------------
+
+
+def _list_a_uc_supervisor(live_db):
+    """Make the fixture's one resolved supervisor a UC-directory person."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        slug = conn.execute(
+            "SELECT person_slug FROM thesis_people WHERE role = 'supervisor' "
+            "AND person_slug IS NOT NULL LIMIT 1"
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO directory_listings (person_slug, source, unit_name, listing_url, "
+            "person_url, name_as_published, role_as_published, fetched_at) VALUES "
+            "(?, 'feuc', 'Faculdade de Economia (FEUC)', "
+            "'https://www.uc.pt/feuc/pessoas-e-servicos/docentes/', NULL, 'X', NULL, "
+            "'2026-10-19T00:00:00+00:00')",
+            (slug,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return slug
+
+
+def test_a_uc_directory_supervisor_carries_its_unit_and_never_a_group(live_db):
+    """The two halves of the product requirement in one assertion: the person
+    is resolved and linked like anybody else, AND the payload says which unit
+    publishes them so the UI can never imply they are a CISUC member. The
+    group list stays EMPTY — they have no CISUC project history, and that is
+    the correct display rather than a gap to fill."""
+    slug = _list_a_uc_supervisor(live_db)
+
+    listings = theses.directory_listings(db_path=live_db)
+    assert listings[slug][0]["source"] == "feuc"
+    assert listings[slug][0]["listing_url"] == (
+        "https://www.uc.pt/feuc/pessoas-e-servicos/docentes/"
+    )
+
+    supervisors = _by_handle(theses.list_theses(db_path=live_db), "10316/000001")["supervisors"]
+    resolved = [s for s in supervisors if s["status"] == "matched"]
+    assert resolved, "the fixture must have a resolved supervisor for this to mean anything"
+    entry = next(s for s in resolved if s["matched"][0]["slug"] == slug)
+    assert entry["directory"]["source"] == "feuc"
+    assert entry["directory"]["unit_name"] == "Faculdade de Economia (FEUC)"
+    assert entry["directory"]["units"] == [entry["directory"]["units"][0]]
+    assert entry["groups"] == []
+    assert entry["group_shares"] == {}
+
+
+def test_a_cisuc_supervisor_carries_no_directory_key_at_all(live_db):
+    """The payload shape for every row that existed before this feature."""
+    supervisors = _by_handle(theses.list_theses(db_path=live_db), "10316/000001")["supervisors"]
+    assert all("directory" not in s for s in supervisors)
+
+
+def test_a_seed_built_before_directory_listings_existed_still_renders(live_db):
+    """An install that predates this card has no table, and every person in it
+    is a CISUC person — which is the correct answer, not a 500."""
+    import sqlite3
+
+    conn = sqlite3.connect(live_db)
+    try:
+        conn.execute("DROP TABLE directory_listings")
+        conn.commit()
+    finally:
+        conn.close()
+    assert theses.directory_listings(db_path=live_db) == {}
+    supervisors = _by_handle(theses.list_theses(db_path=live_db), "10316/000001")["supervisors"]
+    assert all("directory" not in s for s in supervisors)
+
+
+def test_resolve_person_rows_reads_the_listings_itself_when_not_handed_them(live_db):
+    """``list_theses`` passes the map in so the lookup happens once per
+    request; a caller that omits it must still get the field rather than
+    silently losing the unit badge."""
+    slug = _list_a_uc_supervisor(live_db)
+    rows = db.rows(db.load_query("thesis_people"), (), live_db)
+    supervisor_rows = [
+        r for r in rows if r["role"] == "supervisor" and r["person_slug"] == slug
+    ]
+    resolved = theses._resolve_person_rows(supervisor_rows, db_path=live_db)
+    assert resolved[0]["directory"]["source"] == "feuc"

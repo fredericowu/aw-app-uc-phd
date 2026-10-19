@@ -264,6 +264,46 @@ def _card_of(span, name_span_ids: set):
     return card
 
 
+def _plain_name_tables(soup, listing_url: str) -> list[Listing]:
+    """The one-column name tables the same CMS pages use for RETIRED staff.
+
+    These carry no card, no photo, no e-mail and no rank — just a name per
+    ``<td>`` — and the card parser below never sees them, because there is no
+    ``span.text-lg.font-bold`` anywhere near. Missing them is not cosmetic:
+    FLUC's "Professores Aposentados / Jubilados" table is 109 names, and
+    "Irene Maria de Montezuma de Carvalho Mendes Vaquinhas" sits in it with a
+    token set EXACTLY equal to the thesis form "Vaquinhas, Irene Maria de
+    Montezuma de Carvalho Mendes" — five supervisor edges, free, and she was
+    about to be classified as "never UC" instead.
+
+    They are also the only place on UC's whole estate that names the class
+    the Product Owner called the real ceiling: a supervisor who has retired
+    appears on no current staff listing, and here a Faculty publishes one
+    anyway.
+
+    Deliberately narrow, because a one-column table is a generic shape: the
+    table must have exactly one cell per row, the cell must hold no link and
+    no e-mail (a real person row on these pages always has at least one), and
+    the text must pass ``_looks_like_a_name``. A course list or an opening
+    hours table fails all three.
+    """
+    out: list[Listing] = []
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        if len(rows) < 3:
+            continue
+        cells = [row.find_all(["td", "th"]) for row in rows]
+        if any(len(c) != 1 for c in cells):
+            continue
+        if table.find("a") or _EMAIL_RE.search(table.get_text(" ")):
+            continue
+        for (cell,) in cells:
+            name = normalize_ws(cell.get_text())
+            if _looks_like_a_name(clean_published_name(name)):
+                out.append(Listing(name_as_published=name, listing_url=listing_url))
+    return out
+
+
 def parse_uc_cms(html: str, listing_url: str) -> list[Listing]:
     """The current UC CMS person card, scoped by ``_card_of``.
 
@@ -280,7 +320,7 @@ def parse_uc_cms(html: str, listing_url: str) -> list[Listing]:
     ]
     name_span_ids = {id(span) for span in spans}
 
-    out: list[Listing] = []
+    out: list[Listing] = _plain_name_tables(soup, listing_url)
     for span in spans:
         name = normalize_ws(span.get_text())
         if not _looks_like_a_name(clean_published_name(name)):

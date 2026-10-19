@@ -116,8 +116,8 @@ UNITS: tuple[Unit, ...] = (
         kind=FACULTY,
         listing_url="https://www.uc.pt/fluc/quem-somos/pessoas/docentes/",
         parser="uc_cms",
-        expected_min=220,
-        measured="257 name cards (careers + invited), 2026-10-18",
+        expected_min=320,
+        measured="364 = 254 name cards (careers + invited) + 110 retired, 2026-10-19",
         needs_browser_cookie=True,
     ),
     Unit(

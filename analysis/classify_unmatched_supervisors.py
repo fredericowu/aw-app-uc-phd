@@ -78,7 +78,7 @@ DEFAULT_OUT = ROOT / ".tmp" / "classify_unmatched_supervisors.json"
 #: Bumped whenever a signal or the class prior changes, and recorded in the
 #: output. The numbers in a Kanban report have to say which version produced
 #: them, or re-reading the report later compares two different measurements.
-CLASSIFIER_VERSION = 3
+CLASSIFIER_VERSION = 4
 
 #: The year at or below which a thesis is "old enough that a supervisor could
 #: have retired since". A prior, not a fact: UC publishes current staff and
@@ -114,7 +114,37 @@ UNIT_BY_SET_NAME = (
     ("Departamento de Engenharia Electrotécnica", "fctuc-deec"),
     ("CES ", "ces"),
     ("I&D CES", "ces"),
+    # Faculties and departments that EXIST and are NOT harvested yet. Listing
+    # them is the whole point: without an entry, a thesis from the Faculty of
+    # Medicine comes out as "carries no OAI set naming a UC faculty", which
+    # reads as an extraction gap when the truth is a registry gap with a name
+    # on it. 384 names / 469 edges were mislabelled that way before these
+    # lines existed.
+    ("FMUC", None),
+    ("Faculdade de Medicina", None),
+    ("FCDEF", None),
+    ("Faculdade de Ciências do Desporto", None),
+    ("FCTUC", None),
+    ("Faculdade de Ciências e Tecnologia", None),
+    ("Departamento de", None),
+    ("Colégio das Artes", None),
+    ("IIIUC", None),
+    ("Instituto de Investigação Interdisciplinar", None),
+    ("I&D", None),
+    ("CNC", None),
+    ("CEIS20", None),
+    ("CELGA", None),
+    ("CEMMPRE", None),
+    ("CFE", None),
+    ("CINEICC", None),
+    ("ADAI", None),
+    ("Unidades de Investigação", None),
 )
+
+#: The registry entry for a unit that exists but is not harvested is ``None``
+#: above, and a ``None`` is still a UNIT the thesis points at — just not one
+#: with a pool. ``unit_for_set`` returns the set's own label in that case, so
+#: the dossier can name it.
 
 NEVER_UC = "never-uc"
 FORMER_UC = "former-uc"
@@ -127,9 +157,13 @@ def load_set_names(path: Path | None = None) -> dict[str, str]:
 
 
 def unit_for_set(set_name: str) -> str | None:
+    """The registry ``source`` for this OAI set, or ``None`` if the set names
+    no unit at all. A unit that exists but has no harvested pool comes back as
+    ``"unharvested:<label>"`` — a unit the thesis points at, which is what
+    separates a registry gap from an extraction gap."""
     for needle, source in UNIT_BY_SET_NAME:
         if needle in set_name:
-            return source
+            return source or f"unharvested:{needle}"
     return None
 
 

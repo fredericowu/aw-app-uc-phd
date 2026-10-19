@@ -78,7 +78,7 @@ DEFAULT_OUT = ROOT / ".tmp" / "classify_unmatched_supervisors.json"
 #: Bumped whenever a signal or the class prior changes, and recorded in the
 #: output. The numbers in a Kanban report have to say which version produced
 #: them, or re-reading the report later compares two different measurements.
-CLASSIFIER_VERSION = 1
+CLASSIFIER_VERSION = 3
 
 #: The year at or below which a thesis is "old enough that a supervisor could
 #: have retired since". A prior, not a fact: UC publishes current staff and
@@ -228,36 +228,66 @@ def suggest_class(dossier: dict) -> tuple[str, str]:
             "data/person_full_names.json, and the rule-level fix is the open backlog "
             "card matching:uc-phd-fits-extra-cisuc-initial",
         )
-    if not dossier["units_harvested"] and dossier["units_pointed_at"]:
+    # BEFORE anything is written off. A row that carries every surname token of
+    # the thesis name is a candidate `_fits()` rule 1 would accept, so there is
+    # a finite, named list for a human to look at — and calling that "never UC"
+    # is precisely the silent write-off Frederico refused. This branch is here
+    # because the first version of this prior did not have it and labelled
+    # "Aragão, Maria Alexandra Sousa" never-uc while FDUC publishes an
+    # Alexandra Aragão.
+    if uc["surname_bearing"]:
+        return (
+            RESOLVABLE_MISSED,
+            f"{len(uc['surname_bearing'])} UC-directory row(s) carry this surname and "
+            "are rejected only on the given names — a reviewer has a finite candidate "
+            "list to check against the live unit page, so this is not an absence",
+        )
+    if dossier["units_pointed_at"] and not dossier["units_harvested"]:
         return (
             RESOLVABLE_MISSED,
             "this thesis's own faculty has no harvested unit in "
             "scraper/uc_directories/units.py yet, so no candidate pool was ever "
-            "consulted for it — this is a coverage gap of this pass, not a fact about "
-            "the person",
-        )
-    if dossier["units_harvested"] and (dossier["max_year"] or 9999) <= FORMER_UC_YEAR_CEILING:
-        return (
-            FORMER_UC,
-            f"the faculty this thesis sits in IS harvested and publishes no row that "
-            f"could fit this name, and the thesis is from {dossier['max_year']} — a "
-            "supervisor who has since retired, left or died appears on no CURRENT "
-            "staff page, which no scraper iteration can fix",
+            "consulted for it — a coverage gap of this pass, not a fact about the "
+            "person",
         )
     if not dossier["units_pointed_at"]:
         return (
             RESOLVABLE_MISSED,
-            "this thesis carries no OAI set that names a UC faculty, so there is "
-            "nothing to check the name against — an extraction/registry gap rather "
-            "than a statement about the person",
+            "this thesis carries no OAI set naming a UC faculty, so there is nothing "
+            "to point a pool at — an extraction/registry gap rather than a statement "
+            "about the person",
+        )
+    if (dossier["max_year"] or 9999) <= FORMER_UC_YEAR_CEILING:
+        return (
+            FORMER_UC,
+            f"the faculty this thesis sits in IS harvested, NO row in it carries this "
+            f"surname at all, and the thesis is from {dossier['max_year']} — a "
+            "supervisor who has since retired, left or died appears on no CURRENT "
+            "staff page, which no scraper iteration can fix",
         )
     return (
         NEVER_UC,
-        "no row in either directory carries this surname at all, none of the known "
-        "miss shapes fires, and the faculty the thesis sits in IS harvested and "
-        "recent — the evidence available says this person is not and was not UC "
-        "staff (a foreign co-supervisor or an external examiner)",
+        "no row in either directory carries this surname at all, no known miss shape "
+        "fires, and the faculty the thesis sits in IS harvested and the thesis is "
+        f"after {FORMER_UC_YEAR_CEILING} — the evidence available says this person is "
+        "not and was not UC staff (a foreign co-supervisor or an external examiner)",
     )
+
+
+def _reason_key(dossier: dict, suggested: str) -> str:
+    """A short, groupable name for WHY, inside the class."""
+    uc, cisuc = dossier["uc_directory_pool"], dossier["cisuc_pool"]
+    if suggested != RESOLVABLE_MISSED:
+        return suggested
+    if uc["superset"] or uc["wrong_ended"]:
+        return "shape-flag-uc-pool"
+    if cisuc["superset"] or cisuc["wrong_ended"]:
+        return "shape-flag-cisuc-pool"
+    if uc["surname_bearing"]:
+        return "surname-bearing-candidate-to-review"
+    if dossier["units_pointed_at"] and not dossier["units_harvested"]:
+        return "faculty-not-in-the-registry"
+    return "thesis-names-no-uc-faculty"
 
 
 def classify(db_path: Path, set_names_path: Path | None = None, top: int = 100) -> dict:
@@ -325,6 +355,11 @@ def classify(db_path: Path, set_names_path: Path | None = None, top: int = 100) 
         suggested, reasoning = suggest_class(out)
         out["suggested_class"] = suggested
         out["reasoning"] = reasoning
+        # Which branch fired. `resolvable-missed` is one PO class but three
+        # different pieces of work — a curated entry, a registry entry, or an
+        # extraction fix — and a report that only gave the class would hand
+        # back one undifferentiated pile of 1500 names.
+        out["reason_key"] = _reason_key(out, suggested)
         return out
 
     by_edges = collections.Counter({name: len(h) for name, h in handles_by_name.items()})
@@ -371,6 +406,23 @@ def classify(db_path: Path, set_names_path: Path | None = None, top: int = 100) 
             for cls in (NEVER_UC, FORMER_UC, RESOLVABLE_MISSED)
         },
         "tail_size": len(tail),
+        # The composition of each class, across the WHOLE universe. This is
+        # what turns "1553 resolvable-missed" from a pile into a work list.
+        "reason_counts": dict(
+            collections.Counter(d["reason_key"] for d in dossiers.values()).most_common()
+        ),
+        "reason_edge_counts": {
+            key: sum(d["edges"] for d in dossiers.values() if d["reason_key"] == key)
+            for key in sorted({d["reason_key"] for d in dossiers.values()})
+        },
+        "units_pointed_at_but_not_harvested": dict(
+            collections.Counter(
+                unit
+                for d in dossiers.values()
+                for unit in d["units_pointed_at"]
+                if unit not in harvested_sources
+            ).most_common()
+        ),
     }
 
 

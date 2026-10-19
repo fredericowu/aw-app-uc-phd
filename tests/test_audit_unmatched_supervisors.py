@@ -123,16 +123,34 @@ def test_an_edge_is_a_thesis_and_a_name_not_a_row():
 def test_the_audit_reproduces_the_universe_it_reported_on():
     """The numbers the Kanban report is built from, re-derived from the seed
     that ships. A harvest or a directory sync that moves them should make
-    whoever reads the report re-run it, not quietly invalidate it."""
+    whoever reads the report re-run it, not quietly invalidate it.
+
+    **The two halves of this assertion behave differently on purpose, and
+    that is the point of the UC-directory work.** The UNIVERSE is unchanged —
+    569 theses, 1055 supervisor edges, and `matched_edges` still 626, because
+    `cisuc_touching` and the matched count are both pinned to CISUC's own
+    directory (``_CISUC_TOUCHING_SQL``). Had they not been, a thesis whose
+    only resolved name is an FDUC professor would have walked into the 569 and
+    changed what every figure here means without anybody editing a number.
+
+    The UNMATCHED half did move, and it moved because 92 of those edges (76
+    distinct names) now resolve against UC's per-unit directories: 426 -> 334
+    edges, 358 -> 282 names. That is the feature working, and it is reported
+    beside the old number as ``matched_edges_uc_directory`` rather than folded
+    into it.
+    """
     report = audit.audit(audit.DEFAULT_DB)
     assert report["cisuc_touching_theses"] == 569
-    assert report["distinct_unmatched_names"] == 358
-    assert report["unmatched_edges"] == 426
+    assert report["supervisor_edges"] == 1055
+    assert report["matched_edges"] == 626
+    assert report["matched_edges_uc_directory"] == 92
+    assert report["distinct_unmatched_names"] == 282
+    assert report["unmatched_edges"] == 334
     assert report["ambiguous_edges"] == 3
-    assert report["edge_frequency"] == {1: 313, 2: 30, 3: 11, 4: 2, 6: 2}
-    assert len(report["above_cut"]) == 45
+    assert report["edge_frequency"] == {1: 249, 2: 22, 3: 7, 4: 2, 6: 2}
+    assert len(report["above_cut"]) == 33
     assert len(report["singleton_sample"]) == 30
-    assert report["singletons_not_sampled"] == 283
+    assert report["singletons_not_sampled"] == 219
     # The sample is seeded, so the 30 names reviewed are the 30 names anybody
     # re-running this gets. Without that the bound it supports is an anecdote.
     assert audit.audit(audit.DEFAULT_DB)["singleton_sample"] == report["singleton_sample"]

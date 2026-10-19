@@ -70,6 +70,15 @@ from .name_match import (
     tokenize,
 )
 
+# Imported rather than restated: `_fits_full` IS this project's definition of
+# "every token of the thesis name is accounted for by a complete form, with
+# thesis-side initials excused", and `corroborating_form` below asks exactly
+# that question of a harvested listing form. A second copy of the convention
+# here is how the two drift. Nothing in this module modifies it, and the
+# direction stays the safe one: the answer can only ever *withhold* a
+# demotion, never create a match — see `floor_evidence_verdict`.
+from .name_match import _fits_full
+
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "scraper" / "schema.sql"
 DEFAULT_DB = ROOT / "data" / "cisuc.sqlite3"
@@ -189,6 +198,36 @@ def load_uc_directory_people(conn: sqlite3.Connection) -> list[Person]:
     ]
 
 
+#: Ordered so the map below is a pure function of the table and not of SQLite's
+#: row order — a note quoting a different listing on a rebuild would make two
+#: identical seeds read as different ones.
+_UC_LISTING_NAMES_SQL = """
+SELECT person_slug, source, name_as_published
+FROM directory_listings
+ORDER BY person_slug, source
+"""
+
+
+def load_uc_listing_names(conn: sqlite3.Connection) -> dict[str, list[tuple[str, str]]]:
+    """``{person_slug: [(source, name_as_published), …]}`` — the evidence
+    ``_UC_PEOPLE_SQL`` flattens away.
+
+    The pool carries one ``Person`` per human with one ``people.name``, which
+    is the right grain for matching (two rows for one human would let that
+    human fit a name twice). But that name is *not* the richest form the
+    harvest holds: each unit publishes its own, and the two disagree in the
+    direction that matters here — Pedro Góis's FEUC listing gives his full
+    name where his CES listing gives "Góis, Pedro". Read verbatim, and only
+    ever read: nothing below writes a name back into the pool.
+    """
+    if not _has_directory_listings(conn):
+        return {}
+    out: dict[str, list[tuple[str, str]]] = {}
+    for slug, source, published in conn.execute(_UC_LISTING_NAMES_SQL):
+        out.setdefault(slug, []).append((source, published))
+    return out
+
+
 def thesis_row(front_matter: dict) -> tuple:
     date = front_matter.get("date") or ""
     source_url = front_matter.get("source_url")
@@ -216,9 +255,124 @@ def thesis_row(front_matter: dict) -> tuple:
 UC_NOTE_PREFIX = "via UC directory"
 
 
-def uc_note(result) -> str:
+def uc_note(result, corroboration: str = "") -> str:
     sources = ", ".join(sorted({p.source for p in result.people}))
-    return f"{UC_NOTE_PREFIX} {sources}: {result.note}"
+    extra = f", {corroboration}" if corroboration else ""
+    return f"{UC_NOTE_PREFIX} {sources}{extra}: {result.note}"
+
+
+def floor_tokens(name_raw: str) -> set[str]:
+    """The weakest evidence this matcher ever acts on: a candidate carrying
+    nothing but this thesis name's surname and its first given name.
+
+    **One definition, two readers**, and they must not drift.
+    ``minimal_evidence_matches`` below *reports* author rows resting on this
+    floor; ``floor_evidence_verdict`` *refuses to act* on it in pass 2. Two
+    hand-copied copies of this set is how the next pool expansion reproduces
+    the bare-published-name false merge (card 3fe5bf3b…, where "Luís Cruz" —
+    surname plus first given, nothing else — accepted "Cruz, Luís Alberto da
+    Silva" as fitting, because it has no middle names to contradict with).
+    """
+    surname_tokens, given_tokens = split_thesis_name(name_raw)
+    return set(surname_tokens) | ({given_tokens[0]} if given_tokens else set())
+
+
+def corroborating_form(
+    name_raw: str, person: Person, listing_names: dict[str, list[tuple[str, str]]]
+) -> tuple[str, str] | None:
+    """A harvested form of this person that accounts for every token of the
+    thesis name — ``(label, form)`` — or ``None``.
+
+    The evidence is everything the harvest kept about this human beyond the
+    one display name the pool flattened to: each unit's verbatim
+    ``name_as_published``, plus their reviewed ``person_full_names`` entry
+    when a human recorded one. "Accounts for" is ``_fits_full``'s convention
+    unchanged — every thesis token appears in the form, or is a single letter
+    prefixing one of its tokens — so a form that is itself at the floor
+    ("Luís Cruz") corroborates nothing, which is the point.
+    """
+    evidence = list(listing_names.get(person.slug, ()))
+    if person.full_name:
+        evidence.append(("data/person_full_names.json", person.full_name))
+    thesis_tokens = tokenize(name_raw)
+    surname_tokens, _ = split_thesis_name(name_raw)
+    for label, form in evidence:
+        if _fits_full(thesis_tokens, surname_tokens, tokenize(form)):
+            return label, form
+    return None
+
+
+def floor_evidence_verdict(
+    name_raw: str, result, listing_names: dict[str, list[tuple[str, str]]]
+) -> dict | None:
+    """What pass 2 may do with a ``confident`` match that rests on the floor.
+
+    ``None`` for every match this guard has nothing to say about: an ``exact``
+    one (set-equal — a bare thesis mention carries no middle names to
+    contradict, which is the same evidence grade pass 1 has always accepted,
+    and two bare candidates already come out ``ambiguous``), and any whose
+    candidate carries a name beyond ``floor_tokens``. Otherwise a record
+    saying which way it went — ``demote`` when nothing richer corroborates the
+    thesis name, else the ``corroboration`` clause that keeps it ``confident``
+    and names the listing it rests on.
+
+    The three conditions, together (Architect's design §1):
+
+    1. the candidate's pool display tokens ⊆ ``floor_tokens(name_raw)``;
+    2. the thesis token set is a **strict** superset of the candidate's —
+       there exist given names the candidate cannot confirm;
+    3. no richer harvested form corroborates every thesis token.
+
+    **Why 3 is not measured-rejected relaxation B.** B compared a thesis name
+    against *published display names* and thereby **created** matches ("Cruz,
+    Luís Alberto da Silva" -> "Luís Silva"). This comparison runs only on
+    candidates ``_fits()`` has already accepted, and only to choose between
+    *confident* and *demoted*. It is monotone in the safe direction: it can
+    withhold a demotion, it can never turn a rejection into a fit. The fence
+    is pinned by a test.
+
+    **Every kept person must fail before anything is demoted** (design §7): a
+    ``confident`` result can carry several rows of one human, and a demotion
+    on behalf of a person the evidence does corroborate would be this guard
+    making the opposite mistake.
+    """
+    if result.status != CONFIDENT:
+        return None
+    floor = floor_tokens(name_raw)
+    thesis_tokens = tokenize(name_raw)
+    thesis_set = set(thesis_tokens)
+    for person in result.people:
+        candidate_tokens = set(tokenize(person.name))
+        if not (candidate_tokens <= floor and candidate_tokens < thesis_set):
+            return None
+
+    record = {
+        "name_raw": name_raw,
+        "candidates": [[p.slug, p.name, p.source] for p in result.people],
+    }
+    forms = [
+        (person, corroborating_form(name_raw, person, listing_names))
+        for person in result.people
+    ]
+    if any(found for _person, found in forms):
+        return {
+            **record,
+            "demote": False,
+            "corroboration": "corroborated by " + "; ".join(
+                f'{label}\'s published form "{form}"'
+                for _person, found in forms
+                if found
+                for label, form in (found,)
+            ),
+        }
+    covered = set().union(*(set(tokenize(p.name)) for p in result.people))
+    return {
+        **record,
+        "demote": True,
+        # Order of appearance in the thesis name, deduped — the same shape
+        # `match_name`'s own "cannot confirm" note lists.
+        "uncorroborated": [t for t in dict.fromkeys(thesis_tokens) if t not in covered],
+    }
 
 
 def people_rows(
@@ -228,6 +382,7 @@ def people_rows(
     uc_people: list[Person] | None = None,
     uc_cache: dict | None = None,
     distinct_pairs: frozenset[tuple[str, str]] = frozenset(),
+    listing_names: dict[str, list[tuple[str, str]]] | None = None,
 ) -> list[tuple]:
     """``thesis_people`` rows for one thesis — one per resolved candidate, and
     exactly one carrying a NULL slug when nothing resolved.
@@ -264,6 +419,23 @@ def people_rows(
       consists only of unmatched supervisor rows GAINING a slug. The reader
       loses nothing: an ambiguous pass-2 name has no slug either way, and the
       candidates are in the report.
+    * **a pass-2 ``confident`` result resting on floor evidence that nothing
+      richer corroborates** — ``floor_evidence_verdict`` above. Handled
+      exactly like the ambiguous case, and for a stronger reason: the UC pool
+      publishes 312 people under a bare "Given Surname", which fits every
+      thesis name sharing that given name and surname however different the
+      middle names are, and that merged distinct real humans onto one slug in
+      production (card 3fe5bf3b…). Report-only, so the row keeps its pass-1
+      ``unmatched`` verdict and the row-level invariant above still holds.
+      The candidates and the tokens nothing confirms are in the report
+      (``uc_pool_bare_floor_demotions``), which is what the next curation pass
+      works from.
+
+    The verdict is a pure function of ``name_raw``, the cached result and the
+    harvested listings, so reading it off a cached ``NameMatch`` is sound —
+    and the cached object is never mutated, because ``cross_directory_fits``
+    and the report counters read the same objects and must see the matcher's
+    own answer rather than a doctored one.
 
     The two caches must not be one. ``match_name`` is memoised on
     ``name_raw``, and a name appearing in both roles — 24 of them in the
@@ -307,7 +479,13 @@ def people_rows(
                     uc_cache[name_raw] = match_name(name_raw, uc_people, distinct_pairs)
                 uc_result = uc_cache[name_raw]
                 if uc_result.status in (EXACT, CONFIDENT):
-                    result, note = uc_result, uc_note(uc_result)
+                    verdict = floor_evidence_verdict(
+                        name_raw, uc_result, listing_names or {}
+                    )
+                    if verdict is None or not verdict["demote"]:
+                        result, note = uc_result, uc_note(
+                            uc_result, verdict["corroboration"] if verdict else ""
+                        )
             slugs = (
                 list(dict.fromkeys(identity_of(p) for p in result.people))
                 if result.status in (EXACT, CONFIDENT)
@@ -544,6 +722,11 @@ def minimal_evidence_matches(rows: list[tuple], people: list[Person]) -> list[di
     only catches a collision when *both* people are in the corpus. This list
     exists so the rest stay visible for a human spot-check rather than being
     silently counted as resolved.
+
+    Authors × the CISUC pool, and that scope is the whole reason
+    ``uc_pool_minimal_evidence`` below exists: pass 2 is only ever supervisors
+    × the UC pool, so this net structurally cannot see the one combination
+    that reproduced the failure it was built for.
     """
     names = {p.slug: p.name for p in people}
     out: dict[tuple[str, str], dict] = {}
@@ -553,15 +736,69 @@ def minimal_evidence_matches(rows: list[tuple], people: list[Person]) -> list[di
         key = (row[NAME_RAW], row[SLUG])
         if key in out:
             continue
-        surname_tokens, given_tokens = split_thesis_name(row[NAME_RAW])
-        floor = set(surname_tokens) | ({given_tokens[0]} if given_tokens else set())
-        if _token_set(names.get(row[SLUG], "")) <= floor:
+        if _token_set(names.get(row[SLUG], "")) <= floor_tokens(row[NAME_RAW]):
             out[key] = {
                 "handle": row[HANDLE],
                 "name_raw": row[NAME_RAW],
                 "person_slug": row[SLUG],
                 "person_name": names.get(row[SLUG]),
             }
+    return [out[key] for key in sorted(out)]
+
+
+def uc_pool_minimal_evidence(
+    rows: list[tuple],
+    uc_people: list[Person],
+    listing_names: dict[str, list[tuple[str, str]]],
+) -> list[dict]:
+    """The same question, asked of the rows pass 2 wrote: supervisors whose UC
+    candidate carries nothing beyond ``floor_tokens``.
+
+    After the guard in ``people_rows`` these are the two shapes that survive
+    at the floor, and ``match_status`` is what tells them apart:
+
+    * ``exact`` — the thesis mention is itself bare, so the sets are equal and
+      there are no middle names to contradict. Deliberately kept (design §1),
+      and this is where they become countable instead of invisible.
+    * ``confident`` — a strict-superset thesis name the guard would have
+      refused, kept because a richer harvested form accounts for every token
+      of it (Pedro Góis's FEUC listing, Elísio Estanque's "Guerreiro").
+
+    ``corroborated_by`` names the form that accounts for the thesis name, for
+    both. On an ``exact`` that is ordinarily the candidate's own bare listing
+    — which is precisely why it needed no rescue — so it is provenance here,
+    not the thing that kept the row.
+
+    A sibling function rather than a generalisation of the one above: the two
+    differ in pool, in role, in which slug a row carries (canonical, here) and
+    in what each entry has to say, and folding them together would make both
+    read as a parameterised thing neither of them is.
+    """
+    by_slug: dict[str, Person] = {}
+    for person in uc_people:
+        by_slug.setdefault(person.slug, person)
+        by_slug.setdefault(identity_of(person), person)
+    out: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        if row[ROLE] != "supervisor" or row[SLUG] is None:
+            continue
+        if not (row[NOTE] or "").startswith(UC_NOTE_PREFIX):
+            continue
+        person = by_slug.get(row[SLUG])
+        key = (row[NAME_RAW], row[SLUG])
+        if person is None or key in out:
+            continue
+        if not _token_set(person.name) <= floor_tokens(row[NAME_RAW]):
+            continue
+        found = corroborating_form(row[NAME_RAW], person, listing_names)
+        out[key] = {
+            "handle": row[HANDLE],
+            "name_raw": row[NAME_RAW],
+            "person_slug": row[SLUG],
+            "person_name": person.name,
+            "match_status": row[STATUS],
+            "corroborated_by": list(found) if found else None,
+        }
     return [out[key] for key in sorted(out)]
 
 
@@ -667,6 +904,10 @@ def build(
         full_names = person_full_names.load_and_write(conn, full_names_path)
         people = load_cisuc_people(conn)
         uc_people = load_uc_directory_people(conn)
+        # Read alongside the pool and not inside the matcher: it is evidence
+        # about a candidate, consulted only after `match_name` has already
+        # accepted one — see `floor_evidence_verdict`.
+        listing_names = load_uc_listing_names(conn)
 
         # Shape-checked here, identity-checked below: the conflict pass needs
         # the exemptions, and the only facts that can judge them are that
@@ -681,7 +922,7 @@ def build(
         thesis_sets: list[tuple] = []
         for fm in front_matters:
             thesis_people += people_rows(
-                fm, people, cache, uc_people, uc_cache, reviewed_distinct
+                fm, people, cache, uc_people, uc_cache, reviewed_distinct, listing_names
             )
             thesis_keywords += keyword_rows(fm)
             thesis_sets += set_rows(fm)
@@ -696,6 +937,28 @@ def build(
             thesis_people, people, multi_thesis_authors.exempt_claims(multi_entries)
         )
         minimal_evidence = minimal_evidence_matches(thesis_people, people)
+        # Recomputed from the cache rather than collected while the rows were
+        # written, for the same reason the verdict may be read off a cached
+        # `NameMatch` at all: it is a pure function of the name, the match and
+        # the listings, so one loop here says exactly what `people_rows`
+        # decided — with no mutable sink threaded through it.
+        unresolved_supervisor_rows = collections.Counter(
+            row[NAME_RAW]
+            for row in thesis_people
+            if row[ROLE] == "supervisor" and row[SLUG] is None
+        )
+        bare_floor_demotions = []
+        for name_raw, uc_match in sorted(uc_cache.items()):
+            verdict = floor_evidence_verdict(name_raw, uc_match, listing_names)
+            if verdict and verdict["demote"]:
+                # How many rows this cost, which is the number the row-diff of
+                # a rebuild has to account for.
+                bare_floor_demotions.append(
+                    {**verdict, "rows": unresolved_supervisor_rows[name_raw]}
+                )
+        uc_minimal_evidence = uc_pool_minimal_evidence(
+            thesis_people, uc_people, listing_names
+        )
 
         conn.executemany("INSERT INTO theses VALUES (?,?,?,?,?,?,?,?,?,?)", theses)
         # Before the thesis_people rows, not after: the trigger that replaced
@@ -775,6 +1038,14 @@ def build(
         ),
         "author_conflicts": author_conflicts,
         "minimal_evidence_matches": minimal_evidence,
+        # The two halves of the floor-evidence picture for pass 2, which
+        # `minimal_evidence_matches` above structurally cannot see (authors ×
+        # the CISUC pool). What was REFUSED, with the tokens nothing confirms
+        # — the shopping list the next curation pass works from…
+        "uc_pool_bare_floor_demotions": bare_floor_demotions,
+        # …and what pass 2 still resolves at that floor, kept visible rather
+        # than silently counted as resolved.
+        "uc_pool_minimal_evidence": uc_minimal_evidence,
     }
 
 

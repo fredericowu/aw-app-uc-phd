@@ -18,7 +18,11 @@ silently resolves a name to the wrong human:
   CISUC's own duplicates always have;
 * a reviewed ``person_aliases`` verdict merges a CISUC slug with a UC one,
   which is the only sanctioned way a cross-source pair ever becomes one
-  person.
+  person;
+* a ``confident`` match resting on a bare published name — surname plus first
+  given, nothing else — is REFUSED unless a richer harvested form corroborates
+  the thesis name, and the corroboration can only ever withhold that refusal,
+  never create a match.
 """
 from __future__ import annotations
 
@@ -80,17 +84,52 @@ def multi_authors(tmp_path):
     return path
 
 
-def _add_uc_person(db, slug, name, source="feuc", unit="Faculdade de Economia (FEUC)"):
+def _add_uc_person(
+    db,
+    slug,
+    name,
+    source="feuc",
+    unit="Faculdade de Economia (FEUC)",
+    published=None,
+):
+    """``published`` is this unit's verbatim ``name_as_published``, which is
+    the display name unless a test says otherwise — the real harvest keeps the
+    two apart (one unit publishes a full name where another publishes a bare
+    one) and the bare-floor guard reads exactly that difference."""
     conn = sqlite3.connect(db)
     conn.execute("INSERT OR IGNORE INTO people (slug, name) VALUES (?, ?)", (slug, name))
     conn.execute(
         "INSERT OR REPLACE INTO directory_listings (person_slug, source, unit_name, "
         "listing_url, person_url, name_as_published, role_as_published, fetched_at) "
         "VALUES (?, ?, ?, ?, NULL, ?, NULL, '2026-10-19T00:00:00+00:00')",
-        (slug, source, unit, f"https://www.uc.pt/{source}/docentes/", name),
+        (slug, source, unit, f"https://www.uc.pt/{source}/docentes/", published or name),
     )
     conn.commit()
     conn.close()
+
+
+def _corpus_with_supervisor(tmp_path, supervisor):
+    """A one-thesis corpus whose single supervisor is ``supervisor`` and whose
+    author resolves in CISUC — so each bare-floor fence below states its own
+    thesis-side name instead of bending the shared fixture's."""
+    directory = tmp_path / "estudo_geral"
+    directory.mkdir()
+    (directory / "10316-000003.md").write_text(
+        "---\n"
+        "handle: 10316/000003\n"
+        "title: Floor Evidence\n"
+        "authors:\n- Lovelace, Ada\n"
+        f"supervisors:\n- {supervisor}\n"
+        "date: '2024-05-01'\n"
+        "source_url: https://estudogeral.uc.pt/handle/10316/000003\n"
+        "oai_sets:\n- com_10316_255\n"
+        "---\n\n# Floor Evidence\n",
+        encoding="utf-8",
+    )
+    (directory / "manifest.json").write_text(
+        json.dumps([{"handle": "10316/000003"}]), encoding="utf-8"
+    )
+    return directory
 
 
 def _rows(db):
@@ -323,6 +362,170 @@ def test_load_cisuc_people_excludes_the_uc_pool_and_vice_versa(fixture_db):
     # The default is what keeps every existing Person construction untouched.
     assert all(p.source == "cisuc" for p in cisuc)
     assert uc[0].source == "feuc"
+
+
+def test_a_bare_published_name_does_not_resolve_a_richer_thesis_name(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The card's failure, in miniature. "Marie Curie" is surname plus first
+    given and nothing else, so it fits every "Curie, Marie …" alive — which is
+    how "Luís Cruz" came to hold "Cruz, Luís Alberto da Silva". The row keeps
+    its pass-1 ``unmatched`` verdict and the refusal is reported."""
+    _add_uc_person(fixture_db, "uc--feuc--marie-curie", "Marie Curie")
+
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    row = _rows(fixture_db)[("Curie, Marie Sklodowska", "supervisor")]
+
+    assert row["person_slug"] is None
+    assert row["match_status"] == "unmatched"
+    assert "via UC directory" not in row["match_note"]
+    # The matcher's own report card still says what the matcher concluded —
+    # the demotion is a decision at the acceptance seam, not a doctored match.
+    assert report["uc_directory"]["tiers"][CONFIDENT] == 1
+    demotions = {entry["name_raw"]: entry for entry in report["uc_pool_bare_floor_demotions"]}
+    assert demotions["Curie, Marie Sklodowska"]["candidates"] == [
+        ["uc--feuc--marie-curie", "Marie Curie", "feuc"]
+    ]
+    assert demotions["Curie, Marie Sklodowska"]["uncorroborated"] == ["sklodowska"]
+    assert demotions["Curie, Marie Sklodowska"]["rows"] == 1
+    assert report["uc_pool_minimal_evidence"] == []
+
+
+def test_a_second_listing_publishing_the_full_form_keeps_the_match(
+    corpus, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The rescue, and the reason the guard reads ``directory_listings``
+    rather than ``people.name``: the pool flattens a human to one display
+    name, but the unit that published the full form still has it. Pedro Góis's
+    FEUC listing against his bare CES one, and Elísio Estanque's "Guerreiro"
+    — both real, both would otherwise be lost."""
+    _add_uc_person(fixture_db, "uc--feuc--marie-curie", "Marie Curie")
+    _add_uc_person(
+        fixture_db,
+        "uc--feuc--marie-curie",
+        "Marie Curie",
+        source="ces",
+        unit="Centro de Estudos Sociais (CES)",
+        published="Curie, Marie Sklodowska",
+    )
+
+    report = build_mod.build(fixture_db, corpus, aliases, full_names, externals, multi_authors)
+    row = _rows(fixture_db)[("Curie, Marie Sklodowska", "supervisor")]
+
+    assert row["person_slug"] == "uc--feuc--marie-curie"
+    assert row["match_status"] == CONFIDENT
+    # The note names the corroborating listing, so the row is auditable
+    # without joining back to directory_listings to find out why it survived.
+    assert row["match_note"].startswith(
+        'via UC directory ces, corroborated by ces\'s published form '
+        '"Curie, Marie Sklodowska": '
+    )
+    assert report["uc_pool_bare_floor_demotions"] == []
+    kept = report["uc_pool_minimal_evidence"]
+    assert [(e["name_raw"], e["person_slug"], e["corroborated_by"]) for e in kept] == [
+        (
+            "Curie, Marie Sklodowska",
+            "uc--feuc--marie-curie",
+            ["ces", "Curie, Marie Sklodowska"],
+        )
+    ]
+
+
+def test_a_bare_thesis_name_still_matches_a_bare_published_name_exactly(
+    tmp_path, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """Set-equal rows are NOT demoted (design §1): a bare thesis mention
+    carries no middle names to contradict, it is the evidence grade pass 1 has
+    always accepted, and two bare candidates already come out ``ambiguous``.
+    They become countable instead — in ``uc_pool_minimal_evidence``, where
+    ``exact`` is what marks them as this shape rather than a rescue."""
+    directory = _corpus_with_supervisor(tmp_path, "Curie, Marie")
+    _add_uc_person(fixture_db, "uc--feuc--marie-curie", "Marie Curie")
+
+    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors)
+    row = _rows(fixture_db)[("Curie, Marie", "supervisor")]
+
+    assert row["person_slug"] == "uc--feuc--marie-curie"
+    assert row["match_status"] == "exact"
+    # Not a rescue: the guard never looked at it, because set-equal is not the
+    # strict-superset shape it refuses. The note carries no corroboration
+    # clause for exactly that reason.
+    assert row["match_note"].startswith("via UC directory feuc: ")
+    assert report["uc_pool_bare_floor_demotions"] == []
+    assert [(e["person_slug"], e["match_status"]) for e in report["uc_pool_minimal_evidence"]] == [
+        ("uc--feuc--marie-curie", "exact")
+    ]
+
+
+def test_a_published_name_richer_than_the_floor_still_resolves_a_superset(
+    tmp_path, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The unchanged majority, and the boundary of the guard: "Marie
+    Sklodowska Curie" carries a given name beyond surname-plus-first, so the
+    thesis name agrees with evidence the candidate actually holds. This is the
+    subset rule doing the work it was built for, and nothing here touches
+    it."""
+    directory = _corpus_with_supervisor(tmp_path, "Curie, Marie Salomea Sklodowska")
+    _add_uc_person(fixture_db, "uc--feuc--marie-sklodowska-curie", UC_CURIE)
+
+    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors)
+    row = _rows(fixture_db)[("Curie, Marie Salomea Sklodowska", "supervisor")]
+
+    assert row["person_slug"] == "uc--feuc--marie-sklodowska-curie"
+    assert row["match_status"] == CONFIDENT
+    assert row["match_note"].startswith("via UC directory feuc: ")
+    assert report["uc_pool_bare_floor_demotions"] == []
+    assert report["uc_pool_minimal_evidence"] == []
+
+
+def test_corroboration_can_never_turn_a_rejected_candidate_into_a_match(
+    tmp_path, fixture_db, aliases, full_names, externals, multi_authors
+):
+    """The relaxation-B fence (design §1), and the reason this comparison is
+    safe where B was not.
+
+    B compared thesis names against published display names and **created**
+    matches — "Cruz, Luís Alberto da Silva" -> "Luís Silva", a confidently
+    wrong person. Here the richest possible corroboration is handed to a
+    candidate ``_fits()`` rejects outright, and it buys nothing: the
+    comparison runs only on candidates already accepted, and only to choose
+    between confident and demoted. It can withhold a demotion. It can never
+    make a match.
+    """
+    directory = _corpus_with_supervisor(tmp_path, "Cruz, Luís Alberto da Silva")
+    _add_uc_person(
+        fixture_db,
+        "uc--fctuc-deec--luis-silva",
+        "Luís Silva",
+        published="Luís Alberto da Silva Cruz",
+    )
+
+    report = build_mod.build(fixture_db, directory, aliases, full_names, externals, multi_authors)
+    row = _rows(fixture_db)[("Cruz, Luís Alberto da Silva", "supervisor")]
+
+    assert row["person_slug"] is None
+    assert row["match_status"] == "unmatched"
+    assert report["uc_directory"]["tiers"]["unmatched"] == 1
+    assert report["uc_pool_bare_floor_demotions"] == []
+    assert report["uc_pool_minimal_evidence"] == []
+    # And the same thing said at the unit the guard is made of: the listing
+    # form does corroborate the name — the candidate is still not a fit.
+    person = Person("uc--fctuc-deec--luis-silva", "Luís Silva", source="fctuc-deec")
+    listings = {"uc--fctuc-deec--luis-silva": [("fctuc-deec", "Luís Alberto da Silva Cruz")]}
+    assert build_mod.corroborating_form("Cruz, Luís Alberto da Silva", person, listings)
+    assert match_name("Cruz, Luís Alberto da Silva", [person]).status == "unmatched"
+
+
+def test_the_floor_is_one_definition_shared_with_the_author_side_net():
+    """``minimal_evidence_matches`` and the pass-2 guard must read the same
+    set. Two hand-copied definitions is how the next pool expansion
+    reproduces this card — design §7."""
+    assert build_mod.floor_tokens("Cruz, Luís Alberto da Silva") == {"cruz", "luis"}
+    assert build_mod.floor_tokens("Góis, Pedro Miguel Pimenta") == {"gois", "pedro"}
+    # Multi-token surname: the whole surname is the floor, not its last token.
+    assert build_mod.floor_tokens("da Silva Cruz, Luís Alberto") == {"silva", "cruz", "luis"}
+    # No given part at all separates nobody, and the floor says so.
+    assert build_mod.floor_tokens("Curie") == {"curie"}
 
 
 @pytest.mark.parametrize(

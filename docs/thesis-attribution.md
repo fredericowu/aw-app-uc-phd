@@ -460,6 +460,89 @@ Owner before any of this, and the two measurements above are the independent
 case for it: every automated shortcut to a higher number produced a wrong
 person.
 
+### The floor the subset rule may not stand on alone (2026-10-19)
+
+A and B are relaxations that were rejected. This one is a **tightening that
+was accepted**, and it belongs next to them because it is the same lesson read
+from the other side: the subset rule's weakest shape had been shipping wrong
+people, and nothing in a name could have told anyone which ones.
+
+**The failure.** The pass-2 UC-directory pool (v0.23.0) publishes **312 of its
+1449 people under a bare "Given Surname"** — surname plus first given name,
+nothing else. `_fits()` accepts such a candidate for *every* thesis name
+sharing that given name and surname, because condition 2 ("every candidate
+token is accounted for by the thesis name") is trivially satisfied when the
+candidate carries no middle names to contradict. In the live seed that merged
+distinct real humans onto one slug: `uc--feuc--joao-pedro-amaral-cabouco-
+rodrigues`, published bare as "João Rodrigues", held both "Rodrigues, João
+Paulo Correia" and "Rodrigues, João Manuel Coutinho"; `uc--fctuc-deec--luis-
+cruz`, published bare as "Luís Cruz", held "Cruz, Luís Alberto da Silva" —
+**this document's own sentinel false positive, reproduced through a path its
+guard never covered**. CISUC's pool had the same rule and a far lower bare-name
+rate, which is why it fired here first.
+
+**The rule.** At the pass-2 acceptance seam
+(`build_thesis_facts.people_rows`, *not* inside `match_name`/`_fits`), a
+`confident` UC-pool match is **demoted to report-only** — the row keeps its
+pass-1 `unmatched` verdict, exactly as a pass-2 `ambiguous` already does — when
+all three hold:
+
+1. the candidate's pool display tokens ⊆ **floor** = surname tokens ∪ {first
+   given token}, which `minimal_evidence_matches()` already named as the
+   weakest evidence this matcher ever acts on. `build_thesis_facts.
+   floor_tokens()` is now that one definition, read by both;
+2. the thesis token set is a **strict** superset — there exist given names the
+   candidate cannot confirm;
+3. **nothing richer corroborates the thesis name.** The pool flattens a human
+   to one `people.name`, but `directory_listings.name_as_published` keeps every
+   unit's verbatim form and `person_full_names` keeps the reviewed one; if any
+   of those accounts for every thesis token (`_fits_full`'s convention,
+   thesis-side initials excused), the match stands as `confident` and its
+   `match_note` names the listing that saved it.
+
+Set-equal (`exact`) rows are **not** demoted: a bare thesis mention has no
+middle names to contradict, it is the evidence grade pass 1 has always
+accepted, and two bare candidates already come out `ambiguous`. They are
+reported instead, in `uc_pool_minimal_evidence`. Pass 1 is untouched,
+deliberately — the row-diff gate for this change was zero pass-1 changes.
+
+**Why 3 is not relaxation B.** B compared thesis names against published
+display names and thereby *created* matches ("Cruz, Luís Alberto da Silva" ->
+"Luís Silva"). This comparison runs only on candidates `_fits()` has already
+accepted, and only to choose between *confident* and *demoted*: it can
+withhold a demotion, it can never turn a rejection into a fit.
+`tests/test_uc_directory_match.py::test_corroboration_can_never_turn_a_
+rejected_candidate_into_a_match` hands the richest possible corroboration to a
+rejected candidate and asserts it buys nothing.
+
+**Measured over the 2690-thesis corpus** (rebuild of the committed seed at
+`3f87407`, row-diffed):
+
+| | before | after |
+|---|---|---|
+| Resolved supervisor rows | 2093 | **2000** |
+| …of them pass-2 (UC pool) | 1471 | **1378** |
+| Pass-1 rows changed | — | **0** |
+| Author rows changed | — | **0** |
+| Demoted rows | — | **93** (49 names, 39 slugs) |
+| Kept at the floor | — | 167 (127 set-equal `exact`, 40 corroborated) |
+
+The whole delta is pass-2 supervisor rows losing a slug. All three confirmed
+merges go, the Cruz sentinel included; Elísio Estanque's 15 rows survive (8
+set-equal `exact`, 7 rescued by FEUC's "Elísio Guerreiro Estanque" where CES
+publishes him bare) and so does the correct Góis row `10316/114758`, rescued by
+FEUC's full published form. A fourth real merge fell out of the demotions
+list: "Carvalho, António José Olaio (Correia de)" — the artist António Olaio —
+had been credited to a different FEUC professor published bare as "António
+Carvalho", 14 rows of it.
+
+**The coverage number drops, and that is the correct direction.** The removed
+edges were wrong or unverifiable. **312 bare-published UC people are now
+structurally unresolvable for a richer thesis form until curated**, and the
+`uc_pool_bare_floor_demotions` report key is the shopping list for that: a
+demoted true match is rescued the house way, by a sourced
+`data/person_full_names.json` entry, never by loosening the rule.
+
 ### The accepted fourth option: a reviewed person-alias table (2026-10-15)
 
 A, B and C above all failed for the same reason — they tried to derive an

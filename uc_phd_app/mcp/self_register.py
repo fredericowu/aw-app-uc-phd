@@ -63,11 +63,18 @@ def register_self(package_dir: str, port: int) -> None:
         pass
 
     if data["mcpServers"].get(MCP_SERVER_NAME) == entry:
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
         return
     data["mcpServers"][MCP_SERVER_NAME] = entry
     try:
         tmp = f"{path}.tmp"
-        with open(tmp, "w") as f:
+        # 0600: this file holds the live workspace API key in plaintext.
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(data, f, indent=2)
         os.replace(tmp, path)
         log.info("registered self as %r in %s (%s)", MCP_SERVER_NAME, path, entry["url"])

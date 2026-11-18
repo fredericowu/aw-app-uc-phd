@@ -99,3 +99,12 @@ jobs:
             exit 1
           fi
           echo "ui/dist matches a fresh build."
+
+  rollout-validation:
+    if: always()
+    needs: [coverage, ui-dist-is-current]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          PASSED: ${{ needs.coverage.result == 'success' && needs.ui-dist-is-current.result == 'success' }}
+        run: test "$PASSED" = true

@@ -78,7 +78,7 @@ with intact chrome and a completely empty body, which reads as a bug in the
 app rather than a permission problem.
 
 It is no longer forced. This app now ships from the public catalog
-`tekflox/aw-marketplace` and reports `signed: true`, so `ui:code` and Tier-2's
+`fredericowu/aw-marketplace` and reports `signed: true`, so `ui:code` and Tier-2's
 `containers:manage` are both available again.
 
 **Keep it anyway.** Being signed *permits* high-risk capabilities; it does not

@@ -1,4 +1,4 @@
-# Release into the PUBLIC catalog, tekflox/aw-marketplace.
+# Release into the PUBLIC catalog, fredericowu/aw-marketplace.
 #
 # This is now push-triggered, like every other app. One of the three blockers
 # that kept it workflow_dispatch-only is fixed upstream; the other two are the
@@ -26,11 +26,11 @@
 #      still has to exist as a repo secret on fredericowu/aw-app-uc-phd.
 #
 #   3. WHAT THAT SECRET WOULD HAVE TO BE ABLE TO DO — STILL FREDERICO'S CALL.
-#      Push a branch to, and open a PR on, tekflox/aw-marketplace — i.e. write
+#      Push a branch to, and open a PR on, fredericowu/aw-marketplace — i.e. write
 #      access to a TekFlox org repo, stored inside a repo he owns personally.
 #      Nothing has been minted, stored or widened to make this workflow pass.
 #      If he wants it green, the smallest safe shape is a FINE-GRAINED PAT
-#      scoped to tekflox/aw-marketplace (Contents: write, Pull requests: write)
+#      scoped to fredericowu/aw-marketplace (Contents: write, Pull requests: write)
 #      plus this repo (Contents: write) — far narrower than a full-scope
 #      admin:org / delete_repo PAT.
 #
@@ -82,7 +82,7 @@ jobs:
     uses: fredericowu/aw-marketplace/.github/workflows/app-release.yml@master
     with:
       bump: ${{ inputs.bump || '' }}
-      catalog_repo: tekflox/aw-marketplace
+      catalog_repo: fredericowu/aw-marketplace
     secrets:
       MARKETPLACE_SYNC_TOKEN: ${{ secrets.MARKETPLACE_SYNC_TOKEN }}
 # CI verify: classic repo-scope token trial 2026-09-25T10:49:42Z

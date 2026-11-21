@@ -56,7 +56,7 @@ jobs:
       # check it out into a subdirectory and point --schema at it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          repository: tekflox/aw-marketplace
+          repository: fredericowu/aw-marketplace
           path: .aw-marketplace-schema
       - name: Validate manifest
         run: python3 tests/validate_manifest.py aw-app.json --schema .aw-marketplace-schema/schemas/aw-app.schema.json

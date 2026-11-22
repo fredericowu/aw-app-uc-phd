@@ -17,6 +17,8 @@ jobs:
   review:
     uses: fredericowu/aw-shared-workflows/.github/workflows/code-review-reusable.yml@master
     with:
+      # PR lifecycle v2 (card 41f5bf3b): review 1 blocks on MEDIUM+, later pushes merge on green CI.
+      lifecycle: v2
       ci_check_name: "rollout-validation"
     permissions:
       contents: read

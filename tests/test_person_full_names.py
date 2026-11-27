@@ -320,3 +320,18 @@ def test_every_committed_full_name_actually_recovers_something():
         conn.close()
     unused = sorted(set(person_full_names.full_name_map(person_full_names.load_entries())) - resolved)
     assert not unused, f"reviewed full names that resolve no thesis name: {unused}"
+
+
+def test_matheus_torquato_authors_his_thesis_in_the_committed_seed():
+    """10316/115669 files him "Melo, Matheus D'Eça Torquato de"; CISUC publishes
+    "Matheus Torquato". Only the reviewed full name bridges the dropped surname,
+    and it must land at the `confident` tier, never `exact`."""
+    conn = sqlite3.connect(f"file:{build_mod.DEFAULT_DB}?mode=ro", uri=True)
+    try:
+        row = conn.execute(
+            "SELECT person_slug, match_status FROM thesis_people "
+            "WHERE handle = '10316/115669' AND role = 'author'"
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row == ("matheus-torquato", "confident")
